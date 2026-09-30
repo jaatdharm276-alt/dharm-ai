@@ -8,8 +8,15 @@ export async function POST(req) {
   try {
     const { message } = await req.json();
 
+    if (!message) {
+      return Response.json(
+        { error: "Message is required" },
+        { status: 400 }
+      );
+    }
+
     const response = await openai.responses.create({
-      model: "gpt-5-mini",
+      model: "gpt-5.6-luna",
       input: message,
     });
 
