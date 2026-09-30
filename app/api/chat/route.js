@@ -9,39 +9,55 @@ export async function POST(req) {
       );
     }
 
-    const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": process.env.GEMINI_API_KEY,
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [{ text: message }],
+    const models = [
+      "gemini-3.8-flash",
+      "gemini-3.7-flash",
+    ];
+
+    let lastError = null;
+
+    for (const model of models) {
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-goog-api-key": process.env.GEMINI_API_KEY,
             },
-          ],
-        }),
+            body: JSON.stringify({
+              contents: [
+                {
+                  parts: [{ text: message }],
+                },
+              ],
+            }),
+          }
+        );
+
+        const data = await response.json();
+
+        if (response.ok) {
+          const reply =
+            data?.candidates?.[0]?.content?.parts?.[0]?.text ||
+            "No response received.";
+
+          return Response.json({ reply });
+        }
+
+        lastError = data?.error?.message || "Gemini API error";
+        console.error(`${model} failed:`, data);
+      } catch (error) {
+        lastError = error.message;
+        console.error(`${model} failed:`, error);
       }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error(data);
-      return Response.json(
-        { error: data?.error?.message || "Gemini API error" },
-        { status: response.status }
-      );
     }
 
-    const reply =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text ||
-      "No response received.";
-
-    return Response.json({ reply });
+    return Response.json(
+      { error: lastError || "All Gemini models failed." },
+      { status: 503 }
+    );
   } catch (error) {
     console.error(error);
 
