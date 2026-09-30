@@ -1,9 +1,3 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export async function POST(req) {
   try {
     const { message } = await req.json();
@@ -15,14 +9,39 @@ export async function POST(req) {
       );
     }
 
-    const response = await openai.responses.create({
-      model: "gpt-5.6-luna",
-      input: message,
-    });
+    const response = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": process.env.GEMINI_API_KEY,
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: message }],
+            },
+          ],
+        }),
+      }
+    );
 
-    return Response.json({
-      reply: response.output_text,
-    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error(data);
+      return Response.json(
+        { error: data?.error?.message || "Gemini API error" },
+        { status: response.status }
+      );
+    }
+
+    const reply =
+      data?.candidates?.[0]?.content?.parts?.[0]?.text ||
+      "No response received.";
+
+    return Response.json({ reply });
   } catch (error) {
     console.error(error);
 
