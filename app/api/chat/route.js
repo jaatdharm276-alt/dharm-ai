@@ -10,8 +10,8 @@ export async function POST(req) {
     }
 
     const models = [
-      "gemini-3.8-flash",
-      "gemini-3.7-flash",
+      "gemini-3.5-flash-lite",
+      "gemini-3.5-flash",
     ];
 
     let lastError = null;
@@ -29,7 +29,11 @@ export async function POST(req) {
             body: JSON.stringify({
               contents: [
                 {
-                  parts: [{ text: message }],
+                  parts: [
+                    {
+                      text: message,
+                    },
+                  ],
                 },
               ],
             }),
@@ -46,7 +50,10 @@ export async function POST(req) {
           return Response.json({ reply });
         }
 
-        lastError = data?.error?.message || "Gemini API error";
+        lastError =
+          data?.error?.message ||
+          `Gemini API error (${response.status})`;
+
         console.error(`${model} failed:`, data);
       } catch (error) {
         lastError = error.message;
@@ -55,11 +62,15 @@ export async function POST(req) {
     }
 
     return Response.json(
-      { error: lastError || "All Gemini models failed." },
+      {
+        error:
+          lastError ||
+          "All Gemini models are currently unavailable.",
+      },
       { status: 503 }
     );
   } catch (error) {
-    console.error(error);
+    console.error("Chat API error:", error);
 
     return Response.json(
       { error: "Something went wrong" },
