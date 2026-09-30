@@ -11,9 +11,17 @@ function formatMessage(text) {
     const parts = line.split(/(\*\*.*?\*\*)/g);
 
     return (
-      <div key={lineIndex} style={{ minHeight: line.trim() ? "1.5em" : "0.7em" }}>
+      <div
+        key={lineIndex}
+        style={{
+          minHeight: line.trim() ? "1.5em" : "0.7em",
+        }}
+      >
         {parts.map((part, index) => {
-          if (part.startsWith("**") && part.endsWith("**")) {
+          if (
+            part.startsWith("**") &&
+            part.endsWith("**")
+          ) {
             return (
               <strong key={index}>
                 {part.slice(2, -2)}
@@ -39,6 +47,16 @@ export default function Home() {
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Auto-scroll reference
+  const messagesEndRef = useRef(null);
+
+  // Automatically scroll to latest message
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+    });
+  }, [messages, loading]);
 
   async function sendMessage(e) {
     e.preventDefault();
@@ -120,6 +138,7 @@ export default function Home() {
 
         {/* CHAT AREA */}
         <section className="chatBox">
+
           <div className="messages">
 
             {messages.map((message, index) => (
@@ -158,6 +177,9 @@ export default function Home() {
               </div>
             )}
 
+            {/* AUTO SCROLL TARGET */}
+            <div ref={messagesEndRef} />
+
           </div>
 
           {/* INPUT */}
@@ -182,6 +204,7 @@ export default function Home() {
               ➤
             </button>
           </form>
+
         </section>
 
         <div className="footer">
