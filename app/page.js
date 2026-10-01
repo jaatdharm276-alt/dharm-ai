@@ -214,7 +214,17 @@ color:#aeb6d5
 
 function MessageText({ text }) {
   function formatLine(line) {
-    const parts = String(line).split(/(\*\*.*?\*\*|`.*?`)/g);
+    let cleanLine = String(line);
+
+    // Bullet star ko remove karo
+    cleanLine = cleanLine.replace(/^\s*\*\s+/, "• ");
+
+    // Italic ke outer * remove karo
+    cleanLine = cleanLine.replace(/^\s*\*(.+)\*\s*$/, "$1");
+
+    const parts = cleanLine.split(
+      /(\*\*.*?\*\*|`.*?`|\*.*?\*)/g
+    );
 
     return parts.map((part, index) => {
       if (part.startsWith("**") && part.endsWith("**")) {
@@ -233,6 +243,14 @@ function MessageText({ text }) {
         );
       }
 
+      if (part.startsWith("*") && part.endsWith("*")) {
+        return (
+          <em key={index}>
+            {part.slice(1, -1)}
+          </em>
+        );
+      }
+
       return <span key={index}>{part}</span>;
     });
   }
@@ -248,7 +266,7 @@ function MessageText({ text }) {
         ))}
     </div>
   );
-}
+    }
 
 export default function Home() {
   const [messages, setMessages] = useState([
