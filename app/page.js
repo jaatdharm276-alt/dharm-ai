@@ -213,12 +213,38 @@ color:#aeb6d5
 `;
 
 function MessageText({ text }) {
+  function formatLine(line) {
+    const parts = String(line).split(/(\*\*.*?\*\*|`.*?`)/g);
+
+    return parts.map((part, index) => {
+      if (part.startsWith("**") && part.endsWith("**")) {
+        return (
+          <strong key={index}>
+            {part.slice(2, -2)}
+          </strong>
+        );
+      }
+
+      if (part.startsWith("`") && part.endsWith("`")) {
+        return (
+          <code key={index}>
+            {part.slice(1, -1)}
+          </code>
+        );
+      }
+
+      return <span key={index}>{part}</span>;
+    });
+  }
+
   return (
     <div className="text">
       {String(text)
         .split("\n")
         .map((line, i) => (
-          <div key={i}>{line || "\u00A0"}</div>
+          <div key={i}>
+            {line ? formatLine(line) : "\u00A0"}
+          </div>
         ))}
     </div>
   );
