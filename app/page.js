@@ -1103,7 +1103,15 @@ useEffect(() => {
           gap: 8px;
           margin: 4px 0;
         }
-
+ .quoteLine {
+  margin: 10px 0;
+  padding: 10px 14px;
+  border-left: 3px solid rgba(150,170,255,0.8);
+  background: rgba(100,120,255,0.08);
+  border-radius: 0 12px 12px 0;
+  color: rgba(255,255,255,0.88);
+  font-style: italic;
+}
         .numberDot {
           min-width: 22px;
           color: #a6b7ff;
