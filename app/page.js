@@ -412,7 +412,7 @@ useEffect(() => {
               </div>
             )}
 
-            <div ref={chatEndRef}></div>
+            <div></div>
 
           </div>
 
