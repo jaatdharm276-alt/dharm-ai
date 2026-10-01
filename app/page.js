@@ -481,14 +481,14 @@ export default function Home() {
           padding: 0;
         }
 
-        body {
-          overflow: hidden;
-          background: #02040b;
-          font-family:
-            Arial,
-            "Noto Sans Devanagari",
-            sans-serif;
-        }
+     body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #02040b;
+}
 
         button,
         textarea {
@@ -500,25 +500,24 @@ export default function Home() {
         }
 
         .page {
-          position: fixed;
-          inset: 0;
-          width: 100%;
-          height: 100dvh;
-          min-height: 0;
-          overflow: hidden;
-          background:
-            radial-gradient(
-              circle at 10% 0%,
-              rgba(94, 65, 190, 0.18),
-              transparent 30%
-            ),
-            radial-gradient(
-              circle at 100% 100%,
-              rgba(45, 75, 180, 0.14),
-              transparent 35%
-            ),
-            #02040b;
-        }
+  position: relative;
+  width: 100%;
+  height: 100svh;
+  min-height: 100svh;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      circle at 10% 0%,
+      rgba(94, 65, 190, 0.18),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 100% 100%,
+      rgba(45, 75, 180, 0.14),
+      transparent 35%
+    ),
+    #02040b;
+}
 
         .backgroundGlow {
           position: absolute;
@@ -544,33 +543,30 @@ export default function Home() {
           background: #315dff;
         }
 
-        .app {
-          position: absolute;
-          inset: 0;
-          z-index: 2;
-          width: 100%;
-          height: 100%;
-          min-height: 0;
-          display: flex;
-          flex-direction: column;
-          overflow: hidden;
-          background: rgba(3, 5, 12, 0.82);
-        }
+       .app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: rgba(3, 5, 12, 0.82);
+}
 
         .header {
-          position: relative;
-          z-index: 10;
-          flex: 0 0 auto;
-          width: 100%;
-          height: 72px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 8px 15px;
-          border-bottom: 1px solid
-            rgba(255, 255, 255, 0.07);
-          background: rgba(7, 9, 18, 0.98);
-        }
+  position: relative;
+  z-index: 10;
+  flex: 0 0 auto;
+  width: 100%;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(7, 9, 18, 0.98);
+}
 
         .brand {
           display: flex;
