@@ -134,13 +134,15 @@ export default function Home() {
   const [isReplyTyping, setIsReplyTyping] =
     useState(false);
 
-  const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({
-      behavior: "auto",
-    });
-  }, [messages, loading]);
+useEffect(() => {
+  const container = messagesContainerRef.current;
+
+  if (container) {
+    container.scrollTop = container.scrollHeight;
+  }
+}, [messages, loading]);
 
   async function sendMessage(e) {
     e.preventDefault();
@@ -307,7 +309,10 @@ export default function Home() {
 
           <section className="chatScreen">
 
-            <div className="messages">
+            <div
+  className="messages"
+  ref={messagesContainerRef}
+>
 
               {messages.map(
                 (message, index) => {
@@ -394,7 +399,7 @@ export default function Home() {
                 </div>
               )}
 
-              <div ref={messagesEndRef} />
+         
 
             </div>
 
