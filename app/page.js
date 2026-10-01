@@ -116,12 +116,14 @@ border-radius:13px;
 background:#303553
 }
 .text{
-font-size:18px;
+font-size:16px !important;
 line-height:1.55;
 white-space:pre-wrap
 }
 
-.user .text{font-size:18px}
+.user .text{
+font-size:16px !important
+}
 
 .listen{
 margin-top:18px;
