@@ -53,7 +53,10 @@ function formatMessage(text) {
       );
     }
 
-    if (trimmed.startsWith("- ")) {
+    if (
+      trimmed.startsWith("- ") ||
+      trimmed.startsWith("* ")
+    ) {
       return (
         <div key={index} className="bulletLine">
           <span className="bulletDot">•</span>
@@ -86,11 +89,6 @@ function formatMessage(text) {
       <div
         key={index}
         className="normalLine"
-        style={{
-          minHeight: trimmed
-            ? "1.45em"
-            : "0.6em",
-        }}
       >
         {renderInline(line)}
       </div>
@@ -111,9 +109,10 @@ function speakText(text) {
   const utterance =
     new SpeechSynthesisUtterance(text);
 
-  utterance.lang = /[\u0900-\u097F]/.test(text)
-    ? "hi-IN"
-    : "en-IN";
+  utterance.lang =
+    /[\u0900-\u097F]/.test(text)
+      ? "hi-IN"
+      : "en-IN";
 
   utterance.rate = 0.95;
   utterance.pitch = 1;
@@ -139,7 +138,7 @@ export default function Home() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({
-      behavior: "smooth",
+      behavior: "auto",
     });
   }, [messages, loading]);
 
@@ -169,17 +168,19 @@ export default function Home() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-
-        headers: {
-          "Content-Type": "application/json",
-        },
-
-        body: JSON.stringify({
-          message: text,
-        }),
-      });
+      const response = await fetch(
+        "/api/chat",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            message: text,
+          }),
+        }
+      );
 
       const data = await response.json();
 
@@ -194,9 +195,6 @@ export default function Home() {
         data.reply ||
         "No response received.";
 
-      setLoading(false);
-      setIsReplyTyping(true);
-
       setMessages([
         ...newMessages,
         {
@@ -204,6 +202,9 @@ export default function Home() {
           content: "",
         },
       ]);
+
+      setLoading(false);
+      setIsReplyTyping(true);
 
       for (
         let i = 0;
@@ -221,8 +222,9 @@ export default function Home() {
           },
         ]);
 
-        await new Promise((resolve) =>
-          setTimeout(resolve, 15)
+        await new Promise(
+          (resolve) =>
+            setTimeout(resolve, 15)
         );
       }
 
@@ -237,210 +239,215 @@ export default function Home() {
         },
       ]);
 
-      setIsReplyTyping(false);
-    } finally {
       setLoading(false);
+      setIsReplyTyping(false);
     }
   }
 
   return (
     <main className="page">
 
-      {/* AMBIENT LIGHT */}
+      {/* BACKGROUND LIGHT */}
 
       <div className="ambient ambientBlue" />
       <div className="ambient ambientPurple" />
       <div className="ambient ambientCyan" />
 
-      {/* IPHONE STYLE FRAME */}
+      {/* PHONE */}
 
       <div className="phoneFrame">
 
-        {/* DYNAMIC ISLAND */}
+        {/* SIDE BUTTONS */}
 
-        <div className="dynamicIsland">
-          <div className="speakerLine" />
-          <div className="cameraDot" />
+        <div className="sideButton volumeOne" />
+        <div className="sideButton volumeTwo" />
+        <div className="sideButton powerButton" />
+
+        {/* SCREEN */}
+
+        <div className="phoneScreen">
+
+          {/* DYNAMIC ISLAND */}
+
+          <div className="dynamicIsland">
+            <div className="islandSpeaker" />
+            <div className="cameraDot" />
+          </div>
+
+          {/* TOP BAR */}
+
+          <header className="topBar">
+
+            <div className="brand">
+
+              <div className="brandIcon">
+                🌸
+              </div>
+
+              <div>
+                <div className="brandTitle">
+                  Dharm AI <span>✨</span>
+                </div>
+
+                <div className="brandStatus">
+                  <span className="onlineDot" />
+                  Online
+                </div>
+              </div>
+
+            </div>
+
+            <div className="topButton">
+              ✦
+            </div>
+
+          </header>
+
+          {/* CHAT */}
+
+          <section className="chatScreen">
+
+            <div className="messages">
+
+              {messages.map(
+                (message, index) => {
+
+                  const isAI =
+                    message.role ===
+                    "assistant";
+
+                  return (
+                    <div
+                      key={index}
+                      className={
+                        isAI
+                          ? "message aiMessage"
+                          : "message userMessage"
+                      }
+                    >
+
+                      <div className="messageHeader">
+
+                        <div className="messageAvatar">
+                          {isAI
+                            ? "🌸"
+                            : "👤"}
+                        </div>
+
+                        <div className="messageName">
+                          {isAI
+                            ? "Dharm AI"
+                            : "You"}
+                        </div>
+
+                      </div>
+
+                      <div className="messageText">
+                        {formatMessage(
+                          message.content
+                        )}
+                      </div>
+
+                      {isAI &&
+                        message.content &&
+                        !message.content.startsWith(
+                          "Error:"
+                        ) && (
+                          <button
+                            className="listenButton"
+                            onClick={() =>
+                              speakText(
+                                message.content
+                              )
+                            }
+                          >
+                            🔊 सुनें
+                          </button>
+                        )}
+
+                    </div>
+                  );
+                }
+              )}
+
+              {/* THINKING */}
+
+              {loading && (
+                <div className="message aiMessage">
+
+                  <div className="messageHeader">
+                    <div className="messageAvatar">
+                      🌸
+                    </div>
+
+                    <div className="messageName">
+                      Dharm AI
+                    </div>
+                  </div>
+
+                  <div className="typing">
+                    <span />
+                    <span />
+                    <span />
+                  </div>
+
+                </div>
+              )}
+
+              <div ref={messagesEndRef} />
+
+            </div>
+
+            {/* INPUT */}
+
+            <form
+              onSubmit={sendMessage}
+              className="inputWrapper"
+            >
+
+              <div className="inputGlow" />
+
+              <div className="inputArea">
+
+                <div className="inputIcon">
+                  ✨
+                </div>
+
+                <input
+                  value={input}
+                  onChange={(e) =>
+                    setInput(e.target.value)
+                  }
+                  placeholder="Ask Dharm AI..."
+                  disabled={
+                    loading ||
+                    isReplyTyping
+                  }
+                />
+
+                <button
+                  type="submit"
+                  disabled={
+                    loading ||
+                    isReplyTyping ||
+                    !input.trim()
+                  }
+                  aria-label="Send"
+                >
+                  ➤
+                </button>
+
+              </div>
+
+            </form>
+
+          </section>
+
+          {/* HOME INDICATOR */}
+
+          <div className="homeIndicator" />
+
         </div>
-
-        {/* TOP BAR */}
-
-        <header className="topBar">
-
-          <div className="brand">
-
-            <div className="brandIcon">
-              🌸
-            </div>
-
-            <div className="brandInfo">
-
-              <div className="brandTitle">
-                Dharm AI
-                <span>✨</span>
-              </div>
-
-              <div className="brandStatus">
-                <span className="onlineDot" />
-                Online
-              </div>
-
-            </div>
-
-          </div>
-
-          <div className="topButton">
-            ✦
-          </div>
-
-        </header>
-
-        {/* CHAT SCREEN */}
-
-        <section className="chatScreen">
-
-          <div className="messages">
-
-            {messages.map(
-              (message, index) => {
-
-                const isAI =
-                  message.role ===
-                  "assistant";
-
-                return (
-                  <div
-                    key={index}
-                    className={
-                      isAI
-                        ? "message aiMessage"
-                        : "message userMessage"
-                    }
-                  >
-
-                    <div className="messageHeader">
-
-                      <div className="messageAvatar">
-                        {isAI
-                          ? "🌸"
-                          : "👤"}
-                      </div>
-
-                      <div className="messageName">
-                        {isAI
-                          ? "Dharm AI"
-                          : "You"}
-                      </div>
-
-                    </div>
-
-                    <div className="messageText">
-                      {formatMessage(
-                        message.content
-                      )}
-                    </div>
-
-                    {isAI &&
-                      message.content &&
-                      !message.content.startsWith(
-                        "Error:"
-                      ) && (
-                        <button
-                          className="listenButton"
-                          onClick={() =>
-                            speakText(
-                              message.content
-                            )
-                          }
-                        >
-                          🔊 सुनें
-                        </button>
-                      )}
-
-                  </div>
-                );
-              }
-            )}
-
-            {/* AI THINKING */}
-
-            {loading && (
-              <div className="message aiMessage">
-
-                <div className="messageHeader">
-
-                  <div className="messageAvatar">
-                    🌸
-                  </div>
-
-                  <div className="messageName">
-                    Dharm AI
-                  </div>
-
-                </div>
-
-                <div className="typing">
-                  <span />
-                  <span />
-                  <span />
-                </div>
-
-              </div>
-            )}
-
-            <div ref={messagesEndRef} />
-
-          </div>
-
-          {/* INPUT */}
-
-          <form
-            onSubmit={sendMessage}
-            className="inputWrapper"
-          >
-
-            <div className="inputGlow" />
-
-            <div className="inputArea">
-
-              <div className="inputIcon">
-                ✨
-              </div>
-
-              <input
-                value={input}
-                onChange={(e) =>
-                  setInput(e.target.value)
-                }
-                placeholder="Ask Dharm AI..."
-                disabled={
-                  loading ||
-                  isReplyTyping
-                }
-              />
-
-              <button
-                type="submit"
-                disabled={
-                  loading ||
-                  isReplyTyping ||
-                  !input.trim()
-                }
-                aria-label="Send message"
-              >
-                ➤
-              </button>
-
-            </div>
-
-          </form>
-
-        </section>
-
-        {/* IPHONE HOME INDICATOR */}
-
-        <div className="homeIndicator" />
-
       </div>
 
       <style jsx>{`
@@ -477,18 +484,18 @@ export default function Home() {
 
           background:
             radial-gradient(
-              circle at 10% 10%,
-              rgba(35, 110, 255, 0.28),
+              circle at 15% 15%,
+              rgba(40, 100, 255, 0.28),
               transparent 32%
             ),
             radial-gradient(
               circle at 90% 35%,
-              rgba(135, 50, 255, 0.25),
-              transparent 34%
+              rgba(135, 45, 255, 0.25),
+              transparent 35%
             ),
             radial-gradient(
               circle at 50% 100%,
-              rgba(0, 230, 210, 0.17),
+              rgba(0, 225, 210, 0.16),
               transparent 38%
             ),
             #02040b;
@@ -504,7 +511,7 @@ export default function Home() {
             sans-serif;
         }
 
-        /* AMBIENT GLOW */
+        /* AMBIENT LIGHT */
 
         .ambient {
           position: absolute;
@@ -523,44 +530,43 @@ export default function Home() {
         }
 
         .ambientBlue {
-          width: 280px;
-          height: 280px;
+          width: 300px;
+          height: 300px;
 
-          left: -100px;
+          left: -110px;
           top: 5%;
 
           background:
-            rgba(30, 100, 255, 0.25);
+            rgba(30, 100, 255, 0.28);
         }
 
         .ambientPurple {
-          width: 330px;
-          height: 330px;
+          width: 340px;
+          height: 340px;
 
-          right: -120px;
+          right: -130px;
           top: 30%;
 
           background:
-            rgba(135, 50, 255, 0.2);
+            rgba(140, 50, 255, 0.22);
 
           animation-delay: 2s;
         }
 
         .ambientCyan {
-          width: 280px;
-          height: 280px;
+          width: 300px;
+          height: 300px;
 
-          bottom: -120px;
+          bottom: -140px;
           left: 35%;
 
           background:
-            rgba(0, 230, 220, 0.16);
+            rgba(0, 230, 220, 0.17);
 
           animation-delay: 4s;
         }
 
         @keyframes ambientFloat {
-
           0%,
           100% {
             transform:
@@ -575,53 +581,117 @@ export default function Home() {
           }
         }
 
-        /* PHONE */
+        /* PHONE OUTER FRAME */
 
         .phoneFrame {
-          width: min(
-            430px,
-            100vw
-          );
-
-          height: min(
-            900px,
-            100dvh
-          );
-
-          min-height: 600px;
-
           position: relative;
 
-          overflow: hidden;
+          width:
+            min(
+              430px,
+              calc(100vw - 16px)
+            );
 
-          display: flex;
-          flex-direction: column;
+          height:
+            min(
+              900px,
+              calc(100dvh - 16px)
+            );
+
+          border-radius: 50px;
+
+          padding: 5px;
 
           background:
             linear-gradient(
               145deg,
-              rgba(255,255,255,0.09),
-              rgba(255,255,255,0.025)
+              #3c3f49,
+              #090a0f 35%,
+              #1c1d24 70%,
+              #05060a
+            );
+
+          box-shadow:
+            0 0 0 1px
+              rgba(255,255,255,0.08),
+            0 35px 100px
+              rgba(0,0,0,0.75),
+            0 0 90px
+              rgba(60,90,255,0.18);
+
+          z-index: 5;
+        }
+
+        .phoneScreen {
+          position: relative;
+
+          width: 100%;
+          height: 100%;
+
+          overflow: hidden;
+
+          border-radius: 45px;
+
+          background:
+            radial-gradient(
+              circle at 20% 10%,
+              rgba(50,100,255,0.13),
+              transparent 35%
+            ),
+            radial-gradient(
+              circle at 90% 50%,
+              rgba(130,50,255,0.13),
+              transparent 38%
+            ),
+            linear-gradient(
+              145deg,
+              #080b15,
+              #03050c
             );
 
           border:
             1px solid
-            rgba(255,255,255,0.17);
+            rgba(255,255,255,0.08);
+        }
 
-          border-radius: 48px;
+        /* SIDE BUTTONS */
+
+        .sideButton {
+          position: absolute;
+
+          width: 4px;
+
+          background:
+            linear-gradient(
+              to bottom,
+              #555,
+              #171717
+            );
+
+          border-radius: 5px;
+
+          left: -4px;
 
           box-shadow:
-            0 0 0 1px
-              rgba(255,255,255,0.03),
-            0 30px 100px
-              rgba(0,0,0,0.65),
-            0 0 100px
-              rgba(70,100,255,0.16);
+            -1px 0 2px
+            rgba(255,255,255,0.15);
+        }
 
-          backdrop-filter: blur(30px);
-          -webkit-backdrop-filter: blur(30px);
+        .volumeOne {
+          top: 130px;
+          height: 55px;
+        }
 
-          z-index: 2;
+        .volumeTwo {
+          top: 195px;
+          height: 55px;
+        }
+
+        .powerButton {
+          right: -4px;
+          left: auto;
+          top: 170px;
+          height: 80px;
         }
 
         /* DYNAMIC ISLAND */
@@ -631,40 +701,39 @@ export default function Home() {
 
           z-index: 50;
 
-          top: 11px;
+          top: 10px;
           left: 50%;
 
           transform:
             translateX(-50%);
 
-          width: 126px;
-          height: 31px;
+          width: 128px;
+          height: 32px;
 
           border-radius: 20px;
 
-          background:
-            rgba(0,0,0,0.92);
+          background: #000;
 
           box-shadow:
-            0 5px 18px
-              rgba(0,0,0,0.5),
-            inset 0 1px 0
+            0 4px 15px
+              rgba(0,0,0,0.7),
+            inset 0 1px 1px
               rgba(255,255,255,0.04);
         }
 
-        .speakerLine {
+        .islandSpeaker {
           position: absolute;
 
-          left: 21px;
-          top: 13px;
+          left: 23px;
+          top: 14px;
 
-          width: 43px;
+          width: 42px;
           height: 4px;
 
           border-radius: 10px;
 
           background:
-            rgba(255,255,255,0.09);
+            rgba(255,255,255,0.1);
         }
 
         .cameraDot {
@@ -673,32 +742,36 @@ export default function Home() {
           right: 17px;
           top: 10px;
 
-          width: 10px;
-          height: 10px;
+          width: 11px;
+          height: 11px;
 
           border-radius: 50%;
 
           background:
-            #10141d;
+            radial-gradient(
+              circle at 35% 35%,
+              #1d293d,
+              #05070b
+            );
 
           border:
             1px solid
-            rgba(100,150,255,0.3);
+            rgba(80,120,255,0.35);
 
           box-shadow:
-            inset 0 0 6px
-              rgba(50,100,255,0.55);
+            inset 0 0 5px
+            rgba(60,100,255,0.6);
         }
 
         /* TOP BAR */
 
         .topBar {
+          height: 88px;
+
           flex-shrink: 0;
 
-          height: 91px;
-
           padding:
-            43px 18px 9px;
+            40px 18px 8px;
 
           display: flex;
 
@@ -706,7 +779,7 @@ export default function Home() {
           justify-content: space-between;
 
           background:
-            rgba(7,9,17,0.55);
+            rgba(5,8,16,0.72);
 
           border-bottom:
             1px solid
@@ -725,8 +798,8 @@ export default function Home() {
         }
 
         .brandIcon {
-          width: 40px;
-          height: 40px;
+          width: 39px;
+          height: 39px;
 
           display: flex;
 
@@ -736,17 +809,21 @@ export default function Home() {
           border-radius: 13px;
 
           background:
-            rgba(255,255,255,0.07);
+            linear-gradient(
+              145deg,
+              rgba(255,255,255,0.11),
+              rgba(255,255,255,0.035)
+            );
 
           border:
             1px solid
-            rgba(255,255,255,0.11);
+            rgba(255,255,255,0.12);
 
           box-shadow:
-            0 0 25px
-              rgba(90,100,255,0.23);
+            0 0 24px
+            rgba(80,100,255,0.2);
 
-          font-size: 21px;
+          font-size: 20px;
         }
 
         .brandTitle {
@@ -771,7 +848,7 @@ export default function Home() {
           margin-top: 2px;
 
           color:
-            rgba(255,255,255,0.43);
+            rgba(255,255,255,0.42);
 
           font-size: 10px;
         }
@@ -782,11 +859,11 @@ export default function Home() {
 
           border-radius: 50%;
 
-          background: #62e6a7;
+          background: #61e5a5;
 
           box-shadow:
             0 0 9px
-              rgba(80,230,160,0.85);
+            rgba(70,230,160,0.9);
         }
 
         .topButton {
@@ -801,14 +878,14 @@ export default function Home() {
           border-radius: 50%;
 
           background:
-            rgba(255,255,255,0.045);
+            rgba(255,255,255,0.05);
 
           border:
             1px solid
-            rgba(255,255,255,0.08);
+            rgba(255,255,255,0.09);
 
           color:
-            rgba(175,190,255,0.8);
+            rgba(180,195,255,0.85);
 
           animation:
             topPulse
@@ -818,7 +895,6 @@ export default function Home() {
         }
 
         @keyframes topPulse {
-
           0%,
           100% {
             box-shadow:
@@ -833,18 +909,20 @@ export default function Home() {
           }
         }
 
-        /* CHAT SCREEN */
+        /* CHAT */
 
         .chatScreen {
-          flex: 1;
-
-          min-height: 0;
+          height:
+            calc(
+              100% - 88px
+            );
 
           display: flex;
+
           flex-direction: column;
 
           padding:
-            0 11px 7px;
+            0 10px 8px;
         }
 
         .messages {
@@ -855,21 +933,19 @@ export default function Home() {
           overflow-y: auto;
 
           padding:
-            13px 5px 13px;
+            14px 5px 10px;
 
           scrollbar-width: thin;
 
           scrollbar-color:
-            rgba(255,255,255,0.12)
+            rgba(255,255,255,0.13)
             transparent;
 
           -webkit-overflow-scrolling: touch;
         }
 
-        /* MESSAGE */
-
         .message {
-          max-width: 87%;
+          max-width: 88%;
 
           margin-bottom: 14px;
 
@@ -878,15 +954,15 @@ export default function Home() {
 
           border-radius: 23px;
 
-          line-height: 1.62;
+          font-size: 15.5px;
 
-          font-size: 16px;
+          line-height: 1.62;
 
           overflow-wrap: anywhere;
 
           animation:
             messageIn
-            0.28s
+            .28s
             ease;
 
           backdrop-filter: blur(20px);
@@ -894,13 +970,12 @@ export default function Home() {
         }
 
         @keyframes messageIn {
-
           from {
             opacity: 0;
 
             transform:
               translateY(9px)
-              scale(0.98);
+              scale(.98);
           }
 
           to {
@@ -928,7 +1003,7 @@ export default function Home() {
 
           box-shadow:
             0 12px 35px
-              rgba(0,0,0,0.16),
+              rgba(0,0,0,0.2),
             inset 0 1px 0
               rgba(255,255,255,0.04);
         }
@@ -945,127 +1020,8 @@ export default function Home() {
 
           border:
             1px solid
-            rgba(100,160,255,0.2);
+            rgba(100,160,255,0.22);
 
           box-shadow:
             0 12px 35px
-              rgba(40,90,255,0.12);
-        }
-
-        .messageHeader {
-          display: flex;
-
-          align-items: center;
-
-          gap: 8px;
-
-          margin-bottom: 7px;
-        }
-
-        .messageAvatar {
-          width: 25px;
-          height: 25px;
-
-          display: flex;
-
-          align-items: center;
-          justify-content: center;
-
-          border-radius: 8px;
-
-          background:
-            rgba(255,255,255,0.06);
-
-          font-size: 12px;
-        }
-
-        .messageName {
-          color:
-            rgba(255,255,255,0.5);
-
-          font-size: 11px;
-
-          font-weight: 750;
-        }
-
-        .messageText strong {
-          color: white;
-
-          font-weight: 800;
-        }
-
-        /* MARKDOWN */
-
-        .normalLine {
-          min-height: 1.45em;
-        }
-
-        .markdownH1 {
-          margin:
-            5px 0 10px;
-
-          font-size: 24px;
-
-          line-height: 1.3;
-
-          font-weight: 850;
-        }
-
-        .markdownH2 {
-          margin:
-            5px 0 9px;
-
-          font-size: 21px;
-
-          line-height: 1.3;
-
-          font-weight: 850;
-        }
-
-        .markdownH3 {
-          margin:
-            5px 0 8px;
-
-          font-size: 18px;
-
-          line-height: 1.35;
-
-          font-weight: 850;
-        }
-
-        .bulletLine {
-          display: flex;
-
-          gap: 8px;
-
-          margin: 4px 0;
-        }
-
-        .bulletDot {
-          color:
-            #9fb3ff;
-
-          font-size: 18px;
-        }
-
-        .numberedLine {
-          display: flex;
-
-          gap: 8px;
-
-          margin: 4px 0;
-        }
-
-        .numberDot {
-          min-width: 22px;
-
-          color:
-            #9fb3ff;
-
-          font-weight: 800;
-        }
-
-        /* LISTEN BUTTON */
-
-        .listenButton {
-          margin-top: 11px
+  
