@@ -1025,3 +1025,269 @@ export default function Home() {
           box-shadow:
             0 12px 35px
   
+              rgba(40,90,255,0.14);
+        }
+
+        .messageHeader {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 7px;
+        }
+
+        .messageAvatar {
+          width: 25px;
+          height: 25px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 8px;
+          background: rgba(255,255,255,0.06);
+          font-size: 12px;
+        }
+
+        .messageName {
+          color: rgba(255,255,255,0.48);
+          font-size: 11px;
+          font-weight: 750;
+        }
+
+        .messageText strong {
+          color: #fff;
+          font-weight: 800;
+        }
+
+        .normalLine {
+          min-height: 1.45em;
+        }
+
+        .markdownH1 {
+          margin: 5px 0 10px;
+          font-size: 24px;
+          line-height: 1.3;
+          font-weight: 850;
+        }
+
+        .markdownH2 {
+          margin: 5px 0 9px;
+          font-size: 21px;
+          line-height: 1.3;
+          font-weight: 850;
+        }
+
+        .markdownH3 {
+          margin: 5px 0 8px;
+          font-size: 18px;
+          line-height: 1.35;
+          font-weight: 850;
+        }
+
+        .bulletLine {
+          display: flex;
+          gap: 8px;
+          margin: 4px 0;
+        }
+
+        .bulletDot {
+          color: #a6b7ff;
+          font-size: 18px;
+        }
+
+        .numberedLine {
+          display: flex;
+          gap: 8px;
+          margin: 4px 0;
+        }
+
+        .numberDot {
+          min-width: 22px;
+          color: #a6b7ff;
+          font-weight: 800;
+        }
+
+        .listenButton {
+          margin-top: 11px;
+          padding: 7px 11px;
+          border-radius: 12px;
+          border: 1px solid rgba(255,255,255,0.1);
+          background: rgba(255,255,255,0.055);
+          color: rgba(255,255,255,0.75);
+          font-size: 11px;
+          cursor: pointer;
+        }
+
+        .typing {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          height: 22px;
+        }
+
+        .typing span {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: rgba(170,190,255,0.75);
+          animation: typingDot 1.2s infinite ease-in-out;
+        }
+
+        .typing span:nth-child(2) {
+          animation-delay: .15s;
+        }
+
+        .typing span:nth-child(3) {
+          animation-delay: .3s;
+        }
+
+        @keyframes typingDot {
+          0%, 60%, 100% {
+            transform: translateY(0);
+            opacity: .35;
+          }
+
+          30% {
+            transform: translateY(-5px);
+            opacity: 1;
+          }
+        }
+
+        .inputWrapper {
+          position: relative;
+          flex-shrink: 0;
+          padding: 5px 3px 8px;
+        }
+
+        .inputGlow {
+          position: absolute;
+          inset: 0;
+          border-radius: 22px;
+          background:
+            linear-gradient(
+              90deg,
+              rgba(40,100,255,.12),
+              rgba(160,50,255,.1),
+              rgba(0,220,220,.08)
+            );
+          filter: blur(15px);
+          pointer-events: none;
+        }
+
+        .inputArea {
+          position: relative;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          min-height: 53px;
+          padding: 7px 7px 7px 13px;
+          border-radius: 20px;
+          background: rgba(12,15,27,0.9);
+          border: 1px solid rgba(255,255,255,0.11);
+          box-shadow:
+            0 10px 35px rgba(0,0,0,.4),
+            inset 0 1px 0 rgba(255,255,255,.04);
+          backdrop-filter: blur(25px);
+          -webkit-backdrop-filter: blur(25px);
+        }
+
+        .inputIcon {
+          flex-shrink: 0;
+          font-size: 15px;
+          opacity: .7;
+        }
+
+        .inputArea input {
+          flex: 1;
+          min-width: 0;
+          border: 0;
+          outline: 0;
+          background: transparent;
+          color: white;
+          font-size: 15px;
+          font-family: inherit;
+        }
+
+        .inputArea input::placeholder {
+          color: rgba(255,255,255,.32);
+        }
+
+        .inputArea button {
+          flex-shrink: 0;
+          width: 39px;
+          height: 39px;
+          border: 0;
+          border-radius: 14px;
+          background:
+            linear-gradient(
+              135deg,
+              #4b8cff,
+              #8b50ff
+            );
+          color: white;
+          font-size: 18px;
+          cursor: pointer;
+          box-shadow:
+            0 5px 18px
+            rgba(75,100,255,.3);
+        }
+
+        .inputArea button:disabled {
+          opacity: .3;
+          cursor: default;
+          box-shadow: none;
+        }
+
+        .homeIndicator {
+          position: absolute;
+          z-index: 60;
+          bottom: 7px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 105px;
+          height: 4px;
+          border-radius: 10px;
+          background: rgba(255,255,255,.75);
+        }
+
+        @media (max-width: 500px) {
+          .page {
+            padding: 8px;
+          }
+
+          .phoneFrame {
+            width: 100%;
+            height: 100%;
+            border-radius: 42px;
+            padding: 4px;
+          }
+
+          .phoneScreen {
+            border-radius: 38px;
+          }
+
+          .message {
+            max-width: 91%;
+            font-size: 15px;
+            padding: 13px 14px;
+          }
+        }
+
+        @media (max-height: 650px) {
+          .topBar {
+            height: 78px;
+            padding-top: 35px;
+          }
+
+          .chatScreen {
+            height: calc(100% - 78px);
+          }
+
+          .message {
+            margin-bottom: 10px;
+            padding: 11px 13px;
+          }
+        }
+
+      `}</style>
+    </main>
+  );
+}
