@@ -96,13 +96,33 @@ export default function Home() {
         );
       }
 
-      setMessages([
-        ...newMessages,
-        {
-          role: "assistant",
-          content: data.reply,
-        },
-      ]);
+      const reply = data.reply || "";
+
+setMessages([
+  ...newMessages,
+  {
+    role: "assistant",
+    content: "",
+  },
+]);
+
+let i = 0;
+
+const typingInterval = setInterval(() => {
+  i += 2;
+
+  setMessages([
+    ...newMessages,
+    {
+      role: "assistant",
+      content: reply.slice(0, i),
+    },
+  ]);
+
+  if (i >= reply.length) {
+    clearInterval(typingInterval);
+  }
+}, 15);
     } catch (error) {
       setMessages([
         ...newMessages,
