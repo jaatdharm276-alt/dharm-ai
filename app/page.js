@@ -79,14 +79,16 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
 
-  const chatEndRef = useRef(null);
-  const recognitionRef = useRef(null);
+  const chatAreaRef = useRef(null);
+const recognitionRef = useRef(null);
 
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({
-      behavior: "smooth"
-    });
-  }, [messages, loading]);
+useEffect(() => {
+  const el = chatAreaRef.current;
+
+  if (el) {
+    el.scrollTop = el.scrollHeight;
+  }
+}, [messages, loading]);
 
   useEffect(() => {
     return () => {
@@ -310,7 +312,7 @@ export default function Home() {
 
         </header>
 
-        <main className="chatArea">
+        <main ref={chatAreaRef} className="chatArea">
 
           <div className="chat">
 
@@ -499,12 +501,13 @@ export default function Home() {
           -webkit-tap-highlight-color: transparent;
         }
 
-        .page {
-  position: relative;
+       .page {
+  position: fixed;
+  inset: 0;
   width: 100%;
-  height: 100svh;
-  min-height: 100svh;
-  overflow: hidden;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden; 
   background:
     radial-gradient(
       circle at 10% 0%,
@@ -543,8 +546,9 @@ export default function Home() {
           background: #315dff;
         }
 
-       .app {
-  position: relative;
+      .app {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   min-height: 0;
