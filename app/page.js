@@ -115,14 +115,13 @@ display:grid;place-items:center;
 border-radius:13px;
 background:#303553
 }
-
 .text{
-font-size:22px;
-line-height:1.58;
+font-size:18px;
+line-height:1.55;
 white-space:pre-wrap
 }
 
-.user .text{font-size:19px}
+.user .text{font-size:18px}
 
 .listen{
 margin-top:18px;
