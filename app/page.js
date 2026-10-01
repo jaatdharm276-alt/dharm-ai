@@ -2,751 +2,502 @@
 
 import { useEffect, useRef, useState } from "react";
 
-/* =========================
-   INLINE MARKDOWN
-========================= */
-
 function renderInline(text) {
-  if (!text) return null;
+  const parts = [];
+  let remaining = String(text);
 
-  const parts = text.split(
-    /(\*\*.*?\*\*|`.*?`|\*.*?\*)/g
-  );
+  const regex =
+    /(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*|_[^_]+_)/g;
 
-  return parts.map((part, index) => {
-    if (
-      part.startsWith("**") &&
-      part.endsWith("**")
-    ) {
-      return (
-        <strong key={index}>
-          {part.slice(2, -2)}
-        </strong>
-      );
+  let lastIndex = 0;
+  let match;
+
+  while ((match = regex.exec(remaining)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(remaining.slice(lastIndex, match.index));
     }
 
-    if (
-      part.startsWith("`") &&
-      part.endsWith("`")
-    ) {
-      return (
-        <code
-          key={index}
-          className="inlineCode"
-        >
-          {part.slice(1, -1)}
+    const value = match[0];
+
+    if (value.startsWith("`")) {
+      parts.push(
+        <code key={parts.length} className="inlineCode">
+          {value.slice(1, -1)}
         </code>
       );
-    }
-
-    if (
-      part.startsWith("*") &&
-      part.endsWith("*") &&
-      !part.startsWith("**")
-    ) {
-      return (
-        <em key={index}>
-          {part.slice(1, -1)}
+    } else if (value.startsWith("**")) {
+      parts.push(
+        <strong key={parts.length}>
+          {value.slice(2, -2)}
+        </strong>
+      );
+    } else {
+      parts.push(
+        <em key={parts.length}>
+          {value.slice(1, -1)}
         </em>
       );
     }
 
-    return (
-      <span key={index}>
-        {part}
-      </span>
-    );
-  });
-}
+    lastIndex = regex.lastIndex;
+  }
 
-/* =========================
-   MESSAGE FORMATTER
-========================= */
+  if (lastIndex < remaining.length) {
+    parts.push(remaining.slice(lastIndex));
+  }
+
+  return parts;
+}
 
 function formatMessage(text) {
   if (!text) return null;
 
-  const lines = text.split("\n");
+  const lines = String(text).split("\n");
+  const output = [];
 
-  return lines.map((line, index) => {
+  let listItems = [];
+  let listType = null;
+
+  const flushList = () => {
+    if (!listItems.length) return;
+
+    if (listType === "number") {
+      output.push(
+        <ol key={`ol-${output.length}`} className="messageList">
+          {listItems.map((item, index) => (
+            <li key={index}>{renderInline(item)}</li>
+          ))}
+        </ol>
+      );
+    } else {
+      output.push(
+        <ul key={`ul-${output.length}`} className="messageList">
+          {listItems.map((item, index) => (
+            <li key={index}>{renderInline(item)}</li>
+          ))}
+        </ul>
+      );
+    }
+
+    listItems = [];
+    listType = null;
+  };
+
+  lines.forEach((line, index) => {
     const trimmed = line.trim();
 
     if (!trimmed) {
-      return (
-        <div
-          key={index}
-          className="emptyLine"
-        />
-      );
-    }
+      flushList();
 
-    if (trimmed.startsWith("### ")) {
-      return (
-        <h3
-          key={index}
-          className="markdownH3"
-        >
-          {renderInline(trimmed.slice(4))}
-        </h3>
-      );
-    }
-
-    if (trimmed.startsWith("## ")) {
-      return (
-        <h2
-          key={index}
-          className="markdownH2"
-        >
-          {renderInline(trimmed.slice(3))}
-        </h2>
-      );
-    }
-
-    if (trimmed.startsWith("# ")) {
-      return (
-        <h1
-          key={index}
-          className="markdownH1"
-        >
-          {renderInline(trimmed.slice(2))}
-        </h1>
-      );
-    }
-
-    if (
-      trimmed.startsWith("- ") ||
-      trimmed.startsWith("* ")
-    ) {
-      return (
-        <div
-          key={index}
-          className="bulletLine"
-        >
-          <span className="bulletDot">
-            •
-          </span>
-
-          <span>
-            {renderInline(
-              trimmed.slice(2)
-            )}
-          </span>
-        </div>
-      );
-    }
-
-    const numbered =
-      trimmed.match(
-        /^(\d+)\.\s+(.*)/
+      output.push(
+        <div key={`space-${index}`} className="messageSpace" />
       );
 
-    if (numbered) {
-      return (
-        <div
-          key={index}
-          className="numberLine"
-        >
-          <span className="numberDot">
-            {numbered[1]}.
-          </span>
-
-          <span>
-            {renderInline(numbered[2])}
-          </span>
-        </div>
-      );
-    }
-
-    return (
-      <div
-        key={index}
-        className="messageLine"
-      >
-        {renderInline(line)}
-      </div>
-    );
-  });
-}
-
-/* =========================
-   MAIN APP
-========================= */
-
-export default function Home() {
-  const [messages, setMessages] =
-    useState([
-      {
-        role: "assistant",
-        content:
-          "Namaste! 🙏\n\nMera naam **Dharm AI** hai. Main aapki madad ke liye taiyar hoon. Main ek AI assistant hoon aur kai tarah ke kaam kar sakta hoon, jaise:\n\n1. **Jankari aur Gyan:** Aapko kisi bhi vishay par jankari de sakta hoon.\n2. **Bhasha aur Anuvad:** Hindi, English aur anya bhashaon mein baat kar sakta hoon.\n3. **Rachnatmakta:** Kahaniyan, kavita aur scripts likh sakta hoon.\n4. **Padhai mein Madad:** Math, Science aur anya subjects mein madad kar sakta hoon.",
-      },
-    ]);
-
-  const [input, setInput] =
-    useState("");
-
-  const [loading, setLoading] =
-    useState(false);
-
-  const [typingReply, setTypingReply] =
-    useState(false);
-
-  const [speakingIndex, setSpeakingIndex] =
-    useState(null);
-
-  const messagesEndRef =
-    useRef(null);
-
-  const inputRef =
-    useRef(null);
-
-  /* =========================
-     AUTO SCROLL
-  ========================= */
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView(
-      {
-        behavior: "auto",
-        block: "end",
-      }
-    );
-  }, [
-    messages,
-    loading,
-    typingReply,
-  ]);
-
-  /* =========================
-     SPEECH
-  ========================= */
-
-  function speakText(text, index) {
-    if (
-      typeof window === "undefined" ||
-      !("speechSynthesis" in window)
-    ) {
       return;
     }
 
-    if (speakingIndex === index) {
-      window.speechSynthesis.cancel();
-      setSpeakingIndex(null);
+    const heading = trimmed.match(/^(#{1,3})\s+(.+)$/);
+
+    if (heading) {
+      flushList();
+
+      const level = heading[1].length;
+
+      output.push(
+        <div
+          key={`heading-${index}`}
+          className={`messageHeading h${level}`}
+        >
+          {renderInline(heading[2])}
+        </div>
+      );
+
+      return;
+    }
+
+    const bullet = trimmed.match(/^[-*•]\s+(.+)$/);
+
+    if (bullet) {
+      if (listType !== "bullet") {
+        flushList();
+        listType = "bullet";
+      }
+
+      listItems.push(bullet[1]);
+      return;
+    }
+
+    const numbered = trimmed.match(/^\d+[.)]\s+(.+)$/);
+
+    if (numbered) {
+      if (listType !== "number") {
+        flushList();
+        listType = "number";
+      }
+
+      listItems.push(numbered[1]);
+      return;
+    }
+
+    flushList();
+
+    output.push(
+      <div key={`line-${index}`} className="messageLine">
+        {renderInline(trimmed)}
+      </div>
+    );
+  });
+
+  flushList();
+
+  return output;
+}
+
+export default function Home() {
+  const [messages, setMessages] = useState([
+    {
+      role: "assistant",
+      content:
+        "Namaste 🙏 Main Dharm AI hoon.\nApna sawaal poochho.",
+    },
+  ]);
+
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [typingReply, setTypingReply] = useState(false);
+
+  const chatEndRef = useRef(null);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "end",
+    });
+  }, [messages, loading, typingReply]);
+
+  const speakText = (text) => {
+    if (typeof window === "undefined") return;
+
+    if (!("speechSynthesis" in window)) {
+      alert("Aapke browser me voice support available nahi hai.");
       return;
     }
 
     window.speechSynthesis.cancel();
 
-    const cleanText = text
-      .replace(/\*\*/g, "")
-      .replace(/###/g, "")
-      .replace(/##/g, "")
-      .replace(/#/g, "")
-      .replace(/`/g, "");
+    const cleanText = String(text)
+      .replace(/[#*_`]/g, "")
+      .replace(/\n+/g, " ");
 
-    const utterance =
-      new SpeechSynthesisUtterance(
-        cleanText
-      );
+    const utterance = new SpeechSynthesisUtterance(cleanText);
 
-    utterance.lang =
-      /[\u0900-\u097F]/.test(
-        cleanText
-      )
-        ? "hi-IN"
-        : "en-IN";
-
+    utterance.lang = "hi-IN";
     utterance.rate = 0.95;
     utterance.pitch = 1;
-    utterance.volume = 1;
 
-    utterance.onstart = () => {
-      setSpeakingIndex(index);
-    };
+    window.speechSynthesis.speak(utterance);
+  };
 
-    utterance.onend = () => {
-      setSpeakingIndex(null);
-    };
+  const sendMessage = async (customMessage) => {
+    const message = String(
+      customMessage !== undefined ? customMessage : input
+    ).trim();
 
-    utterance.onerror = () => {
-      setSpeakingIndex(null);
-    };
+    if (!message || loading || typingReply) return;
 
-    window.speechSynthesis.speak(
-      utterance
-    );
-  }
+    setInput("");
 
-  /* =========================
-     SEND MESSAGE
-  ========================= */
-
-  async function sendMessage(e) {
-    e.preventDefault();
-
-    const text = input.trim();
-
-    if (
-      !text ||
-      loading ||
-      typingReply
-    ) {
-      return;
-    }
-
-    const newMessages = [
-      ...messages,
+    setMessages((prev) => [
+      ...prev,
       {
         role: "user",
-        content: text,
+        content: message,
       },
-    ];
+    ]);
 
-    setMessages(newMessages);
-    setInput("");
     setLoading(true);
 
     try {
-      const response = await fetch(
-        "/api/chat",
-        {
-          method: "POST",
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message,
+        }),
+      });
 
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-
-          body: JSON.stringify({
-            message: text,
-          }),
-        }
-      );
-
-      const data =
-        await response.json();
+      const data = await response.json();
 
       if (!response.ok) {
         throw new Error(
-          data.error ||
-            "Something went wrong"
+          data?.error || "AI response nahi mila."
         );
       }
 
       const reply =
-        data.reply ||
-        "No response received.";
+        data?.reply ||
+        "Maaf kijiye, mujhe abhi koi response nahi mila.";
 
-      setMessages([
-        ...newMessages,
+      setLoading(false);
+      setTypingReply(true);
+
+      setMessages((prev) => [
+        ...prev,
         {
           role: "assistant",
           content: "",
         },
       ]);
 
-      setLoading(false);
-      setTypingReply(true);
+      let currentText = "";
 
-      for (
-        let i = 0;
-        i < reply.length;
-        i += 2
-      ) {
-        setMessages([
-          ...newMessages,
-          {
+      for (let i = 0; i < reply.length; i++) {
+        currentText += reply[i];
+
+        setMessages((prev) => {
+          const copy = [...prev];
+
+          copy[copy.length - 1] = {
             role: "assistant",
-            content:
-              reply.slice(
-                0,
-                i + 2
-              ),
-          },
-        ]);
+            content: currentText,
+          };
 
-        await new Promise(
-          (resolve) =>
-            setTimeout(
-              resolve,
-              15
-            )
+          return copy;
+        });
+
+        await new Promise((resolve) =>
+          setTimeout(resolve, 10)
         );
       }
 
-      setMessages([
-        ...newMessages,
-        {
-          role: "assistant",
-          content: reply,
-        },
-      ]);
-
       setTypingReply(false);
     } catch (error) {
-      setMessages([
-        ...newMessages,
-        {
-          role: "assistant",
-          content:
-            "Error: " +
-            (error.message ||
-              "Something went wrong"),
-        },
-      ]);
+      console.error(error);
 
       setLoading(false);
       setTypingReply(false);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content:
+            "⚠️ Abhi response nahi aa raha. Thodi der baad dobara try karo.",
+        },
+      ]);
     }
-  }
+  };
 
-  /* =========================
-     QUICK PROMPT
-  ========================= */
-
-  function useQuickPrompt(prompt) {
-    setInput(prompt);
+  const useQuickPrompt = (text) => {
+    setInput(text);
 
     setTimeout(() => {
-      inputRef.current?.focus();
+      sendMessage(text);
     }, 50);
-  }
-
-  /* =========================
-     UI
-  ========================= */
+  };
 
   return (
     <main className="page">
-
-      {/* AMBIENT LIGHT */}
-
-      <div className="ambient ambientBlue" />
-
-      <div className="ambient ambientPurple" />
-
-      <div className="ambient ambientCyan" />
-
-      {/* FULL SCREEN APP */}
+      <div className="ambient ambientOne" />
+      <div className="ambient ambientTwo" />
 
       <section className="appShell">
+        <div className="backgroundGlow" />
 
-        <div className="appBackground" />
+        <header className="header">
+          <div className="brandArea">
+            <div className="brandIcon">🌸</div>
 
-        {/* HEADER */}
-
-        <header className="topBar">
-
-          <div className="brand">
-
-            <div className="brandIcon">
-              🌸
-            </div>
-
-            <div className="brandInfo">
-
+            <div className="brandText">
               <div className="brandTitle">
-                Dharm AI
-                <span>✨</span>
+                Dharm AI <span>✨</span>
               </div>
 
-              <div className="onlineStatus">
-
+              <div className="online">
                 <span className="onlineDot" />
-
                 Online
-
               </div>
-
             </div>
-
           </div>
 
           <button
             className="sparkButton"
-            type="button"
             onClick={() =>
               useQuickPrompt(
-                "Aaj ka ek sundar dharmik suvichar batao."
+                "Aaj ka ek chhota sa dharmik vichar batao."
               )
             }
-            aria-label="Quick prompt"
+            aria-label="Quick question"
           >
             ✦
           </button>
-
         </header>
 
-        {/* CHAT */}
-
         <div className="chatArea">
-
           <div className="chatInner">
+            {messages.map((message, index) => (
+              <div
+                key={index}
+                className={
+                  message.role === "user"
+                    ? "messageRow userRow"
+                    : "messageRow"
+                }
+              >
+                <div
+                  className={
+                    message.role === "user"
+                      ? "messageBubble userBubble"
+                      : "messageBubble assistantBubble"
+                  }
+                >
+                  {message.role === "assistant" && (
+                    <div className="messageTop">
+                      <div className="miniIcon">🌸</div>
+                      <span>Dharm AI</span>
+                    </div>
+                  )}
 
-            {messages.map(
-              (message, index) => {
+                  <div className="messageContent">
+                    {formatMessage(message.content)}
+                  </div>
 
-                const isUser =
-                  message.role ===
-                  "user";
-
-                const isError =
-                  message.content?.startsWith(
-                    "Error:"
-                  );
-
-                const isLast =
-                  index ===
-                  messages.length - 1;
-
-                return (
-                  <div
-                    key={index}
-                    className={
-                      isUser
-                        ? "messageRow userRow"
-                        : "messageRow assistantRow"
-                    }
-                  >
-
-                    <div
-                      className={
-                        isUser
-                          ? "messageBubble userBubble"
-                          : "messageBubble assistantBubble"
-                      }
-                    >
-
-                      {/* HEADER */}
-
-                      <div className="messageHeader">
-
-                        <div className="miniAvatar">
-                          {isUser
-                            ? "👤"
-                            : "🌸"}
-                        </div>
-
-                        <span className="messageName">
-                          {isUser
-                            ? "You"
-                            : "Dharm AI"}
-                        </span>
-
-                      </div>
-
-                      {/* MESSAGE */}
-
-                      <div
-                        className={
-                          isError
-                            ? "messageContent errorText"
-                            : "messageContent"
+                  {message.role === "assistant" &&
+                    message.content && (
+                      <button
+                        className="listenButton"
+                        onClick={() =>
+                          speakText(message.content)
                         }
                       >
-
-                        {formatMessage(
-                          message.content
-                        )}
-
-                        {typingReply &&
-                          !isUser &&
-                          isLast && (
-                            <span className="typingCursor">
-                              ▌
-                            </span>
-                          )}
-
-                      </div>
-
-                      {/* LISTEN */}
-
-                      {!isUser &&
-                        message.content &&
-                        !isError &&
-                        !(
-                          typingReply &&
-                          isLast
-                        ) && (
-                          <button
-                            className="listenButton"
-                            type="button"
-                            onClick={() =>
-                              speakText(
-                                message.content,
-                                index
-                              )
-                            }
-                          >
-                            {speakingIndex ===
-                            index
-                              ? "🔇 रोकें"
-                              : "🔊 सुनें"}
-                          </button>
-                        )}
-
-                    </div>
-
-                  </div>
-                );
-              }
-            )}
-
-            {/* LOADING */}
+                        🔊 सुनें
+                      </button>
+                    )}
+                </div>
+              </div>
+            ))}
 
             {loading && (
-              <div className="messageRow assistantRow">
-
+              <div className="messageRow">
                 <div className="messageBubble assistantBubble loadingBubble">
-
-                  <div className="messageHeader">
-
-                    <div className="miniAvatar">
-                      🌸
-                    </div>
-
-                    <span className="messageName">
-                      Dharm AI
-                    </span>
-
+                  <div className="messageTop">
+                    <div className="miniIcon">🌸</div>
+                    <span>Dharm AI</span>
                   </div>
 
                   <div className="typingDots">
-
                     <span />
                     <span />
                     <span />
-
                   </div>
-
                 </div>
-
               </div>
             )}
 
-            <div
-              ref={messagesEndRef}
-              className="scrollAnchor"
-            />
+            {!loading &&
+              !typingReply &&
+              messages.length === 1 && (
+                <div className="quickActions">
+                  <button
+                    onClick={() =>
+                      useQuickPrompt(
+                        "Bhagavad Gita ka ek achha shlok batao aur uska arth samjhao."
+                      )
+                    }
+                  >
+                    📖 Gita ka shlok
+                  </button>
 
+                  <button
+                    onClick={() =>
+                      useQuickPrompt(
+                        "Aaj ka dharmik vichar batao."
+                      )
+                    }
+                  >
+                    ✨ Aaj ka vichar
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      useQuickPrompt(
+                        "Hindu dharm ke baare me ek rochak baat batao."
+                      )
+                    }
+                  >
+                    🕉️ Dharm gyaan
+                  </button>
+                </div>
+              )}
+
+            <div ref={chatEndRef} />
           </div>
-
         </div>
 
-        {/* QUICK ACTIONS */}
-
-        {messages.length === 1 && (
-          <div className="quickActions">
-
-            <button
-              type="button"
-              onClick={() =>
-                useQuickPrompt(
-                  "Bhagavad Gita ke 3 sabse mahatvapurna updesh batao."
-                )
-              }
-            >
-              🕉️ Gita Gyan
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                useQuickPrompt(
-                  "Aaj ka ek sundar dharmik suvichar batao."
-                )
-              }
-            >
-              ✨ Suvichar
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                useQuickPrompt(
-                  "Ek chhota sa dhyan aur meditation mantra batao."
-                )
-              }
-            >
-              🧘 Dhyan
-            </button>
-
-          </div>
-        )}
-
-        {/* INPUT */}
-
-        <form
-          className="inputArea"
-          onSubmit={sendMessage}
-        >
-
+        <div className="inputArea">
           <div className="inputBox">
-
-            <span className="inputSpark">
-              ✨
-            </span>
+            <span className="inputSpark">✨</span>
 
             <input
-              ref={inputRef}
+              type="text"
               value={input}
-              onChange={(e) =>
-                setInput(e.target.value)
+              onChange={(event) =>
+                setInput(event.target.value)
               }
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter" &&
+                  !event.shiftKey
+                ) {
+                  event.preventDefault();
+                  sendMessage();
+                }
+              }}
               placeholder="Ask Dharm AI..."
-              disabled={
-                loading ||
-                typingReply
-              }
-              autoComplete="off"
-              enterKeyHint="send"
+              disabled={loading || typingReply}
             />
 
             <button
-              type="submit"
               className="sendButton"
+              onClick={() => sendMessage()}
               disabled={
-                !input.trim() ||
                 loading ||
-                typingReply
+                typingReply ||
+                !input.trim()
               }
-              aria-label="Send"
+              aria-label="Send message"
             >
               ➤
             </button>
-
           </div>
-
-        </form>
-
+        </div>
       </section>
 
-      {/* GLOBAL CSS */}
-
       <style jsx global>{`
-
         * {
           box-sizing: border-box;
         }
 
         html,
         body {
-          margin: 0;
-          padding: 0;
           width: 100%;
           height: 100%;
-          background: #02040b;
+          margin: 0;
+          padding: 0;
         }
 
         body {
           overflow: hidden;
+          background: #02040b;
+          color: #ffffff;
           font-family:
+            Inter,
+            system-ui,
             -apple-system,
             BlinkMacSystemFont,
             "Segoe UI",
-            Roboto,
-            Helvetica,
-            Arial,
             sans-serif;
         }
 
@@ -755,272 +506,364 @@ export default function Home() {
           font: inherit;
         }
 
-      `}</style>
-
-      {/* APP CSS */}
-
-      <style jsx>{`
-
-        /* =========================
-           FULL SCREEN
-        ========================= */
+        button {
+          -webkit-tap-highlight-color: transparent;
+        }
 
         .page {
           position: fixed;
-
           inset: 0;
-
-          width: 100vw;
-
+          width: 100%;
           height: 100dvh;
-
           min-height: 100dvh;
-
-          max-height: 100dvh;
-
           overflow: hidden;
-
           background:
             radial-gradient(
-              circle at 15% 20%,
-              rgba(
-                34,
-                79,
-                255,
-                0.16
-              ),
-              transparent 35%
+              circle at 15% 10%,
+              rgba(37, 66, 170, 0.22),
+              transparent 34%
             ),
             radial-gradient(
-              circle at 85% 70%,
-              rgba(
-                116,
-                40,
-                255,
-                0.14
-              ),
-              transparent 35%
+              circle at 90% 70%,
+              rgba(105, 32, 180, 0.15),
+              transparent 36%
             ),
             #02040b;
-
-          color: #fff;
         }
-
-        /* =========================
-           AMBIENT
-        ========================= */
 
         .ambient {
           position: absolute;
-
           pointer-events: none;
-
-          filter: blur(65px);
-
           border-radius: 999px;
-
-          opacity: 0.55;
-
-          animation:
-            floatGlow
-            8s
-            ease-in-out
-            infinite;
+          filter: blur(80px);
+          opacity: 0.25;
         }
 
-        .ambientBlue {
+        .ambientOne {
           width: 260px;
-
           height: 260px;
-
-          left: -120px;
-
-          top: 10%;
-
-          background:
-            rgba(
-              38,
-              93,
-              255,
-              0.22
-            );
+          top: -100px;
+          left: -80px;
+          background: #2946a8;
         }
 
-        .ambientPurple {
+        .ambientTwo {
           width: 300px;
-
           height: 300px;
-
-          right: -140px;
-
-          top: 35%;
-
-          background:
-            rgba(
-              124,
-              46,
-              255,
-              0.20
-            );
-
-          animation-delay: -3s;
+          right: -100px;
+          bottom: -120px;
+          background: #6c24b8;
         }
-
-        .ambientCyan {
-          width: 230px;
-
-          height: 230px;
-
-          left: 30%;
-
-          bottom: -130px;
-
-          background:
-            rgba(
-              0,
-              205,
-              255,
-              0.13
-            );
-
-          animation-delay: -5s;
-        }
-
-        @keyframes floatGlow {
-
-          0%,
-          100% {
-            transform:
-              translate3d(
-                0,
-                0,
-                0
-              )
-              scale(1);
-          }
-
-          50% {
-            transform:
-              translate3d(
-                0,
-                -18px,
-                0
-              )
-              scale(1.08);
-          }
-
-        }
-
-        /* =========================
-           FULL SCREEN APP
-        ========================= */
 
         .appShell {
           position: relative;
-
           z-index: 2;
-
-          width: 100vw;
-
-          height: 100dvh;
-
-          min-height: 100dvh;
-
-          max-height: 100dvh;
-
+          width: 100%;
+          height: 100%;
+          min-height: 0;
           display: flex;
-
           flex-direction: column;
-
           overflow: hidden;
-
           background:
             linear-gradient(
               180deg,
-              rgba(
-                3,
-                7,
-                20,
-                0.97
-              ),
-              rgba(
-                5,
-                6,
-                15,
-                0.99
-              )
+              rgba(7, 12, 29, 0.98),
+              rgba(2, 5, 13, 0.99)
             );
         }
 
-        .appBackground {
+        .backgroundGlow {
           position: absolute;
-
           inset: 0;
-
           pointer-events: none;
-
           background:
             radial-gradient(
-              circle at 50% -10%,
-              rgba(
-                41,
-                81,
-                255,
-                0.15
-              ),
-              transparent 32%
+              circle at 25% 20%,
+              rgba(63, 86, 205, 0.1),
+              transparent 30%
             ),
             radial-gradient(
-              circle at 100% 60%,
-              rgba(
-                111,
-                44,
-                255,
-                0.09
-              ),
-              transparent 35%
+              circle at 85% 65%,
+              rgba(109, 40, 190, 0.08),
+              transparent 32%
             );
         }
 
-        /* =========================
-           HEADER
-        ========================= */
-
-        .topBar {
+        .header {
           position: relative;
-
-          z-index: 10;
-
-          flex: 0 0 auto;
-
-          min-height: 92px;
-
+          z-index: 5;
+          flex-shrink: 0;
           display: flex;
-
           align-items: center;
-
-          justify-content:
-            space-between;
-
-          padding:
-            14px
+          justify-content: space-between;
+          padding: max(
+              16px,
+              env(safe-area-inset-top)
+            )
             18px
             14px;
+          border-bottom: 1px solid
+            rgba(145, 159, 202, 0.14);
+          background: rgba(5, 9, 22, 0.82);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+        }
 
-          padding-top:
-            max(
-              14px,
-              env(
-                safe-area-inset-top
-              )
-            );
+        .brandArea {
+          display: flex;
+          align-items: center;
+          min-width: 0;
+        }
 
-          border-bottom:
-            1px solid
-            rgba(
-              255,
-              255,
-              255,
-              0.08
+        .brandIcon {
+          width: 62px;
+          height: 62px;
+          flex-shrink: 0;
+          display: grid;
+          place-items: center;
+          border-radius: 20px;
+          border: 1px solid rgba(151, 163, 207, 0.25);
+          background:
+            linear-gradient(
+              145deg,
+              rgba(42, 48, 78, 0.85),
+              rgba(17, 20, 35, 0.8)
             );
-    
+          box-shadow:
+            0 0 25px rgba(74, 92, 186, 0.14),
+            inset 0 1px 0 rgba(255, 255, 255, 0.06);
+          font-size: 31px;
+        }
+
+        .brandText {
+          margin-left: 14px;
+        }
+
+        .brandTitle {
+          font-size: 27px;
+          line-height: 1.05;
+          font-weight: 800;
+          letter-spacing: -0.6px;
+          white-space: nowrap;
+        }
+
+        .brandTitle span {
+          margin-left: 3px;
+        }
+
+        .online {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          margin-top: 6px;
+          color: #9298a9;
+          font-size: 16px;
+        }
+
+        .onlineDot {
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          background: #55e39d;
+          box-shadow: 0 0 12px rgba(85, 227, 157, 0.65);
+        }
+
+        .sparkButton {
+          width: 50px;
+          height: 50px;
+          flex-shrink: 0;
+          border: 1px solid rgba(148, 161, 207, 0.2);
+          border-radius: 50%;
+          color: #a9b7ff;
+          background: rgba(24, 29, 49, 0.72);
+          font-size: 26px;
+          cursor: pointer;
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        }
+
+        .chatArea {
+          position: relative;
+          z-index: 2;
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+          overflow-x: hidden;
+          overscroll-behavior: contain;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+        }
+
+        .chatArea::-webkit-scrollbar {
+          display: none;
+        }
+
+        .chatInner {
+          width: 100%;
+          min-height: 100%;
+          padding: 28px 20px 20px;
+        }
+
+        .messageRow {
+          width: 100%;
+          display: flex;
+          justify-content: flex-start;
+          margin-bottom: 18px;
+        }
+
+        .userRow {
+          justify-content: flex-end;
+        }
+
+        .messageBubble {
+          width: min(100%, 700px);
+          border-radius: 28px;
+          padding: 24px 26px;
+          overflow-wrap: anywhere;
+        }
+
+        .assistantBubble {
+          border: 1px solid rgba(139, 151, 193, 0.18);
+          background:
+            linear-gradient(
+              145deg,
+              rgba(31, 39, 62, 0.8),
+              rgba(15, 18, 31, 0.76)
+            );
+          box-shadow:
+            0 20px 50px rgba(0, 0, 0, 0.18),
+            inset 0 1px 0 rgba(255, 255, 255, 0.035);
+        }
+
+        .userBubble {
+          width: auto;
+          max-width: 82%;
+          border: 1px solid rgba(91, 107, 220, 0.35);
+          background:
+            linear-gradient(
+              145deg,
+              rgba(47, 57, 128, 0.8),
+              rgba(38, 42, 94, 0.72)
+            );
+        }
+
+        .messageTop {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 18px;
+          color: #a6aabd;
+          font-size: 18px;
+          font-weight: 700;
+        }
+
+        .miniIcon {
+          width: 42px;
+          height: 42px;
+          display: grid;
+          place-items: center;
+          flex-shrink: 0;
+          border-radius: 13px;
+          background: rgba(48, 53, 83, 0.7);
+          font-size: 20px;
+        }
+
+        .messageContent {
+          color: #f3f4f8;
+          font-size: 22px;
+          line-height: 1.58;
+          letter-spacing: -0.15px;
+        }
+
+        .userBubble .messageContent {
+          font-size: 19px;
+          line-height: 1.5;
+        }
+
+        .messageLine {
+          min-height: 1.58em;
+        }
+
+        .messageSpace {
+          height: 9px;
+        }
+
+        .messageHeading {
+          margin: 8px 0 10px;
+          font-weight: 800;
+          line-height: 1.3;
+        }
+
+        .messageHeading.h1 {
+          font-size: 27px;
+        }
+
+        .messageHeading.h2 {
+          font-size: 24px;
+        }
+
+        .messageHeading.h3 {
+          font-size: 22px;
+        }
+
+        .messageContent strong {
+          font-weight: 800;
+          color: #ffffff;
+        }
+
+        .messageContent em {
+          color: #dfe3ff;
+        }
+
+        .inlineCode {
+          padding: 3px 7px;
+          border-radius: 7px;
+          background: rgba(0, 0, 0, 0.3);
+          color: #c9d0ff;
+          font-size: 0.88em;
+        }
+
+        .messageList {
+          margin: 8px 0;
+          padding-left: 27px;
+        }
+
+        .messageList li {
+          margin: 7px 0;
+          padding-left: 4px;
+        }
+
+        .listenButton {
+          margin-top: 20px;
+          padding: 11px 17px;
+          border: 1px solid rgba(150, 159, 190, 0.18);
+          border-radius: 17px;
+          color: #b8bdc9;
+          background: rgba(38, 42, 57, 0.72);
+          font-size: 16px;
+          cursor: pointer;
+        }
+
+        .loadingBubble {
+          min-width: 150px;
+        }
+
+        .typingDots {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          height: 24px;
+        }
+
+        .typingDots span {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #9ca7dc;
+          animation: typing 1.1s infinite ease-in-out;
+        }
+
+        .typingDots span:nth-child(2) {
+          animation-delay: 0.15s;
+        }
+
+        .typingDo
