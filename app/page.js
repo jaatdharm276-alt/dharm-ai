@@ -1,217 +1,208 @@
 "use client";
-
 import { useEffect, useRef, useState } from "react";
 
-function renderInline(text) {
-  const parts = String(text).split(
-    /(\*\*.*?\*\*|`.*?`|\*.*?\*)/g
-  );
+function inline(text) {
+  return String(text)
+    .split(/(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g)
+    .map((x, i) => {
+      if (x.startsWith("**") && x.endsWith("**"))
+        return <strong key={i}>{x.slice(2, -2)}</strong>;
 
-  return parts.map((part, index) => {
-    if (part.startsWith("**") && part.endsWith("**")) {
-      return (
-        <strong key={index}>
-          {part.slice(2, -2)}
-        </strong>
-      );
-    }
+      if (x.startsWith("*") && x.endsWith("*"))
+        return <em key={i}>{x.slice(1, -1)}</em>;
 
-    if (part.startsWith("`") && part.endsWith("`")) {
-      return (
-        <code key={index}>
-          {part.slice(1, -1)}
-        </code>
-      );
-    }
+      if (x.startsWith("`") && x.endsWith("`"))
+        return <code key={i}>{x.slice(1, -1)}</code>;
 
-    if (part.startsWith("*") && part.endsWith("*")) {
-      return (
-        <em key={index}>
-          {part.slice(1, -1)}
-        </em>
-      );
-    }
-
-    return <span key={index}>{part}</span>;
-  });
+      return <span key={i}>{x}</span>;
+    });
 }
 
 function formatMessage(text) {
-  return String(text)
-    .split("\n")
-    .map((rawLine, index) => {
-      let line = rawLine.trim();
+  const lines = String(text || "").replace(/\r/g, "").split("\n");
+  const out = [];
+  let list = [];
+  let type = "";
 
-      if (!line) {
-        return <div className="emptyLine" key={index} />;
+  const flush = () => {
+    if (!list.length) return;
+
+    out.push(
+      type === "ol" ? (
+        <ol key={out.length}>{list}</ol>
+      ) : (
+        <ul key={out.length}>{list}</ul>
+      )
+    );
+
+    list = [];
+    type = "";
+  };
+
+  lines.forEach((raw, i) => {
+    const s = raw.trim();
+
+    if (!s) {
+      flush();
+      out.push(<div className="space" key={i} />);
+      return;
+    }
+
+    const h = s.match(/^#{1,6}\s+(.*)$/);
+
+    if (h) {
+      flush();
+      out.push(<h3 key={i}>{inline(h[1])}</h3>);
+      return;
+    }
+
+    const n = s.match(/^\d+[.)]\s+(.*)$/);
+
+    if (n) {
+      if (type !== "ol") {
+        flush();
+        type = "ol";
       }
 
-      // Markdown heading
-      const heading = line.match(/^#{1,6}\s+(.*)$/);
+      list.push(<li key={i}>{inline(n[1])}</li>);
+      return;
+    }
 
-      if (heading) {
-        return (
-          <div className="messageHeading" key={index}>
-            {renderInline(heading[1])}
-          </div>
-        );
+    const b = s.match(/^(?:[-*•])\s+(.*)$/);
+
+    if (b) {
+      if (type !== "ul") {
+        flush();
+        type = "ul";
       }
 
-      // Bullet using *, -, +
-      if (/^[*+-]\s+/.test(line)) {
-        line = line.replace(/^[*+-]\s+/, "");
+      list.push(<li key={i}>{inline(b[1])}</li>);
+      return;
+    }
 
-        return (
-          <div className="messageBullet" key={index}>
-            <span className="bulletDot">•</span>
-            <span>{renderInline(line)}</span>
-          </div>
-        );
-      }
+    flush();
+    out.push(<p key={i}>{inline(s)}</p>);
+  });
 
-      // Numbered list
-      const numbered = line.match(/^(\d+)[.)]\s+(.*)$/);
-
-      if (numbered) {
-        return (
-          <div className="messageNumber" key={index}>
-            <span className="numberLabel">
-              {numbered[1]}.
-            </span>
-            <span>{renderInline(numbered[2])}</span>
-          </div>
-        );
-      }
-
-      return (
-        <div className="messageLine" key={index}>
-          {renderInline(line)}
-        </div>
-      );
-    });
+  flush();
+  return out;
 }
+
+const QUICK = [
+  [
+    "📖",
+    "Gita ka shlok",
+    "Bhagavad Gita ka ek shlok batao, arth aur jeevan ka sandesh samjhao.",
+  ],
+  [
+    "✨",
+    "Aaj ka vichar",
+    "Aaj ka ek chhota sa dharmik aur positive vichar batao.",
+  ],
+  [
+    "🕉️",
+    "Dharm gyaan",
+    "Hindu dharm se juda ek rochak aur upyogi gyaan batao.",
+  ],
+];
 
 export default function Home() {
   const [messages, setMessages] = useState([
     {
       role: "assistant",
-      text: "Namaste 🙏 Main Dharm AI hoon.\nApna sawaal poochho.",
+      text: "Namaste 🙏 Main Dharm AI hoon.\n\nApna sawaal poochho.",
     },
   ]);
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [typingReply, setTypingReply] = useState(false);
   const [listening, setListening] = useState(false);
 
-  const chatRef = useRef(null);
+  const endRef = useRef(null);
   const recognitionRef = useRef(null);
 
   useEffect(() => {
-    if (chatRef.current) {
-      chatRef.current.scrollTop = chatRef.current.scrollHeight;
-    }
-  }, [messages, loading, typingReply]);
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
 
   useEffect(() => {
     return () => {
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch {}
-      }
+      try {
+        window.speechSynthesis?.cancel();
+      } catch {}
+
+      recognitionRef.current?.stop?.();
     };
   }, []);
 
-  function speakText(text) {
-    if (typeof window === "undefined") return;
-    if (!("speechSynthesis" in window)) return;
+  function speak(text) {
+    if (!window.speechSynthesis) return;
 
     window.speechSynthesis.cancel();
 
-    const cleanText = String(text)
-      .replace(/#{1,6}\s+/g, "")
-      .replace(/\*\*/g, "")
-      .replace(/`/g, "")
-      .replace(/\*/g, "");
+    const clean = String(text)
+      .replace(/[#*_`]/g, "")
+      .replace(/\s+/g, " ");
 
-    const utterance = new SpeechSynthesisUtterance(cleanText);
+    const u = new SpeechSynthesisUtterance(clean);
 
-    utterance.lang = "hi-IN";
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
+    u.lang = /[\u0900-\u097F]/.test(clean) ? "hi-IN" : "en-IN";
+    u.rate = 0.92;
 
-    window.speechSynthesis.speak(utterance);
+    window.speechSynthesis.speak(u);
   }
 
-  function startListening() {
-    if (typeof window === "undefined") return;
+  function voice() {
+    const SR =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    const SpeechRecognition =
-      window.SpeechRecognition ||
-      window.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      alert("Aapke browser me voice input support nahi hai.");
+    if (!SR) {
+      alert("Is browser mein voice input supported nahi hai.");
       return;
     }
 
     if (listening) {
-      try {
-        recognitionRef.current?.stop();
-      } catch {}
-
-      setListening(false);
+      recognitionRef.current?.stop();
       return;
     }
 
-    const recognition = new SpeechRecognition();
+    const r = new SR();
 
-    recognition.lang = "hi-IN";
-    recognition.continuous = false;
-    recognition.interimResults = false;
+    r.lang = "hi-IN";
+    r.interimResults = true;
+    r.continuous = false;
 
-    recognition.onstart = () => {
-      setListening(true);
+    r.onstart = () => setListening(true);
+    r.onend = () => setListening(false);
+    r.onerror = () => setListening(false);
+
+    r.onresult = (e) => {
+      let t = "";
+
+      for (
+        let i = e.resultIndex;
+        i < e.results.length;
+        i++
+      ) {
+        t += e.results[i][0].transcript;
+      }
+
+      setInput(t);
     };
 
-    recognition.onresult = (event) => {
-      const transcript =
-        event.results?.[0]?.[0]?.transcript || "";
-
-      setInput((prev) =>
-        prev ? `${prev} ${transcript}` : transcript
-      );
-    };
-
-    recognition.onerror = () => {
-      setListening(false);
-    };
-
-    recognition.onend = () => {
-      setListening(false);
-    };
-
-    recognitionRef.current = recognition;
-
-    try {
-      recognition.start();
-    } catch {
-      setListening(false);
-    }
+    recognitionRef.current = r;
+    r.start();
   }
 
-  async function sendMessage(customMessage) {
-    const message = String(
-      customMessage !== undefined ? customMessage : input
-    ).trim();
+  async function send(custom) {
+    const message = String(custom ?? input).trim();
 
-    if (!message || loading || typingReply) return;
+    if (!message || loading) return;
 
     setInput("");
 
-    setMessages((prev) => [
-      ...prev,
+    setMessages((p) => [
+      ...p,
       {
         role: "user",
         text: message,
@@ -221,7 +212,7 @@ export default function Home() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/chat", {
+      const res = await fetch("/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -231,306 +222,220 @@ export default function Home() {
         }),
       });
 
-      const data = await response.json();
+      const data = await res.json().catch(() => ({}));
 
-      if (!response.ok) {
-        throw new Error(
-          data?.error || "AI response nahi mila."
-        );
+      if (!res.ok) {
+        throw new Error(data?.error || "Server error");
       }
 
-      const reply =
-        data?.reply ||
-        "Maaf kijiye, mujhe abhi response nahi mila.";
+      const reply = String(
+        data?.reply || "No response received."
+      );
 
-      setLoading(false);
-      setTypingReply(true);
+      let shown = "";
 
-      setMessages((prev) => [
-        ...prev,
+      setMessages((p) => [
+        ...p,
         {
           role: "assistant",
           text: "",
+          typing: true,
         },
       ]);
 
-      let current = "";
+      for (const ch of reply) {
+        shown += ch;
 
-      for (let i = 0; i < reply.length; i++) {
-        current += reply[i];
+        setMessages((p) => {
+          const a = [...p];
 
-        setMessages((prev) => {
-          const updated = [...prev];
-
-          updated[updated.length - 1] = {
+          a[a.length - 1] = {
             role: "assistant",
-            text: current,
+            text: shown,
+            typing: true,
           };
 
-          return updated;
+          return a;
         });
 
-        await new Promise((resolve) =>
-          setTimeout(resolve, 8)
-        );
+        await new Promise((r) => setTimeout(r, 6));
       }
 
-      setTypingReply(false);
-    } catch (error) {
-      console.error(error);
+      setMessages((p) => {
+        const a = [...p];
 
-      setLoading(false);
-      setTypingReply(false);
+        a[a.length - 1] = {
+          role: "assistant",
+          text: reply,
+          typing: false,
+        };
 
-      setMessages((prev) => [
-        ...prev,
+        return a;
+      });
+    } catch (e) {
+      setMessages((p) => [
+        ...p,
         {
           role: "assistant",
           text:
-            "Maaf kijiye 🙏 Abhi server se response nahi aa pa raha. Thodi der baad dobara try karo.",
+            "Maaf kijiye, abhi jawab nahi aa paaya.\n\nError: " +
+            e.message,
         },
       ]);
+    } finally {
+      setLoading(false);
     }
   }
-
-  function handleKeyDown(event) {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      sendMessage();
-    }
-  }
-
-  function quickPrompt(text) {
-    setInput(text);
-  }
-
-  const showQuickActions = messages.length === 1;
 
   return (
     <main className="page">
-      <div className="ambient ambientOne" />
-      <div className="ambient ambientTwo" />
+      <div className="glow g1" />
+      <div className="glow g2" />
 
-      <section className="appShell">
+      <section className="app">
         <header className="header">
           <div className="brand">
-            <div className="brandIcon">
-              🌸
-            </div>
+            <div className="flower">🌸</div>
 
-            <div className="brandText">
-              <div className="brandTitle">
+            <div>
+              <div className="title">
                 Dharm AI <span>✨</span>
               </div>
 
               <div className="online">
-                <span className="onlineDot" />
+                <i />
                 Online
               </div>
             </div>
           </div>
 
           <button
-            className="sparkButton"
-            type="button"
+            className="spark"
             onClick={() =>
-              quickPrompt("Aaj ka dharmik vichar batao.")
+              setInput("Aaj ka dharmik vichar batao.")
             }
-            aria-label="Quick prompt"
           >
             ✦
           </button>
         </header>
 
-        <div className="chatArea" ref={chatRef}>
-          <div className="chatInner">
-            {messages.map((message, index) => (
+        <div className="chat">
+          <div className="inner">
+            {messages.map((m, i) => (
               <div
-                className={`messageRow ${
-                  message.role === "user"
-                    ? "userRow"
-                    : "assistantRow"
-                }`}
-                key={index}
+                className={`row ${m.role}`}
+                key={i}
               >
                 <div
-                  className={`bubble ${
-                    message.role === "user"
-                      ? "userBubble"
-                      : "assistantBubble"
-                  }`}
+                  className={`bubble ${m.role}`}
                 >
-                  {message.role === "assistant" && (
-                    <div className="messageTop">
-                      <div className="miniIcon">
+                  {m.role === "assistant" && (
+                    <div className="identity">
+                      <div className="mini">
                         🌸
                       </div>
 
-                      <div className="miniName">
-                        Dharm AI
-                      </div>
-                    </div>
-                  )}
-
-                  {message.role === "user" && (
-                    <div className="messageTop userTop">
-                      <div className="miniIcon userMini">
-                        👤
-                      </div>
-
-                      <div className="miniName">
-                        You
-                      </div>
+                      <b>Dharm AI</b>
                     </div>
                   )}
 
                   <div className="text">
-                    {formatMessage(message.text)}
+                    {formatMessage(m.text)}
                   </div>
 
-                  {message.role === "assistant" &&
-                    index === 0 && (
+                  {m.role === "assistant" &&
+                    !m.typing && (
                       <button
-                        type="button"
-                        className={`listenButton ${
-                          listening ? "listening" : ""
-                        }`}
-                        onClick={() =>
-                          speakText(message.text)
-                        }
+                        className="listen"
+                        onClick={() => speak(m.text)}
                       >
-                        🔊 {listening ? "सुन रहा हूँ..." : "सुनें"}
-                      </button>
-                    )}
-
-                  {message.role === "assistant" &&
-                    index > 0 &&
-                    message.text && (
-                      <button
-                        type="button"
-                        className="smallSpeak"
-                        onClick={() =>
-                          speakText(message.text)
-                        }
-                      >
-                        🔊 सुनें
+                        🔊 <span>सुनें</span>
                       </button>
                     )}
                 </div>
               </div>
             ))}
 
+            {messages.length === 1 && (
+              <div className="quick">
+                {QUICK.map(
+                  ([icon, name, p], i) => (
+                    <button
+                      key={i}
+                      onClick={() => send(p)}
+                    >
+                      {icon} {name}
+                    </button>
+                  )
+                )}
+              </div>
+            )}
+
             {loading && (
-              <div className="messageRow assistantRow">
-                <div className="bubble assistantBubble loadingBubble">
-                  <div className="messageTop">
-                    <div className="miniIcon">
-                      🌸
-                    </div>
-
-                    <div className="miniName">
-                      Dharm AI
-                    </div>
-                  </div>
-
-                  <div className="typingDots">
-                    <span />
-                    <span />
-                    <span />
-                  </div>
-                </div>
+              <div className="dots">
+                <i />
+                <i />
+                <i />
               </div>
             )}
 
-            {showQuickActions && (
-              <div className="quickActions">
-                <button
-                  type="button"
-                  onClick={() =>
-                    sendMessage(
-                      "Bhagavad Gita ka ek shlok batao aur uska arth samjhao."
-                    )
-                  }
-                >
-                  📖 Gita ka shlok
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    sendMessage(
-                      "Aaj ka ek sundar dharmik vichar batao."
-                    )
-                  }
-                >
-                  ✨ Aaj ka vichar
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    sendMessage(
-                      "Mujhe dharm ke baare mein ek interesting baat batao."
-                    )
-                  }
-                >
-                  🕉️ Dharm gyaan
-                </button>
-              </div>
-            )}
+            <div ref={endRef} />
           </div>
         </div>
 
         <div className="inputArea">
           <div className="inputBox">
-            <span className="inputEmoji">
-              ✨
-            </span>
-
-            <textarea
-              value={input}
-              onChange={(event) =>
-                setInput(event.target.value)
+            <button
+              className={
+                listening
+                  ? "voice active"
+                  : "voice"
               }
-              onKeyDown={handleKeyDown}
-              placeholder="Ask Dharm AI..."
-              rows={1}
-              disabled={loading || typingReply}
+              onClick={voice}
+            >
+              🎙️
+            </button>
+
+            <input
+              value={input}
+              onChange={(e) =>
+                setInput(e.target.value)
+              }
+              onKeyDown={(e) => {
+                if (
+                  e.key === "Enter" &&
+                  !e.shiftKey
+                ) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+              placeholder={
+                listening
+                  ? "Bolna shuru karein..."
+                  : "Ask Dharm AI..."
+              }
+              disabled={loading}
             />
 
             <button
-              type="button"
-              className="sendButton"
-              onClick={() => sendMessage()}
-              disabled={
-                !input.trim() ||
-                loading ||
-                typingReply
-              }
-              aria-label="Send message"
+              className="send"
+              onClick={() => send()}
+              disabled={!input.trim() || loading}
             >
               ➤
             </button>
           </div>
-
-          <button
-            type="button"
-            className="voiceInputButton"
-            onClick={startListening}
-            aria-label="Voice input"
-          >
-            🎙️
-          </button>
         </div>
       </section>
 
       <style jsx global>{`
-        * {
+              :global(*) {
           box-sizing: border-box;
         }
 
-        html,
-        body {
+        :global(html),
+        :global(body) {
           margin: 0;
           padding: 0;
           width: 100%;
@@ -538,24 +443,17 @@ export default function Home() {
           background: #02040b;
         }
 
-        body {
+        :global(body) {
           overflow: hidden;
           font-family:
-            Inter,
-            system-ui,
-            -apple-system,
-            BlinkMacSystemFont,
-            "Segoe UI",
+            Arial,
+            "Noto Sans Devanagari",
             sans-serif;
         }
 
-        button,
-        textarea {
+        :global(button),
+        :global(input) {
           font: inherit;
-        }
-
-        button {
-          -webkit-tap-highlight-color: transparent;
         }
 
         .page {
@@ -567,43 +465,15 @@ export default function Home() {
           overflow: hidden;
           background:
             radial-gradient(
-              circle at 50% -10%,
-              rgba(47, 62, 145, 0.22),
-              transparent 38%
+              circle at 50% 20%,
+              rgba(40, 45, 90, 0.18),
+              transparent 45%
             ),
-            linear-gradient(
-              180deg,
-              #050817 0%,
-              #02050d 55%,
-              #01030a 100%
-            );
-          color: #f7f8ff;
+            #02040b;
+          color: #fff;
         }
 
-        .ambient {
-          position: absolute;
-          pointer-events: none;
-          filter: blur(80px);
-          opacity: 0.35;
-        }
-
-        .ambientOne {
-          width: 300px;
-          height: 300px;
-          top: 15%;
-          left: -180px;
-          background: #263fa4;
-        }
-
-        .ambientTwo {
-          width: 300px;
-          height: 300px;
-          right: -180px;
-          bottom: 15%;
-          background: #452080;
-        }
-
-        .appShell {
+        .app {
           position: relative;
           z-index: 2;
           width: 100%;
@@ -612,234 +482,680 @@ export default function Home() {
           display: flex;
           flex-direction: column;
           overflow: hidden;
-          background:
-            linear-gradient(
-              180deg,
-              rgba(4, 7, 20, 0.97),
-              rgba(1, 4, 12, 0.99)
-            );
+        }
+
+        .glow {
+          position: fixed;
+          pointer-events: none;
+          filter: blur(70px);
+          opacity: 0.18;
+          border-radius: 50%;
+          z-index: 0;
+        }
+
+        .g1 {
+          width: 240px;
+          height: 240px;
+          background: #695cff;
+          top: -100px;
+          left: -90px;
+        }
+
+        .g2 {
+          width: 260px;
+          height: 260px;
+          background: #ff5fa2;
+          right: -120px;
+          bottom: 60px;
         }
 
         .header {
-          flex: 0 0 auto;
-          min-height: 168px;
+          flex-shrink: 0;
+          width: 100%;
           display: flex;
           align-items: center;
           justify-content: space-between;
           padding:
-            max(20px, env(safe-area-inset-top))
+            max(16px, env(safe-area-inset-top))
             34px
-            20px;
-          border-bottom: 1px solid rgba(120, 130, 170, 0.16);
-          background: rgba(3, 6, 18, 0.92);
+            14px;
+          border-bottom: 1px solid
+            rgba(120, 130, 180, 0.18);
+          background: rgba(5, 8, 22, 0.96);
           backdrop-filter: blur(18px);
-          -webkit-backdrop-filter: blur(18px);
         }
 
         .brand {
           display: flex;
           align-items: center;
-          gap: 26px;
+          gap: 24px;
           min-width: 0;
         }
 
-        .brandIcon {
+        .flower {
           width: 110px;
           height: 110px;
-          flex: 0 0 110px;
+          flex-shrink: 0;
           display: grid;
           place-items: center;
           border-radius: 28px;
-          font-size: 58px;
-          background:
-            linear-gradient(
-              145deg,
-              rgba(33, 40, 72, 0.98),
-              rgba(17, 21, 43, 0.98)
-            );
-          border: 1px solid rgba(150, 160, 205, 0.24);
+          background: #151a32;
+          border: 2px solid
+            rgba(125, 135, 190, 0.28);
           box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.05),
-            0 10px 30px rgba(0, 0, 0, 0.24);
+            0 15px 40px rgba(0, 0, 0, 0.25),
+            inset 0 0 20px
+              rgba(120, 130, 255, 0.06);
+          font-size: 58px;
         }
 
-        .brandText {
-          min-width: 0;
-        }
-
-        .brandTitle {
-          font-size: 38px;
-          line-height: 1.05;
+        .title {
+          color: #fff;
+          font-size: 54px;
+          line-height: 1;
           font-weight: 800;
-          letter-spacing: -1.2px;
+          letter-spacing: -1.5px;
           white-space: nowrap;
         }
 
-        .brandTitle span {
-          margin-left: 4px;
+        .title span {
+          margin-left: 8px;
         }
 
         .online {
+          margin-top: 14px;
           display: flex;
           align-items: center;
-          gap: 10px;
-          margin-top: 12px;
-          font-size: 25px;
-          color: #9da2b6;
+          gap: 12px;
+          color: #9da3ba;
+          font-size: 29px;
         }
 
-        .onlineDot {
-          width: 18px;
-          height: 18px;
+        .online i {
+          width: 23px;
+          height: 23px;
           border-radius: 50%;
-          background: #4ee6a0;
+          background: #52e89a;
           box-shadow:
-            0 0 10px rgba(78, 230, 160, 0.7),
-            0 0 22px rgba(78, 230, 160, 0.28);
+            0 0 14px #52e89a;
         }
 
-        .sparkButton {
-          width: 92px;
-          height: 92px;
-          flex: 0 0 92px;
+        .spark {
+          width: 96px;
+          height: 96px;
+          flex-shrink: 0;
           border-radius: 50%;
-          border: 1px solid rgba(150, 160, 205, 0.25);
-          background: rgba(24, 30, 55, 0.82);
-          color: #b8baff;
-          font-size: 46px;
+          border: 2px solid
+            rgba(125, 135, 190, 0.24);
+          background: #151a32;
+          color: #aab0ff;
+          font-size: 48px;
           cursor: pointer;
           box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.05),
-            0 12px 30px rgba(0, 0, 0, 0.18);
+            0 12px 30px rgba(0, 0, 0, 0.22);
         }
 
-        .sparkButton:active {
-          transform: scale(0.96);
-        }
-
-        .chatArea {
-          flex: 1 1 auto;
+        .chat {
+          flex: 1;
           min-height: 0;
           overflow-y: auto;
           overflow-x: hidden;
           -webkit-overflow-scrolling: touch;
           scrollbar-width: thin;
-          scrollbar-color: rgba(110, 120, 160, 0.25)
-            transparent;
+          scrollbar-color: #303751 transparent;
         }
 
-        .chatInner {
+        .inner {
           width: 100%;
-          max-width: 900px;
+          max-width: 980px;
           margin: 0 auto;
-          padding: 28px 34px 28px;
+          padding: 44px 34px 30px;
         }
 
-        .messageRow {
+        .row {
           width: 100%;
           display: flex;
-          margin-bottom: 22px;
+          margin-bottom: 28px;
         }
 
-        .assistantRow {
+        .row.assistant {
           justify-content: flex-start;
         }
 
-        .userRow {
+        .row.user {
           justify-content: flex-end;
         }
 
         .bubble {
-          width: min(100%, 760px);
-          border-radius: 30px;
-          padding: 30px 34px;
+          border-radius: 34px;
+          overflow: hidden;
           overflow-wrap: anywhere;
         }
 
-        .assistantBubble {
+        .bubble.assistant {
+          width: 100%;
           background:
             linear-gradient(
               145deg,
-              rgba(27, 34, 58, 0.96),
-              rgba(14, 18, 33, 0.96)
+              #171d31,
+              #101525
             );
-          border: 1px solid rgba(130, 140, 180, 0.2);
+          border: 1px solid
+            rgba(102, 111, 155, 0.32);
+          padding: 38px 44px;
           box-shadow:
-            0 18px 40px rgba(0, 0, 0, 0.18),
-            inset 0 1px 0 rgba(255, 255, 255, 0.025);
+            0 20px 45px
+              rgba(0, 0, 0, 0.28),
+            inset 0 1px 0
+              rgba(255, 255, 255, 0.035);
         }
 
-        .userBubble {
-          max-width: 80%;
-          background:
-            linear-gradient(
-              145deg,
-              rgba(55, 54, 120, 0.95),
-              rgba(35, 33, 90, 0.95)
-            );
-          border: 1px solid rgba(145, 145, 230, 0.25);
+        .bubble.user {
+          width: auto;
+          max-width: 82%;
+          background: #252c48;
+          border: 1px solid
+            rgba(112, 122, 165, 0.34);
+          padding: 20px 25px;
         }
 
-        .messageTop {
+        .identity {
           display: flex;
           align-items: center;
-          gap: 16px;
-          margin-bottom: 26px;
+          gap: 20px;
+          margin-bottom: 28px;
         }
 
-        .userTop {
-          margin-bottom: 16px;
-        }
-
-        .miniIcon {
-          width: 72px;
-          height: 72px;
-          flex: 0 0 72px;
+        .mini {
+          width: 76px;
+          height: 76px;
+          flex-shrink: 0;
           display: grid;
           place-items: center;
-          border-radius: 20px;
-          background: #303656;
+          border-radius: 24px;
+          background: #303653;
+          font-size: 38px;
+        }
+
+        .identity b {
+          color: #aeb4ca;
           font-size: 37px;
-        }
-
-        .userMini {
-          font-size: 30px;
-        }
-
-        .miniName {
-          font-size: 29px;
           font-weight: 750;
-          color: #a7abc0;
         }
 
         .text {
-          font-size: 18px !important;
+          color: #f4f4f8;
+          font-size: 25px;
           line-height: 1.62;
-          white-space: normal;
-          color: #f5f6fb;
+          letter-spacing: -0.15px;
           overflow-wrap: anywhere;
         }
 
-        .text strong {
+        .user .text {
+          font-size: 20px;
+          line-height: 1.5;
+        }
+
+        .text p {
+          margin: 0 0 20px;
+        }
+
+        .text p:last-child {
+          margin-bottom: 0;
+        }
+
+        .text h3 {
+          margin: 28px 0 14px;
+          color: #fff;
+          font-size: 27px;
+          line-height: 1.35;
           font-weight: 800;
-          color: #ffffff;
+        }
+
+        .text h3:first-child {
+          margin-top: 0;
+        }
+
+        .text ul,
+        .text ol {
+          margin: 8px 0 22px;
+          padding-left: 32px;
+        }
+
+        .text li {
+          margin: 8px 0;
+          padding-left: 5px;
+        }
+
+        .text strong {
+          color: #fff;
+          font-weight: 800;
         }
 
         .text em {
-          font-style: italic;
+          color: #f0e7ff;
         }
 
         .text code {
-          padding: 2px 7px;
-          border-radius: 7px;
-          background: rgba(0, 0, 0, 0.28);
-          font-size: 0.9em;
+          padding: 3px 8px;
+          border-radius: 8px;
+          background: #080c18;
+          color: #c9cfff;
+          font-size: 0.88em;
         }
 
-        .messageLine {
-          min-height: 1.6em;
+        .space {
+          height: 12px;
         }
 
-        .messageHeading {
-          margin-top: 18px;
-          margin-bot
+        .listen {
+          margin-top: 24px;
+          padding: 13px 20px;
+          border-radius: 17px;
+          border: 1px solid
+            rgba(150, 160, 190, 0.22);
+          background: #262a39;
+          color: #b9becb;
+          font-size: 21px;
+          cursor: pointer;
+        }
+
+        .listen:active,
+        .quick button:active,
+        .send:active,
+        .spark:active {
+          transform: scale(0.97);
+        }
+
+        .quick {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 16px;
+          margin-top: 8px;
+          margin-bottom: 28px;
+        }
+
+        .quick button {
+          min-height: 70px;
+          padding: 12px 18px;
+          border-radius: 24px;
+          border: 1px solid
+            rgba(120, 130, 180, 0.28);
+          background: #151a32;
+          color: #aeb4ca;
+          font-size: 23px;
+          cursor: pointer;
+          text-align: left;
+        }
+
+        .quick button:last-child {
+          grid-column: 1 / 2;
+        }
+
+        .dots {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          width: fit-content;
+          padding: 16px 20px;
+          margin-bottom: 20px;
+          border-radius: 20px;
+          background: #171d31;
+          border: 1px solid
+            rgba(102, 111, 155, 0.25);
+        }
+
+        .dots i {
+          width: 9px;
+          height: 9px;
+          border-radius: 50%;
+          background: #aeb4ca;
+          animation: blink 1.2s infinite ease-in-out;
+        }
+
+        .dots i:nth-child(2) {
+          animation-delay: 0.15s;
+        }
+
+        .dots i:nth-child(3) {
+          animation-delay: 0.3s;
+        }
+
+        @keyframes blink {
+          0%,
+          70%,
+          100% {
+            opacity: 0.3;
+            transform: translateY(0);
+          }
+
+          35% {
+            opacity: 1;
+            transform: translateY(-4px);
+          }
+        }
+
+        .inputArea {
+          flex-shrink: 0;
+          width: 100%;
+          padding:
+            8px
+            24px
+            max(12px, env(safe-area-inset-bottom));
+          background: linear-gradient(
+            to top,
+            #02040b 70%,
+            rgba(2, 4, 11, 0)
+          );
+        }
+
+        .inputBox {
+          width: 100%;
+          max-width: 980px;
+          min-height: 110px;
+          margin: 0 auto;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px 12px 10px 18px;
+          border-radius: 34px;
+          border: 1px solid
+            rgba(105, 115, 165, 0.38);
+          background: #0e1223;
+          box-shadow:
+            0 20px 50px
+              rgba(0, 0, 0, 0.35),
+            inset 0 1px 0
+              rgba(255, 255, 255, 0.035);
+        }
+
+        .voice {
+          width: 52px;
+          height: 52px;
+          flex-shrink: 0;
+          border: 0;
+          background: transparent;
+          color: #b1b6c9;
+          font-size: 25px;
+          cursor: pointer;
+        }
+
+        .voice.active {
+          color: #ff7aa8;
+          filter: drop-shadow(
+            0 0 8px rgba(255, 100, 160, 0.7)
+          );
+        }
+
+        .inputBox input {
+          flex: 1;
+          min-width: 0;
+          height: 72px;
+          border: 0;
+          outline: 0;
+          background: transparent;
+          color: #fff;
+          font-size: 27px;
+        }
+
+        .inputBox input::placeholder {
+          color: #777d95;
+          opacity: 1;
+        }
+
+        .send {
+          width: 92px;
+          height: 92px;
+          flex-shrink: 0;
+          border: 0;
+          border-radius: 28px;
+          background: #252064;
+          color: #8e8baa;
+          font-size: 46px;
+          cursor: pointer;
+          transition:
+            transform 0.15s,
+            opacity 0.15s,
+            background 0.15s;
+        }
+
+        .send:not(:disabled) {
+          background: #30277b;
+          color: #a8a3ff;
+        }
+
+        .send:disabled {
+          opacity: 0.7;
+          cursor: default;
+        }
+
+        @media (max-width: 700px) {
+          .header {
+            padding-left: 34px;
+            padding-right: 34
+                padding-right: 34px;
+  }
+
+  .headerTitle {
+    font-size: 31px;
+  }
+
+  .headerLogo {
+    width: 92px;
+    height: 92px;
+  }
+
+  .headerSpark {
+    width: 92px;
+    height: 92px;
+    font-size: 43px;
+  }
+
+  .onlineText {
+    font-size: 25px;
+  }
+
+  .chatArea {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .chatInner {
+    padding: 38px 22px 24px;
+  }
+
+  .messageBubble {
+    max-width: 100%;
+    padding: 26px 22px;
+    border-radius: 30px;
+  }
+
+  .assistantBubble {
+    width: 100%;
+  }
+
+  .messageText {
+    font-size: 23px;
+    line-height: 1.62;
+  }
+
+  .userBubble {
+    max-width: 88%;
+    padding: 18px 20px;
+  }
+
+  .userText {
+    font-size: 19px;
+  }
+
+  .messageIdentity {
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .identityAvatar {
+    width: 66px;
+    height: 66px;
+    font-size: 31px;
+  }
+
+  .identityName {
+    font-size: 25px;
+  }
+
+  .quickActions {
+    gap: 12px;
+  }
+
+  .quickButton {
+    font-size: 17px;
+    padding: 13px 17px;
+  }
+
+  .inputArea {
+    padding: 10px 16px max(12px, env(safe-area-inset-bottom));
+  }
+
+  .inputBox {
+    min-height: 78px;
+    border-radius: 28px;
+  }
+
+  .input {
+    font-size: 20px;
+  }
+
+  .send {
+    width: 76px;
+    height: 76px;
+    border-radius: 24px;
+    font-size: 39px;
+  }
+
+  .listenButton {
+    padding: 14px 20px;
+    font-size: 19px;
+  }
+}
+
+@media (max-width: 480px) {
+  .header {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .headerLogo {
+    width: 82px;
+    height: 82px;
+    border-radius: 27px;
+  }
+
+  .headerTitle {
+    font-size: 28px;
+  }
+
+  .headerSpark {
+    width: 82px;
+    height: 82px;
+    border-radius: 50%;
+    font-size: 37px;
+  }
+
+  .onlineText {
+    font-size: 22px;
+  }
+
+  .chatInner {
+    padding: 28px 12px 20px;
+  }
+
+  .messageBubble {
+    padding: 22px 18px;
+    border-radius: 27px;
+  }
+
+  .messageText {
+    font-size: 21px;
+    line-height: 1.6;
+  }
+
+  .userBubble {
+    max-width: 90%;
+    padding: 16px 18px;
+  }
+
+  .userText {
+    font-size: 18px;
+  }
+
+  .identityAvatar {
+    width: 58px;
+    height: 58px;
+    font-size: 27px;
+  }
+
+  .identityName {
+    font-size: 22px;
+  }
+
+  .inputArea {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .inputBox {
+    min-height: 72px;
+    border-radius: 25px;
+  }
+
+  .input {
+    font-size: 18px;
+  }
+
+  .send {
+    width: 68px;
+    height: 68px;
+    border-radius: 22px;
+    font-size: 35px;
+  }
+}
+
+@media (max-height: 700px) {
+  .header {
+    min-height: 82px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .headerLogo,
+  .headerSpark {
+    width: 70px;
+    height: 70px;
+  }
+
+  .headerTitle {
+    font-size: 25px;
+  }
+
+  .onlineText {
+    font-size: 19px;
+  }
+
+  .chatInner {
+    padding-top: 20px;
+  }
+
+  .inputBox {
+    min-height: 66px;
+  }
+
+  .send {
+    width: 62px;
+    height: 62px;
+    font-size: 32px;
+  }
+}
+`}</style>
+    </>
+  );
+}
