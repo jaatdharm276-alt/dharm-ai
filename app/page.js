@@ -1154,8 +1154,7 @@ export default function Home() {
     height: 62px;
     font-size: 32px;
   }
-}
-`}</style>
+  '}></style>
     </>
   );
 }
