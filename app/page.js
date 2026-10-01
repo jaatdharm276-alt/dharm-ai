@@ -2,162 +2,68 @@
 
 import { useEffect, useRef, useState } from "react";
 
-function formatInline(text) {
-  const parts = [];
-  const regex = /(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g;
-
-  let lastIndex = 0;
-  let match;
-
-  while ((match = regex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(text.slice(lastIndex, match.index));
-    }
-
-    const value = match[0];
-
-    if (value.startsWith("**")) {
-      parts.push(
-        <strong key={parts.length}>
-          {value.slice(2, -2)}
-        </strong>
-      );
-    } else if (value.startsWith("`")) {
-      parts.push(
-        <code key={parts.length}>
-          {value.slice(1, -1)}
-        </code>
-      );
-    } else {
-      parts.push(
-        <em key={parts.length}>
-          {value.slice(1, -1)}
-        </em>
-      );
-    }
-
-    lastIndex = regex.lastIndex;
-  }
-
-  if (lastIndex < text.length) {
-    parts.push(text.slice(lastIndex));
-  }
-
-  return parts;
-}
-
-function formatMessage(text) {
+function formatText(text) {
   const lines = String(text || "").split("\n");
-  const result = [];
 
-  let listItems = [];
-  let listType = null;
-
-  const flushList = () => {
-    if (listItems.length === 0) return;
-
-    if (listType === "ol") {
-      result.push(
-        <ol key={`list-${result.length}`}>
-          {listItems.map((item, index) => (
-            <li key={index}>{formatInline(item)}</li>
-          ))}
-        </ol>
-      );
-    } else {
-      result.push(
-        <ul key={`list-${result.length}`}>
-          {listItems.map((item, index) => (
-            <li key={index}>{formatInline(item)}</li>
-          ))}
-        </ul>
-      );
-    }
-
-    listItems = [];
-    listType = null;
-  };
-
-  lines.forEach((line, index) => {
+  return lines.map((line, index) => {
     const trimmed = line.trim();
 
     if (!trimmed) {
-      flushList();
-      return;
+      return <div key={index} className="spaceLine" />;
     }
 
     if (trimmed.startsWith("### ")) {
-      flushList();
-
-      result.push(
-        <h3 key={`h3-${index}`}>
-          {formatInline(trimmed.replace(/^### /, ""))}
+      return (
+        <h3 key={index}>
+          {trimmed.replace("### ", "")}
         </h3>
       );
-
-      return;
     }
 
     if (trimmed.startsWith("## ")) {
-      flushList();
-
-      result.push(
-        <h2 key={`h2-${index}`}>
-          {formatInline(trimmed.replace(/^## /, ""))}
+      return (
+        <h2 key={index}>
+          {trimmed.replace("## ", "")}
         </h2>
       );
-
-      return;
     }
 
     if (trimmed.startsWith("# ")) {
-      flushList();
-
-      result.push(
-        <h1 key={`h1-${index}`}>
-          {formatInline(trimmed.replace(/^# /, ""))}
+      return (
+        <h1 key={index}>
+          {trimmed.replace("# ", "")}
         </h1>
       );
-
-      return;
     }
 
-    const bullet = trimmed.match(/^[-*•]\s+(.*)$/);
-
-    if (bullet) {
-      if (listType !== "ul") {
-        flushList();
-        listType = "ul";
-      }
-
-      listItems.push(bullet[1]);
-      return;
+    if (
+      trimmed.startsWith("- ") ||
+      trimmed.startsWith("* ") ||
+      trimmed.startsWith("• ")
+    ) {
+      return (
+        <div key={index} className="bullet">
+          <span>•</span>
+          <span>
+            {trimmed.replace(/^[-*•]\s*/, "")}
+          </span>
+        </div>
+      );
     }
 
-    const numbered = trimmed.match(/^\d+[.)]\s+(.*)$/);
+    const numbered = trimmed.match(/^(\d+)[.)]\s+(.*)$/);
 
     if (numbered) {
-      if (listType !== "ol") {
-        flushList();
-        listType = "ol";
-      }
-
-      listItems.push(numbered[1]);
-      return;
+      return (
+        <div key={index} className="numbered">
+          <span>{numbered[1]}.</span>
+          <span>{numbered[2]}</span>
+        </div>
+      );
     }
 
-    flushList();
-
-    result.push(
-      <p key={`p-${index}`}>
-        {formatInline(line)}
-      </p>
-    );
+    return <p key={index}>{line}</p>;
   });
-
-  flushList();
-
-  return result;
 }
 
 export default function Home() {
@@ -165,23 +71,22 @@ export default function Home() {
     {
       role: "assistant",
       content:
-        "Namaste 🙏\n\nMain Dharm AI hoon. Aap Bhagavad Gita, Ramayana, Mahabharata, puja, mantra, dharma ya spiritual life se jude sawaal pooch sakte ho."
+        "Namaste 🙏\n\nMain Dharm AI hoon. Aap Bhagavad Gita, Ramayana, Mahabharata, puja, mantra, dharma aur spiritual life se jude sawaal pooch sakte ho."
     }
   ]);
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [typing, setTyping] = useState(false);
   const [listening, setListening] = useState(false);
 
-  const bottomRef = useRef(null);
+  const chatEndRef = useRef(null);
   const recognitionRef = useRef(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({
+    chatEndRef.current?.scrollIntoView({
       behavior: "smooth"
     });
-  }, [messages, loading, typing]);
+  }, [messages, loading]);
 
   useEffect(() => {
     return () => {
@@ -191,19 +96,19 @@ export default function Home() {
     };
   }, []);
 
-  async function sendMessage(customMessage) {
+  async function sendMessage(text) {
     const message = String(
-      customMessage !== undefined ? customMessage : input
+      text !== undefined ? text : input
     ).trim();
 
-    if (!message || loading || typing) {
+    if (!message || loading) {
       return;
     }
 
     setInput("");
 
-    setMessages((previous) => [
-      ...previous,
+    setMessages((oldMessages) => [
+      ...oldMessages,
       {
         role: "user",
         content: message
@@ -219,7 +124,7 @@ export default function Home() {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          message
+          message: message
         })
       });
 
@@ -227,62 +132,34 @@ export default function Home() {
 
       if (!response.ok) {
         throw new Error(
-          data?.error || "Server se response nahi mila."
+          data?.error || "Server response nahi mila."
         );
       }
 
       const reply =
         data?.reply ||
-        "Maaf kijiye 🙏 Mujhe abhi response nahi mila.";
+        "Maaf kijiye 🙏 Abhi response nahi mila.";
 
-      setMessages((previous) => [
-        ...previous,
+      setMessages((oldMessages) => [
+        ...oldMessages,
         {
           role: "assistant",
-          content: ""
+          content: reply
         }
       ]);
-
-      setLoading(false);
-      setTyping(true);
-
-      let currentText = "";
-
-      for (let i = 0; i < reply.length; i++) {
-        currentText += reply[i];
-
-        const textNow = currentText;
-
-        setMessages((previous) => {
-          const updated = [...previous];
-
-          updated[updated.length - 1] = {
-            role: "assistant",
-            content: textNow
-          };
-
-          return updated;
-        });
-
-        await new Promise((resolve) => {
-          setTimeout(resolve, reply.length > 1200 ? 5 : 14);
-        });
-      }
-
-      setTyping(false);
     } catch (error) {
-      setLoading(false);
-      setTyping(false);
-
-      setMessages((previous) => [
-        ...previous,
+      setMessages((oldMessages) => [
+        ...oldMessages,
         {
           role: "assistant",
           content:
-            "Sorry 🙏\n\n" +
-            (error?.message || "Kuch galat ho gaya.")
+            "Maaf kijiye 🙏\n\n" +
+            (error?.message ||
+              "Kuch technical problem aa gayi.")
         }
       ]);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -297,7 +174,7 @@ export default function Home() {
 
     if (!SpeechRecognition) {
       alert(
-        "Is browser mein voice input supported nahi hai."
+        "Aapke browser mein voice input supported nahi hai."
       );
       return;
     }
@@ -326,7 +203,8 @@ export default function Home() {
         i < event.results.length;
         i++
       ) {
-        transcript += event.results[i][0].transcript;
+        transcript +=
+          event.results[i][0].transcript;
       }
 
       setInput(transcript);
@@ -349,7 +227,7 @@ export default function Home() {
     }
   }
 
-  function speakText(text) {
+  function speak(text) {
     if (
       typeof window === "undefined" ||
       !window.speechSynthesis
@@ -361,7 +239,7 @@ export default function Home() {
 
     const cleanText = String(text)
       .replace(/[#*`]/g, "")
-      .replace(/\n+/g, " ");
+      .replace(/\n/g, " ");
 
     const speech =
       new SpeechSynthesisUtterance(cleanText);
@@ -372,15 +250,15 @@ export default function Home() {
     window.speechSynthesis.speak(speech);
   }
 
-  function useQuickPrompt(text) {
-    setInput(text);
+  function quickQuestion(question) {
+    setInput(question);
 
     setTimeout(() => {
-      sendMessage(text);
+      sendMessage(question);
     }, 50);
   }
 
-  const quickPrompts = [
+  const quickQuestions = [
     "Bhagavad Gita ka saar batao",
     "Dharma kya hai?",
     "Hanuman ji ka mantra batao",
@@ -388,12 +266,12 @@ export default function Home() {
   ];
 
   return (
-    <main className="page">
+    <div className="page">
 
-      <div className="glow glowOne"></div>
-      <div className="glow glowTwo"></div>
+      <div className="backgroundGlow glow1"></div>
+      <div className="backgroundGlow glow2"></div>
 
-      <section className="app">
+      <div className="app">
 
         <header className="header">
 
@@ -403,33 +281,36 @@ export default function Home() {
               🌸
             </div>
 
-            <div>
-              <div className="title">
+            <div className="brandInfo">
+
+              <div className="brandName">
                 Dharm AI
               </div>
 
-              <div className="status">
+              <div className="online">
                 <span></span>
                 Online
               </div>
+
             </div>
 
           </div>
 
           <button
-            className="magicButton"
+            className="sparkButton"
             onClick={() =>
-              useQuickPrompt(
+              quickQuestion(
                 "Mujhe aaj ka ek shubh dharmik vichar batao"
               )
             }
+            aria-label="Quick question"
           >
             ✦
           </button>
 
         </header>
 
-        <section className="chatArea">
+        <main className="chatArea">
 
           <div className="chat">
 
@@ -439,8 +320,8 @@ export default function Home() {
                 key={index}
                 className={
                   message.role === "user"
-                    ? "messageRow userRow"
-                    : "messageRow assistantRow"
+                    ? "message userMessage"
+                    : "message assistantMessage"
                 }
               >
 
@@ -459,37 +340,27 @@ export default function Home() {
                 >
 
                   {message.role === "assistant" && (
-                    <div className="assistantName">
+                    <div className="assistantTitle">
                       <span>🌸</span>
                       <b>Dharm AI</b>
                     </div>
                   )}
 
-                  <div className="messageText">
-
-                    {message.content ? (
-                      formatMessage(message.content)
-                    ) : (
-                      <div className="typingDots">
-                        <i></i>
-                        <i></i>
-                        <i></i>
-                      </div>
-                    )}
-
+                  <div className="messageContent">
+                    {formatText(message.content)}
                   </div>
 
-                  {message.role === "assistant" &&
-                    message.content && (
-                      <button
-                        className="speakButton"
-                        onClick={() =>
-                          speakText(message.content)
-                        }
-                      >
-                        🔊
-                      </button>
-                    )}
+                  {message.role === "assistant" && (
+                    <button
+                      className="speakButton"
+                      onClick={() =>
+                        speak(message.content)
+                      }
+                      aria-label="Listen"
+                    >
+                      🔊
+                    </button>
+                  )}
 
                 </div>
 
@@ -498,7 +369,7 @@ export default function Home() {
             ))}
 
             {loading && (
-              <div className="messageRow assistantRow">
+              <div className="message assistantMessage">
 
                 <div className="avatar">
                   🌸
@@ -506,15 +377,15 @@ export default function Home() {
 
                 <div className="bubble assistantBubble">
 
-                  <div className="assistantName">
+                  <div className="assistantTitle">
                     <span>🌸</span>
                     <b>Dharm AI</b>
                   </div>
 
-                  <div className="typingDots">
-                    <i></i>
-                    <i></i>
-                    <i></i>
+                  <div className="typing">
+                    <span></span>
+                    <span></span>
+                    <span></span>
                   </div>
 
                 </div>
@@ -523,36 +394,34 @@ export default function Home() {
             )}
 
             {messages.length === 1 && !loading && (
-              <div className="quickArea">
+              <div className="quickQuestions">
 
-                {quickPrompts.map((prompt) => (
+                {quickQuestions.map((question) => (
                   <button
-                    key={prompt}
+                    key={question}
                     onClick={() =>
-                      useQuickPrompt(prompt)
+                      quickQuestion(question)
                     }
                   >
-                    {prompt}
+                    {question}
                   </button>
                 ))}
 
               </div>
             )}
 
-            <div ref={bottomRef}></div>
+            <div ref={chatEndRef}></div>
 
           </div>
 
-        </section>
+        </main>
 
-        <footer className="inputArea">
+        <footer className="bottomArea">
 
           <div className="inputBox">
 
             <textarea
               value={input}
-              rows={1}
-              placeholder="Dharm AI se kuch poochiye..."
               onChange={(event) =>
                 setInput(event.target.value)
               }
@@ -565,6 +434,8 @@ export default function Home() {
                   sendMessage();
                 }
               }}
+              placeholder="Dharm AI se kuch poochiye..."
+              rows={1}
             />
 
             <button
@@ -574,49 +445,45 @@ export default function Home() {
                   : "voiceButton"
               }
               onClick={startVoice}
+              aria-label="Voice"
             >
               🎙️
             </button>
 
             <button
               className="sendButton"
-              disabled={
-                !input.trim() ||
-                loading ||
-                typing
-              }
               onClick={() => sendMessage()}
+              disabled={
+                !input.trim() || loading
+              }
+              aria-label="Send"
             >
               ➤
             </button>
 
           </div>
 
-          <div className="footerText">
-            Dharm AI • स्टुडेंट ओर रिसर्च के लिये📄
-          </div>
-
         </footer>
 
-      </section>
+      </div>
 
       <style jsx global>{`
+
         * {
           box-sizing: border-box;
         }
 
         html,
         body {
-          margin: 0;
-          padding: 0;
           width: 100%;
           height: 100%;
+          margin: 0;
+          padding: 0;
         }
 
         body {
           overflow: hidden;
           background: #02040b;
-          color: white;
           font-family:
             Arial,
             "Noto Sans Devanagari",
@@ -633,91 +500,92 @@ export default function Home() {
         }
 
         .page {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100%;
-  height: 100svh;
-  min-height: 100svh;
-  overflow: hidden;
+          position: fixed;
+          inset: 0;
+          width: 100%;
+          height: 100dvh;
+          min-height: 0;
+          overflow: hidden;
           background:
             radial-gradient(
-              circle at 15% 0%,
-              rgba(96, 66, 190, 0.18),
+              circle at 10% 0%,
+              rgba(94, 65, 190, 0.18),
               transparent 30%
             ),
             radial-gradient(
               circle at 100% 100%,
               rgba(45, 75, 180, 0.14),
-              transparent 32%
+              transparent 35%
             ),
             #02040b;
         }
 
-        .glow {
+        .backgroundGlow {
           position: absolute;
           border-radius: 50%;
           pointer-events: none;
-          filter: blur(80px);
-          opacity: 0.2;
+          filter: blur(90px);
+          opacity: 0.18;
         }
 
-        .glowOne {
-          width: 260px;
-          height: 260px;
-          left: -100px;
-          top: -100px;
-          background: #754cff;
+        .glow1 {
+          width: 280px;
+          height: 280px;
+          left: -120px;
+          top: -120px;
+          background: #704cff;
         }
 
-        .glowTwo {
-          width: 300px;
-          height: 300px;
-          right: -130px;
-          bottom: -120px;
+        .glow2 {
+          width: 320px;
+          height: 320px;
+          right: -140px;
+          bottom: -140px;
           background: #315dff;
         }
 
         .app {
-          position: relative;
-          z-index: 20;
-          flex-shrink: 0;
+          position: absolute;
+          inset: 0;
+          z-index: 2;
           width: 100%;
           height: 100%;
+          min-height: 0;
           display: flex;
           flex-direction: column;
-          background: rgba(3, 5, 12, 0.76);
+          overflow: hidden;
+          background: rgba(3, 5, 12, 0.82);
         }
 
         .header {
+          position: relative;
+          z-index: 10;
           flex: 0 0 auto;
+          width: 100%;
+          height: 72px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding:
-            max(14px, env(safe-area-inset-top))
-            16px
-            13px;
+          padding: 8px 15px;
           border-bottom: 1px solid
             rgba(255, 255, 255, 0.07);
-          background: rgba(7, 9, 18, 0.92);
-          backdrop-filter: blur(20px);
+          background: rgba(7, 9, 18, 0.98);
         }
 
         .brand {
           display: flex;
           align-items: center;
-          gap: 11px;
+          gap: 10px;
+          min-width: 0;
         }
 
         .logo {
-          width: 46px;
-          height: 46px;
+          width: 45px;
+          height: 45px;
+          flex: 0 0 45px;
           display: grid;
           place-items: center;
-          border-radius: 15px;
+          border-radius: 14px;
           background:
             linear-gradient(
               145deg,
@@ -726,26 +594,30 @@ export default function Home() {
             );
           font-size: 23px;
           box-shadow:
-            0 8px 28px
-              rgba(100, 70, 200, 0.2);
+            0 8px 25px
+              rgba(95, 65, 190, 0.2);
         }
 
-        .title {
+        .brandInfo {
+          min-width: 0;
+        }
+
+        .brandName {
+          color: #ffffff;
           font-size: 21px;
           font-weight: 800;
-          letter-spacing: -0.3px;
         }
 
-        .status {
+        .online {
           display: flex;
           align-items: center;
           gap: 6px;
           margin-top: 3px;
-          color: #7d86a2;
+          color: #7f89a7;
           font-size: 12px;
         }
 
-        .status span {
+        .online span {
           width: 7px;
           height: 7px;
           border-radius: 50%;
@@ -753,53 +625,56 @@ export default function Home() {
           box-shadow: 0 0 10px #43e78d;
         }
 
-        .magicButton {
-          width: 45px;
-          height: 45px;
+        .sparkButton {
+          width: 44px;
+          height: 44px;
+          flex: 0 0 44px;
           border: 1px solid
-            rgba(150, 125, 255, 0.25);
+            rgba(156, 125, 255, 0.25);
           border-radius: 14px;
           background: #111526;
-          color: #ae96ff;
-          font-size: 23px;
+          color: #aa91ff;
+          font-size: 22px;
           cursor: pointer;
         }
 
         .chatArea {
-          flex: 1;
+          flex: 1 1 0;
           min-height: 0;
+          width: 100%;
           overflow-y: auto;
           overflow-x: hidden;
-          overscroll-behavior: contain;
           -webkit-overflow-scrolling: touch;
+          overscroll-behavior: contain;
         }
 
         .chat {
           width: 100%;
           max-width: 900px;
           margin: 0 auto;
-          padding: 20px 13px 18px;
+          padding: 18px 12px 18px;
         }
 
-        .messageRow {
+        .message {
           display: flex;
           align-items: flex-start;
           gap: 9px;
+          width: 100%;
           margin-bottom: 18px;
         }
 
-        .assistantRow {
+        .assistantMessage {
           justify-content: flex-start;
         }
 
-        .userRow {
+        .userMessage {
           justify-content: flex-end;
         }
 
         .avatar {
           width: 39px;
           height: 39px;
-          min-width: 39px;
+          flex: 0 0 39px;
           display: grid;
           place-items: center;
           border-radius: 13px;
@@ -808,140 +683,137 @@ export default function Home() {
         }
 
         .bubble {
-          max-width: min(86%, 760px);
+          max-width: min(88%, 760px);
+          padding: 16px 17px;
           border-radius: 22px;
-          padding: 16px 18px;
           overflow-wrap: anywhere;
         }
 
         .assistantBubble {
+          border: 1px solid
+            rgba(105, 114, 150, 0.23);
           background:
             linear-gradient(
               145deg,
               #171d31,
               #101524
             );
-          border: 1px solid
-            rgba(105, 114, 150, 0.23);
           box-shadow:
-            0 20px 45px
+            0 18px 40px
               rgba(0, 0, 0, 0.18);
         }
 
         .userBubble {
-          background: #252c48;
           border: 1px solid
             rgba(120, 130, 170, 0.2);
+          background: #252c48;
         }
 
-        .assistantName {
+        .assistantTitle {
           display: flex;
           align-items: center;
           gap: 8px;
           margin-bottom: 10px;
-          color: #b2b7ca;
+          color: #b4b9cc;
           font-size: 14px;
         }
 
-        .assistantName span {
+        .assistantTitle span {
           font-size: 20px;
         }
 
-        .messageText {
+        .messageContent {
           color: #f4f4f8;
           font-size: 16px;
-          line-height: 1.65;
+          line-height: 1.62;
         }
 
-        .messageText p {
+        .messageContent p {
           margin: 0 0 11px;
         }
 
-        .messageText p:last-child {
+        .messageContent p:last-child {
           margin-bottom: 0;
         }
 
-        .messageText h1,
-        .messageText h2,
-        .messageText h3 {
+        .messageContent h1,
+        .messageContent h2,
+        .messageContent h3 {
+          margin: 0 0 12px;
           color: #ffffff;
           line-height: 1.3;
-          margin:
-            0 0 12px;
         }
 
-        .messageText h1 {
+        .messageContent h1 {
           font-size: 24px;
         }
 
-        .messageText h2 {
+        .messageContent h2 {
           font-size: 21px;
         }
 
-        .messageText h3 {
+        .messageContent h3 {
           font-size: 19px;
         }
 
-        .messageText ul,
-        .messageText ol {
-          margin:
-            6px 0 13px;
-          padding-left: 24px;
+        .spaceLine {
+          height: 8px;
         }
 
-        .messageText li {
+        .bullet {
+          display: flex;
+          gap: 9px;
           margin: 6px 0;
         }
 
-        .messageText strong {
-          color: #ffffff;
+        .bullet span:first-child {
+          color: #a995ff;
           font-weight: 800;
         }
 
-        .messageText em {
-          color: #c9baff;
+        .numbered {
+          display: flex;
+          gap: 9px;
+          margin: 6px 0;
         }
 
-        .messageText code {
-          padding: 2px 6px;
-          border-radius: 6px;
-          background: #080b14;
-          color: #c6b8ff;
+        .numbered span:first-child {
+          color: #a995ff;
+          font-weight: 800;
         }
 
         .speakButton {
-          width: 36px;
-          height: 36px;
+          width: 37px;
+          height: 37px;
           margin-top: 11px;
           border: 0;
           border-radius: 11px;
           background: #20263b;
-          color: #bdc4df;
+          color: #bec5df;
           cursor: pointer;
         }
 
-        .typingDots {
+        .typing {
           display: flex;
           align-items: center;
           gap: 5px;
-          min-height: 22px;
+          height: 22px;
         }
 
-        .typingDots i {
-          display: block;
+        .typing span {
           width: 7px;
           height: 7px;
           border-radius: 50%;
-          background: #9885dc;
+          background: #9785dc;
           animation: typing 1.1s
             infinite ease-in-out;
         }
 
-        .typingDots i:nth-child(2) {
+        .typing span:nth-child(2) {
           animation-delay: 0.15s;
         }
 
-        .typingDots i:nth-child(3) {
+        .typing span:nth-child(3) {
           animation-delay: 0.3s;
         }
 
@@ -959,18 +831,18 @@ export default function Home() {
           }
         }
 
-        .quickArea {
+        .quickQuestions {
           display: grid;
           grid-template-columns:
             repeat(2, minmax(0, 1fr));
           gap: 9px;
-          margin:
-            5px 0 10px 48px;
+          width: 100%;
+          margin-top: 5px;
         }
 
-        .quickArea button {
-          min-height: 48px;
-          padding: 10px 12px;
+        .quickQuestions button {
+          min-height: 50px;
+          padding: 10px 13px;
           border: 1px solid
             rgba(125, 112, 190, 0.22);
           border-radius: 15px;
@@ -980,53 +852,52 @@ export default function Home() {
           cursor: pointer;
         }
 
-        .quickArea button:active {
+        .quickQuestions button:active {
           transform: scale(0.98);
         }
 
-        .inputArea {
+        .bottomArea {
+          position: relative;
+          z-index: 20;
           flex: 0 0 auto;
-          padding:
-            9px
-            12px
-            max(10px, env(safe-area-inset-bottom));
-          background:
-            linear-gradient(
-              180deg,
-              rgba(3, 5, 12, 0.75),
-              #03050c 45%
-            );
+          width: 100%;
+          padding: 8px 10px
+            max(8px, env(safe-area-inset-bottom));
+          background: #03050c;
+          border-top: 1px solid
+            rgba(255, 255, 255, 0.04);
         }
 
         .inputBox {
           display: flex;
           align-items: flex-end;
           gap: 7px;
-          min-height: 62px;
-          padding: 7px;
+          width: 100%;
+          min-height: 60px;
+          padding: 6px;
           border: 1px solid
             rgba(111, 120, 159, 0.25);
-          border-radius: 22px;
+          border-radius: 20px;
           background: #101422;
           box-shadow:
-            0 10px 35px
+            0 8px 30px
               rgba(0, 0, 0, 0.25);
         }
 
         textarea {
-          flex: 1;
+          flex: 1 1 auto;
+          width: 0;
           min-width: 0;
-          max-height: 120px;
+          height: 46px;
+          max-height: 100px;
           resize: none;
           outline: none;
           border: 0;
           background: transparent;
           color: #f5f5f8;
-          padding:
-            10px
-            7px;
+          padding: 11px 7px;
           font-size: 16px;
-          line-height: 1.45;
+          line-height: 1.4;
         }
 
         textarea::placeholder {
@@ -1035,11 +906,11 @@ export default function Home() {
 
         .voiceButton,
         .sendButton {
-          flex: 0 0 auto;
-          width: 47px;
-          height: 47px;
+          width: 46px;
+          height: 46px;
+          flex: 0 0 46px;
           border: 0;
-          border-radius: 15px;
+          border-radius: 14px;
           cursor: pointer;
         }
 
@@ -1055,83 +926,69 @@ export default function Home() {
         }
 
         .sendButton {
-          background: #28235e;
-          color: #c0b6ff;
-          font-size: 24px;
-        }
+          background: #292362;
+          color: #c2b8ff;
+             color: #c2b8ff;
+      font-size: 23px;
+    }
 
-        .sendButton:disabled {
-          opacity: 0.45;
-          cursor: default;
-        }
+    .sendButton:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
 
-        .footerText {
-          text-align: center;
-          color: #505875;
-          font-size: 10px;
-          padding-top: 6px;
-        }
+    @media (max-width: 600px) {
 
-        @media (max-width: 600px) {
-          .chat {
-            padding:
-              15px
-              10px
-              15px;
-          }
+      .header {
+        height: 70px;
+        padding: 7px 13px;
+      }
 
-          .bubble {
-            max-width: 90%;
-          }
+      .chat {
+        padding: 14px 9px 16px;
+      }
 
-          .messageText {
-            font-size: 16px;
-          }
+      .bubble {
+        max-width: 91%;
+      }
 
-          .quickArea {
-            margin-left: 0;
-          }
-        }
+      .quickQuestions {
+        grid-template-columns: 1fr;
+      }
 
-        @media (max-width: 430px) {
-          .title {
-            font-size: 20px;
-          }
+      .bottomArea {
+        padding-left: 8px;
+        padding-right: 8px;
+      }
 
-          .logo {
-            width: 44px;
-            height: 44px;
-          }
+    }
 
-          .magicButton {
-            width: 43px;
-            height: 43px;
-          }
+    @media (max-width: 380px) {
 
-          .bubble {
-            max-width: 91%;
-            padding:
-              15px
-              16px;
-          }
+      .brandName {
+        font-size: 19px;
+      }
 
-          .quickArea {
-            grid-template-columns: 1fr;
-          }
+      .logo {
+        width: 42px;
+        height: 42px;
+        flex-basis: 42px;
+      }
 
-          .inputBox {
-            min-height: 60px;
-            border-radius: 20px;
-          }
+      .sparkButton {
+        width: 42px;
+        height: 42px;
+        flex-basis: 42px;
+      }
 
-          .voiceButton,
-          .sendButton {
-            width: 45px;
-            height: 45px;
-          }
-        }
-      `}</style>
+      .messageContent {
+        font-size: 15px;
+      }
 
-    </main>
-  );
+    }
+
+  `}</style>
+
+</div>
+);
 }
