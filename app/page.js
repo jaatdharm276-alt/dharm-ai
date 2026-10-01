@@ -593,7 +593,7 @@ export default function Home() {
           </div>
 
           <div className="footerText">
-            Dharm AI • ज्ञान और धर्म के लिए 🙏
+            Dharm AI • स्टुडेंट ओर रिसर्च के लिये📄
           </div>
 
         </footer>
@@ -633,11 +633,15 @@ export default function Home() {
         }
 
         .page {
-          position: fixed;
-          inset: 0;
-          width: 100%;
-          height: 100dvh;
-          overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100svh;
+  min-height: 100svh;
+  overflow: hidden;
           background:
             radial-gradient(
               circle at 15% 0%,
@@ -678,7 +682,8 @@ export default function Home() {
 
         .app {
           position: relative;
-          z-index: 2;
+          z-index: 20;
+          flex-shrink: 0;
           width: 100%;
           height: 100%;
           display: flex;
