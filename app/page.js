@@ -57,12 +57,16 @@ function formatMessage(text) {
       return (
         <div key={index} className="bulletLine">
           <span className="bulletDot">•</span>
-          <span>{renderInline(trimmed.slice(2))}</span>
+          <span>
+            {renderInline(trimmed.slice(2))}
+          </span>
         </div>
       );
     }
 
-    const numbered = trimmed.match(/^(\d+)\.\s+(.*)/);
+    const numbered = trimmed.match(
+      /^(\d+)\.\s+(.*)/
+    );
 
     if (numbered) {
       return (
@@ -83,7 +87,9 @@ function formatMessage(text) {
         key={index}
         className="normalLine"
         style={{
-          minHeight: trimmed ? "1.5em" : "0.7em",
+          minHeight: trimmed
+            ? "1.45em"
+            : "0.6em",
         }}
       >
         {renderInline(line)}
@@ -199,23 +205,19 @@ export default function Home() {
         },
       ]);
 
-      let current = "";
-
       for (
         let i = 0;
         i < reply.length;
         i += 2
       ) {
-        current = reply.slice(
-          0,
-          i + 2
-        );
-
         setMessages([
           ...newMessages,
           {
             role: "assistant",
-            content: current,
+            content: reply.slice(
+              0,
+              i + 2
+            ),
           },
         ]);
 
@@ -244,21 +246,21 @@ export default function Home() {
   return (
     <main className="page">
 
-      {/* AMBIENT GLOW */}
+      {/* AMBIENT LIGHT */}
 
       <div className="ambient ambientBlue" />
       <div className="ambient ambientPurple" />
       <div className="ambient ambientCyan" />
 
-      {/* IPHONE FRAME */}
+      {/* IPHONE STYLE FRAME */}
 
       <div className="phoneFrame">
 
         {/* DYNAMIC ISLAND */}
 
         <div className="dynamicIsland">
-          <div className="cameraDot" />
           <div className="speakerLine" />
+          <div className="cameraDot" />
         </div>
 
         {/* TOP BAR */}
@@ -271,7 +273,8 @@ export default function Home() {
               🌸
             </div>
 
-            <div>
+            <div className="brandInfo">
+
               <div className="brandTitle">
                 Dharm AI
                 <span>✨</span>
@@ -281,45 +284,22 @@ export default function Home() {
                 <span className="onlineDot" />
                 Online
               </div>
+
             </div>
 
           </div>
 
-          <div className="topGlow">
+          <div className="topButton">
             ✦
           </div>
 
         </header>
 
-        {/* CHAT */}
+        {/* CHAT SCREEN */}
 
         <section className="chatScreen">
 
           <div className="messages">
-
-            {messages.length === 1 && (
-              <div className="welcomeCard">
-
-                <div className="welcomeGlow">
-                  🪷
-                </div>
-
-                <div className="welcomeTitle">
-                  Namaste 🙏
-                </div>
-
-                <div className="welcomeText">
-                  Main Dharm AI hoon.
-                  <br />
-                  Apna sawaal poochho.
-                </div>
-
-                <div className="welcomeLine">
-                  Wisdom in Every Question
-                </div>
-
-              </div>
-            )}
 
             {messages.map(
               (message, index) => {
@@ -382,7 +362,7 @@ export default function Home() {
               }
             )}
 
-            {/* LOADING */}
+            {/* AI THINKING */}
 
             {loading && (
               <div className="message aiMessage">
@@ -400,11 +380,9 @@ export default function Home() {
                 </div>
 
                 <div className="typing">
-
                   <span />
                   <span />
                   <span />
-
                 </div>
 
               </div>
@@ -459,7 +437,7 @@ export default function Home() {
 
         </section>
 
-        {/* HOME INDICATOR */}
+        {/* IPHONE HOME INDICATOR */}
 
         <div className="homeIndicator" />
 
@@ -467,32 +445,53 @@ export default function Home() {
 
       <style jsx>{`
 
+        :global(html),
+        :global(body) {
+          margin: 0;
+          padding: 0;
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+          background: #02030a;
+        }
+
+        :global(body) {
+          overscroll-behavior: none;
+        }
+
         * {
           box-sizing: border-box;
         }
 
         .page {
-          min-height: 100vh;
+          width: 100%;
+          height: 100dvh;
+
+          position: relative;
 
           display: flex;
           align-items: center;
           justify-content: center;
 
-          position: relative;
           overflow: hidden;
 
           background:
             radial-gradient(
-              circle at 20% 10%,
-              rgba(45, 110, 255, 0.25),
-              transparent 30%
-            ),
-            radial-gradient(
-              circle at 80% 40%,
-              rgba(130, 60, 255, 0.22),
+              circle at 10% 10%,
+              rgba(35, 110, 255, 0.28),
               transparent 32%
             ),
-            #030407;
+            radial-gradient(
+              circle at 90% 35%,
+              rgba(135, 50, 255, 0.25),
+              transparent 34%
+            ),
+            radial-gradient(
+              circle at 50% 100%,
+              rgba(0, 230, 210, 0.17),
+              transparent 38%
+            ),
+            #02040b;
 
           color: white;
 
@@ -505,7 +504,7 @@ export default function Home() {
             sans-serif;
         }
 
-        /* AMBIENT */
+        /* AMBIENT GLOW */
 
         .ambient {
           position: absolute;
@@ -531,31 +530,31 @@ export default function Home() {
           top: 5%;
 
           background:
-            rgba(30, 100, 255, 0.22);
+            rgba(30, 100, 255, 0.25);
         }
 
         .ambientPurple {
-          width: 320px;
-          height: 320px;
+          width: 330px;
+          height: 330px;
 
           right: -120px;
           top: 30%;
 
           background:
-            rgba(130, 60, 255, 0.18);
+            rgba(135, 50, 255, 0.2);
 
           animation-delay: 2s;
         }
 
         .ambientCyan {
-          width: 250px;
-          height: 250px;
+          width: 280px;
+          height: 280px;
 
-          bottom: -100px;
-          left: 40%;
+          bottom: -120px;
+          left: 35%;
 
           background:
-            rgba(0, 220, 255, 0.13);
+            rgba(0, 230, 220, 0.16);
 
           animation-delay: 4s;
         }
@@ -581,15 +580,15 @@ export default function Home() {
         .phoneFrame {
           width: min(
             430px,
-            calc(100vw - 24px)
+            100vw
           );
 
           height: min(
             900px,
-            calc(100vh - 24px)
+            100dvh
           );
 
-          min-height: 650px;
+          min-height: 600px;
 
           position: relative;
 
@@ -597,8 +596,6 @@ export default function Home() {
 
           display: flex;
           flex-direction: column;
-
-          border-radius: 48px;
 
           background:
             linear-gradient(
@@ -609,15 +606,17 @@ export default function Home() {
 
           border:
             1px solid
-            rgba(255,255,255,0.18);
+            rgba(255,255,255,0.17);
+
+          border-radius: 48px;
 
           box-shadow:
             0 0 0 1px
               rgba(255,255,255,0.03),
             0 30px 100px
-              rgba(0,0,0,0.6),
-            0 0 80px
-              rgba(70,100,255,0.13);
+              rgba(0,0,0,0.65),
+            0 0 100px
+              rgba(70,100,255,0.16);
 
           backdrop-filter: blur(30px);
           -webkit-backdrop-filter: blur(30px);
@@ -630,85 +629,88 @@ export default function Home() {
         .dynamicIsland {
           position: absolute;
 
-          z-index: 20;
+          z-index: 50;
 
-          top: 13px;
+          top: 11px;
           left: 50%;
 
           transform:
             translateX(-50%);
 
-          width: 125px;
-          height: 30px;
+          width: 126px;
+          height: 31px;
 
           border-radius: 20px;
 
           background:
-            rgba(0,0,0,0.88);
+            rgba(0,0,0,0.92);
 
           box-shadow:
-            0 4px 15px
-              rgba(0,0,0,0.45),
+            0 5px 18px
+              rgba(0,0,0,0.5),
             inset 0 1px 0
               rgba(255,255,255,0.04);
-        }
-
-        .cameraDot {
-          position: absolute;
-
-          width: 9px;
-          height: 9px;
-
-          border-radius: 50%;
-
-          right: 17px;
-          top: 10px;
-
-          background:
-            #111827;
-
-          border:
-            1px solid
-            rgba(120,160,255,0.25);
-
-          box-shadow:
-            inset 0 0 5px
-              rgba(50,100,255,0.5);
         }
 
         .speakerLine {
           position: absolute;
 
-          width: 42px;
+          left: 21px;
+          top: 13px;
+
+          width: 43px;
           height: 4px;
 
           border-radius: 10px;
 
-          left: 22px;
-          top: 13px;
+          background:
+            rgba(255,255,255,0.09);
+        }
+
+        .cameraDot {
+          position: absolute;
+
+          right: 17px;
+          top: 10px;
+
+          width: 10px;
+          height: 10px;
+
+          border-radius: 50%;
 
           background:
-            rgba(255,255,255,0.08);
+            #10141d;
+
+          border:
+            1px solid
+            rgba(100,150,255,0.3);
+
+          box-shadow:
+            inset 0 0 6px
+              rgba(50,100,255,0.55);
         }
 
         /* TOP BAR */
 
         .topBar {
-          min-height: 94px;
+          flex-shrink: 0;
+
+          height: 91px;
 
           padding:
-            45px 20px 12px;
+            43px 18px 9px;
 
           display: flex;
+
           align-items: center;
           justify-content: space-between;
 
+          background:
+            rgba(7,9,17,0.55);
+
           border-bottom:
             1px solid
-            rgba(255,255,255,0.06);
-
-          background:
-            rgba(10,10,16,0.4);
+            rgba(255,255,255,0.07);
 
           backdrop-filter: blur(25px);
           -webkit-backdrop-filter: blur(25px);
@@ -716,8 +718,10 @@ export default function Home() {
 
         .brand {
           display: flex;
+
           align-items: center;
-          gap: 11px;
+
+          gap: 10px;
         }
 
         .brandIcon {
@@ -725,6 +729,7 @@ export default function Home() {
           height: 40px;
 
           display: flex;
+
           align-items: center;
           justify-content: center;
 
@@ -735,34 +740,38 @@ export default function Home() {
 
           border:
             1px solid
-            rgba(255,255,255,0.1);
+            rgba(255,255,255,0.11);
 
           box-shadow:
             0 0 25px
-              rgba(90,100,255,0.22);
+              rgba(90,100,255,0.23);
 
           font-size: 21px;
         }
 
         .brandTitle {
           font-size: 18px;
-          font-weight: 750;
+
+          font-weight: 800;
+
           letter-spacing: -0.3px;
         }
 
         .brandTitle span {
-          margin-left: 4px;
+          margin-left: 3px;
         }
 
         .brandStatus {
-          margin-top: 3px;
-
           display: flex;
+
           align-items: center;
+
           gap: 5px;
 
+          margin-top: 2px;
+
           color:
-            rgba(255,255,255,0.42);
+            rgba(255,255,255,0.43);
 
           font-size: 10px;
         }
@@ -776,22 +785,20 @@ export default function Home() {
           background: #62e6a7;
 
           box-shadow:
-            0 0 8px
-              rgba(80,230,160,0.8);
+            0 0 9px
+              rgba(80,230,160,0.85);
         }
 
-        .topGlow {
+        .topButton {
           width: 34px;
           height: 34px;
 
           display: flex;
+
           align-items: center;
           justify-content: center;
 
           border-radius: 50%;
-
-          color:
-            rgba(170,185,255,0.75);
 
           background:
             rgba(255,255,255,0.045);
@@ -799,6 +806,9 @@ export default function Home() {
           border:
             1px solid
             rgba(255,255,255,0.08);
+
+          color:
+            rgba(175,190,255,0.8);
 
           animation:
             topPulse
@@ -823,7 +833,7 @@ export default function Home() {
           }
         }
 
-        /* CHAT */
+        /* CHAT SCREEN */
 
         .chatScreen {
           flex: 1;
@@ -834,7 +844,7 @@ export default function Home() {
           flex-direction: column;
 
           padding:
-            0 12px 10px;
+            0 11px 7px;
         }
 
         .messages {
@@ -845,33 +855,65 @@ export default function Home() {
           overflow-y: auto;
 
           padding:
-            14px 5px 14px;
+            13px 5px 13px;
 
           scrollbar-width: thin;
 
           scrollbar-color:
             rgba(255,255,255,0.12)
             transparent;
+
+          -webkit-overflow-scrolling: touch;
         }
 
-        /* WELCOME */
+        /* MESSAGE */
 
-        .welcomeCard {
-          min-height: 250px;
+        .message {
+          max-width: 87%;
 
-          margin:
-            6px 2px 22px;
+          margin-bottom: 14px;
 
-          padding: 30px 20px;
+          padding:
+            14px 16px;
 
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
+          border-radius: 23px;
 
-          text-align: center;
+          line-height: 1.62;
 
-          border-radius: 30px;
+          font-size: 16px;
+
+          overflow-wrap: anywhere;
+
+          animation:
+            messageIn
+            0.28s
+            ease;
+
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+        }
+
+        @keyframes messageIn {
+
+          from {
+            opacity: 0;
+
+            transform:
+              translateY(9px)
+              scale(0.98);
+          }
+
+          to {
+            opacity: 1;
+
+            transform:
+              translateY(0)
+              scale(1);
+          }
+        }
+
+        .aiMessage {
+          margin-right: auto;
 
           background:
             linear-gradient(
@@ -885,138 +927,10 @@ export default function Home() {
             rgba(255,255,255,0.1);
 
           box-shadow:
-            0 20px 50px
-              rgba(0,0,0,0.2),
+            0 12px 35px
+              rgba(0,0,0,0.16),
             inset 0 1px 0
-              rgba(255,255,255,0.08);
-
-          animation:
-            welcomePulse
-            4s
-            ease-in-out
-            infinite;
-        }
-
-        .welcomeGlow {
-          width: 76px;
-          height: 76px;
-
-          display: flex;
-          align-items: center;
-          justify-content: center;
-
-          margin-bottom: 20px;
-
-          border-radius: 25px;
-
-          font-size: 38px;
-
-          background:
-            linear-gradient(
-              145deg,
-              rgba(100,130,255,0.18),
-              rgba(170,70,255,0.12)
-            );
-
-          border:
-            1px solid
-            rgba(255,255,255,0.1);
-
-          box-shadow:
-            0 0 45px
-              rgba(80,100,255,0.18);
-        }
-
-        .welcomeTitle {
-          font-size: 27px;
-          font-weight: 800;
-
-          letter-spacing: -0.7px;
-        }
-
-        .welcomeText {
-          margin-top: 9px;
-
-          color:
-            rgba(255,255,255,0.62);
-
-          font-size: 14px;
-
-          line-height: 1.6;
-        }
-
-        .welcomeLine {
-          margin-top: 18px;
-
-          font-size: 10px;
-
-          color:
-            rgba(170,185,255,0.55);
-
-          letter-spacing: 1px;
-          text-transform: uppercase;
-        }
-
-        @keyframes welcomePulse {
-
-          0%,
-          100% {
-            transform: scale(1);
-
-            box-shadow:
-              0 0 35px
-              rgba(80,100,255,0.08);
-          }
-
-          50% {
-            transform: scale(1.01);
-
-            box-shadow:
-              0 0 50px
-              rgba(80,100,255,0.18);
-          }
-        }
-
-        /* MESSAGE */
-
-        .message {
-          max-width: 84%;
-
-          margin-bottom: 15px;
-
-          padding:
-            14px 16px;
-
-          border-radius: 23px;
-
-          line-height: 1.65;
-
-          font-size: 16px;
-
-          animation:
-            messageIn
-            0.3s
-            ease;
-
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-        }
-
-        @keyframes messageIn {
-
-          from {
-            opacity: 0;
-            transform:
-              translateY(8px)
-              scale(0.98);
-          }
-
-          to {
-            opacity: 1;
-            transform:
-              translateY(0)
-              scale(1);
-          }
+              rgba(255,255,255,0.04);
         }
 
         .userMessage {
@@ -1025,13 +939,133 @@ export default function Home() {
           background:
             linear-gradient(
               135deg,
-              rgba(50,120,255,0.3),
-              rgba(120,60,255,0.25)
+              rgba(45,125,255,0.34),
+              rgba(125,55,255,0.3)
             );
 
           border:
             1px solid
-            rgba(100,160,255,0.18);
+            rgba(100,160,255,0.2);
 
           box-shadow:
-       
+            0 12px 35px
+              rgba(40,90,255,0.12);
+        }
+
+        .messageHeader {
+          display: flex;
+
+          align-items: center;
+
+          gap: 8px;
+
+          margin-bottom: 7px;
+        }
+
+        .messageAvatar {
+          width: 25px;
+          height: 25px;
+
+          display: flex;
+
+          align-items: center;
+          justify-content: center;
+
+          border-radius: 8px;
+
+          background:
+            rgba(255,255,255,0.06);
+
+          font-size: 12px;
+        }
+
+        .messageName {
+          color:
+            rgba(255,255,255,0.5);
+
+          font-size: 11px;
+
+          font-weight: 750;
+        }
+
+        .messageText strong {
+          color: white;
+
+          font-weight: 800;
+        }
+
+        /* MARKDOWN */
+
+        .normalLine {
+          min-height: 1.45em;
+        }
+
+        .markdownH1 {
+          margin:
+            5px 0 10px;
+
+          font-size: 24px;
+
+          line-height: 1.3;
+
+          font-weight: 850;
+        }
+
+        .markdownH2 {
+          margin:
+            5px 0 9px;
+
+          font-size: 21px;
+
+          line-height: 1.3;
+
+          font-weight: 850;
+        }
+
+        .markdownH3 {
+          margin:
+            5px 0 8px;
+
+          font-size: 18px;
+
+          line-height: 1.35;
+
+          font-weight: 850;
+        }
+
+        .bulletLine {
+          display: flex;
+
+          gap: 8px;
+
+          margin: 4px 0;
+        }
+
+        .bulletDot {
+          color:
+            #9fb3ff;
+
+          font-size: 18px;
+        }
+
+        .numberedLine {
+          display: flex;
+
+          gap: 8px;
+
+          margin: 4px 0;
+        }
+
+        .numberDot {
+          min-width: 22px;
+
+          color:
+            #9fb3ff;
+
+          font-weight: 800;
+        }
+
+        /* LISTEN BUTTON */
+
+        .listenButton {
+          margin-top: 11px
