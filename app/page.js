@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -92,11 +93,6 @@ const suggestions = [
     title: "Study plan",
     prompt: "Mere liye ek daily study plan banao."
   },
-  {
-    icon: "✦",
-    title: "Image banao",
-    prompt: "Ek futuristic glowing purple robot ka cinematic image banao."
-  }
 ];
 
 export default function Home() {
@@ -104,14 +100,13 @@ export default function Home() {
     {
       role: "assistant",
       content:
-        "Namaste 🙏\n\nMain ORION AI hoon — aapka intelligent companion. Aap mujhse sawaal pooch sakte ho ya AI image banwa sakte ho."
+        "Namaste 🙏\n\nMain ORION AI hoon — aapka intelligent companion. Aap mujhse sawaal pooch sakte ho."
     }
   ]);
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
-  const [imageMode, setImageMode] = useState(false);
 
   const chatAreaRef = useRef(null);
   const shouldAutoScrollRef = useRef(true);
@@ -148,117 +143,65 @@ export default function Home() {
 
     if (!message || loading) return;
 
-    const generateImage = imageMode;
-
     shouldAutoScrollRef.current = true;
     setInput("");
     setLoading(true);
 
     setMessages((old) => [
       ...old,
-      {
-        role: "user",
-        content: message,
-        kind: generateImage ? "image-request" : "text"
-      }
+      { role: "user", content: message }
     ]);
 
     try {
-      if (generateImage) {
-        setMessages((old) => [
-          ...old,
-          {
-            role: "assistant",
-            content: "Aapki image ban rahi hai... 🎨",
-            kind: "image-loading"
-          }
-        ]);
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ message })
+      });
 
-        const response = await fetch("/api/generate-image", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ prompt: message })
-        });
+      const data = await response.json();
 
-        const data = await response.json();
+      if (!response.ok) {
+        throw new Error(
+          data?.error || "Server se response nahi mila."
+        );
+      }
 
-        if (!response.ok) {
-          throw new Error(
-            data?.error || "Image generate nahi ho payi."
-          );
-        }
+      const reply = String(
+        data?.reply || "Maaf kijiye 🙏 Abhi response nahi mila."
+      );
+
+      setMessages((old) => [
+        ...old,
+        { role: "assistant", content: "" }
+      ]);
+
+      const charactersPerStep = 3;
+      const typingDelay = 18;
+
+      for (let i = 0; i < reply.length; i += charactersPerStep) {
+        const visibleText = reply.slice(0, i + charactersPerStep);
 
         setMessages((old) => {
           const updated = [...old];
           const lastIndex = updated.length - 1;
+          const lastMessage = updated[lastIndex];
 
-          updated[lastIndex] = {
-            role: "assistant",
-            content: data.message || "Aapki image taiyar hai! ✨",
-            image: data.image,
-            kind: "image"
-          };
+          if (lastMessage?.role === "assistant") {
+            updated[lastIndex] = {
+              ...lastMessage,
+              content: visibleText
+            };
+          }
 
           return updated;
         });
 
-        setImageMode(false);
-      } else {
-        const response = await fetch("/api/chat", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ message })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            data?.error || "Server se response nahi mila."
-          );
-        }
-
-        const reply = String(
-          data?.reply || "Maaf kijiye 🙏 Abhi response nahi mila."
+        await new Promise((resolve) =>
+          setTimeout(resolve, typingDelay)
         );
-
-        setMessages((old) => [
-          ...old,
-          { role: "assistant", content: "" }
-        ]);
-
-        const charactersPerStep = 3;
-        const typingDelay = 18;
-
-        for (let i = 0; i < reply.length; i += charactersPerStep) {
-          const visibleText = reply.slice(0, i + charactersPerStep);
-
-          setMessages((old) => {
-            const updated = [...old];
-            const lastIndex = updated.length - 1;
-            const lastMessage = updated[lastIndex];
-
-            if (
-              lastMessage?.role === "assistant" &&
-              !lastMessage.image
-            ) {
-              updated[lastIndex] = {
-                ...lastMessage,
-                content: visibleText
-              };
-            }
-
-            return updated;
-          });
-
-          await new Promise((resolve) =>
-            setTimeout(resolve, typingDelay)
-          );
-        }
       }
     } catch (error) {
       setMessages((old) => [
@@ -403,6 +346,7 @@ export default function Home() {
                   fill="url(#orionGradient)"
                 />
               </svg>
+      
             </div>
 
             <div className="brandInfo">
@@ -455,31 +399,13 @@ export default function Home() {
                     </div>
                   )}
 
-                  {message.image && (
-                    <div className="generatedImageBox">
-                      <img
-                        src={message.image}
-                        alt="ORION AI generated image"
-                        className="generatedImage"
-                      />
-                      <a
-                        href={message.image}
-                        download={`orion-ai-${Date.now()}.png`}
-                        className="downloadImage"
-                      >
-                        ⬇ Image Download Karein
-                      </a>
-                    </div>
-                  )}
-
                   <div className="messageContent">
                     {formatText(message.content)}
                   </div>
 
                   {message.role === "assistant" &&
                     message.content &&
-                    !message.image &&
-                    message.kind !== "image-loading" && (
+                    (
                       <button
                         className="speakButton"
                         onClick={() => speak(message.content)}
@@ -496,9 +422,7 @@ export default function Home() {
             {loading && (
               <div className="loadingNote">
                 <span className="loadingDot" />
-                {imageMode
-                  ? "Image generate karne ke liye taiyar..."
-                  : "ORION AI jawab taiyar kar raha hai..."}
+                ORION AI jawab taiyar kar raha hai...
               </div>
             )}
 
@@ -513,14 +437,7 @@ export default function Home() {
                     <button
                       key={item.title}
                       className="suggestionChip"
-                      onClick={() => {
-                        if (item.title === "Image banao") {
-                          setImageMode(true);
-                          setInput(item.prompt);
-                        } else {
-                          sendMessage(item.prompt);
-                        }
-                      }}
+                      onClick={() => sendMessage(item.prompt)}
                     >
                       <span className="suggestionIcon">
                         {item.icon}
@@ -536,18 +453,6 @@ export default function Home() {
         </main>
 
         <footer className="bottomArea">
-          {imageMode && (
-            <div className="imageModeNotice">
-              <span>✦ Image Generation Mode ON</span>
-              <button
-                onClick={() => setImageMode(false)}
-                aria-label="Image mode band karein"
-              >
-                ✕
-              </button>
-            </div>
-          )}
-
           <div className="inputBox">
             <textarea
               value={input}
@@ -562,27 +467,10 @@ export default function Home() {
                   sendMessage();
                 }
               }}
-              placeholder={
-                imageMode
-                  ? "Kaisi image banani hai? Likho..."
-                  : "ORION AI se kuch poochiye..."
-              }
+              placeholder="ORION AI se kuch poochiye..."
               rows={1}
               aria-label="Message likhein"
             />
-
-            <button
-              className={
-                imageMode
-                  ? "imageButton imageButtonActive"
-                  : "imageButton"
-              }
-              onClick={() => setImageMode((old) => !old)}
-              title="AI image generation"
-              aria-label="Image mode toggle"
-            >
-              🎨
-            </button>
 
             <button
               className={
@@ -804,6 +692,7 @@ export default function Home() {
           height: 32px;
           flex: 0 0 32px;
           display: grid;
+                    
           place-items: center;
           border: 1px solid rgba(130, 140, 198, 0.2);
           border-radius: 11px;
@@ -904,39 +793,6 @@ export default function Home() {
           cursor: pointer;
         }
 
-        .generatedImageBox {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          width: 100%;
-          max-width: 500px;
-          margin: 8px 0 12px;
-        }
-
-        .generatedImage {
-          display: block;
-          width: 100%;
-          height: auto;
-          max-height: 650px;
-          object-fit: contain;
-          border: 1px solid rgba(166, 148, 255, 0.3);
-          border-radius: 13px;
-          background: #0b1020;
-        }
-
-        .downloadImage {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          padding: 10px 13px;
-          border: 1px solid rgba(153, 139, 255, 0.35);
-          border-radius: 11px;
-          background: #252044;
-          color: #e5dcff;
-          font-size: 12px;
-          text-decoration: none;
-        }
-
         .suggestions {
           margin: 1px 0 18px 40px;
           max-width: 680px;
@@ -1015,26 +871,6 @@ export default function Home() {
           background: #03050c;
         }
 
-        .imageModeNotice {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 7px;
-          padding: 7px 10px;
-          border: 1px solid rgba(153, 139, 255, 0.25);
-          border-radius: 10px;
-          background: #15132b;
-          color: #c9bcff;
-          font-size: 11px;
-        }
-
-        .imageModeNotice button {
-          border: 0;
-          background: transparent;
-          color: #c9bcff;
-          cursor: pointer;
-        }
-
         .inputBox {
           display: flex;
           align-items: flex-end;
@@ -1071,7 +907,6 @@ export default function Home() {
           color: #737b98;
         }
 
-        .imageButton,
         .voiceButton,
         .sendButton {
           width: 38px;
@@ -1082,17 +917,6 @@ export default function Home() {
           border: 0;
           border-radius: 11px;
           cursor: pointer;
-        }
-
-        .imageButton {
-          background: #191e30;
-          color: #b7a6ff;
-          font-size: 16px;
-        }
-
-        .imageButtonActive {
-          background: #372b65;
-          box-shadow: inset 0 0 0 1px #8c79ff;
         }
 
         .voiceButton {
@@ -1192,7 +1016,6 @@ export default function Home() {
             font-size: 10px;
           }
 
-          .imageButton,
           .voiceButton,
           .sendButton {
             width: 35px;
@@ -1212,4 +1035,4 @@ export default function Home() {
       `}</style>
     </div>
   );
-                      }
+}
