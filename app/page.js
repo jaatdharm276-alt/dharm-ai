@@ -75,21 +75,24 @@ export default function Home() {
   const chatAreaRef = useRef(null);
   const recognitionRef = useRef(null);
 
-  useEffect(() => {
-    const el = chatAreaRef.current;
-    if (!el) return;
+const shouldAutoScrollRef = useRef(true);
 
-    const frame = requestAnimationFrame(() => {
+useEffect(() => {
+  const el = chatAreaRef.current;
+  if (!el || !shouldAutoScrollRef.current) return;
+
+  const frame = requestAnimationFrame(() => {
+    if (shouldAutoScrollRef.current) {
       el.scrollTo({
         top: el.scrollHeight,
         behavior: "smooth"
       });
-    });
+    }
+  });
 
-    return () => cancelAnimationFrame(frame);
-  }, [messages, loading]);
-
-  useEffect(() => {
+  return () => cancelAnimationFrame(frame);
+}, [messages, loading]); 
+      useEffect(() => {
     return () => {
       recognitionRef.current?.stop();
       if (typeof window !== "undefined" && window.speechSynthesis) {
@@ -103,8 +106,8 @@ export default function Home() {
 
     if (!message || loading) return;
 
-    setInput("");
-    setMessages((old) => [
+shouldAutoScrollRef.current = true;
+setInput("");   setMessages((old) => [
       ...old,
       { role: "user", content: message }
     ]);
@@ -222,7 +225,17 @@ export default function Home() {
           </div>
         </header>
 
-        <main ref={chatAreaRef} className="chatArea">
+        <main
+  ref={chatAreaRef}
+  className="chatArea"
+  onScroll={(event) => {
+    const el = event.currentTarget;
+    const distanceFromBottom =
+      el.scrollHeight - el.scrollTop - el.clientHeight;
+
+    shouldAutoScrollRef.current = distanceFromBottom < 100;
+  }}
+>
           <div className="chat">
             {messages.map((message, index) => (
               <div
