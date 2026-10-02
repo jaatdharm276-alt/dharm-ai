@@ -6,138 +6,103 @@ export async function POST(req) {
 
     if (!question) {
       return Response.json(
-        { error: "Message is required." },
+        { error: "Message is required" },
         { status: 400 }
       );
     }
 
-    // India current date and time — no Gemini quota needed
-    const indiaTime = () =>
-      new Date().toLocaleString("en-IN", {
-        timeZone: "Asia/Kolkata",
-        dateStyle: "full",
-        timeStyle: "long",
-      });
+    // Current India date and time: Gemini ki zaroorat nahi
+    const now = new Date();
 
-    if (
-      /(current time|current date|date and time|what time is it|today'?s date|aaj ki date|aaj ka date|aaj ka time|abhi kitne baje|samay batao|date aur time|आज की तारीख|अभी कितने बजे)/i.test(
-        question
-      )
-    ) {
+    const currentIndiaTime = now.toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      dateStyle: "full",
+      timeStyle: "long",
+    });
+
+    const q = question.toLowerCase();
+
+    const dateTimeKeywords = [
+      "current time",
+      "current date",
+      "time and date",
+      "date and time",
+      "aaj ki date",
+      "aaj ka date",
+      "aaj ka time",
+      "abhi time",
+      "abhi ka time",
+      "abhi ki date",
+      "samay batao",
+      "kitne baje",
+      "today's date",
+      "today date",
+      "today time",
+      "what time is it",
+      "what is the date",
+      "what's the date",
+      "current india time",
+      "aaj ka din",
+    ];
+
+    const asksDateTime = dateTimeKeywords.some((word) =>
+      q.includes(word)
+    );
+
+    if (asksDateTime) {
       return Response.json({
         reply:
-          `India mein abhi date aur time:\n${indiaTime()}\n\nTime zone: Asia/Kolkata (IST)`,
+          "India mein abhi date aur time:\n\n" +
+          currentIndiaTime +
+          "\n\nTime zone: Asia/Kolkata (IST)",
         hasLiveSources: false,
       });
     }
 
-    // Live news via Google News RSS — does not use Gemini quota
-    if (
-      /(latest news|live news|today'?s news|breaking news|latest headlines|technology news|tech news|cricket news|political news|narendra modi.*news|news batao|taaza khabar|taaza news|aaj ki khabar|aaj ki news|ताज़ा खबर|ताजा खबर|आज की खबर|लेटेस्ट न्यूज़)/i.test(
-        question
-      )
-    ) {
-      const query = encodeURIComponent(question);
-      const rssUrl =
-        `https://news.google.com/rss/search?q=${query}&hl=hi&gl=IN&ceid=IN:hi`;
-
-      const rssResponse = await fetch(rssUrl, {
-        headers: { "User-Agent": "Mozilla/5.0 ORION-AI/1.0" },
-        signal: AbortSignal.timeout(12000),
-        cache: "no-store",
-      });
-
-      if (!rssResponse.ok) {
-        throw new Error("News feed request failed");
-      }
-
-      const xml = await rssResponse.text();
-
-      const decode = (value) =>
-        value
-          .replace(/<!\[CDATA\[(.*?)\]\]>/gs, "$1")
-          .replace(/&amp;/g, "&")
-          .replace(/&quot;/g, '"')
-          .replace(/&#39;/g, "'")
-          .replace(/&lt;/g, "<")
-          .replace(/&gt;/g, ">")
-          .replace(/&apos;/g, "'");
-
-      const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)]
-        .slice(0, 8)
-        .map((match) => {
-          const item = match[1];
-          const get = (tag) => {
-            const found = item.match(
-              new RegExp(`<${tag}[^>]*>([\\\\s\\\\S]*?)<\\\\/${tag}>`, "i")
-            );
-            return found ? decode(found[1].trim()) : "";
-          };
-
-          return {
-            title: get("title"),
-            link: get("link"),
-            date: get("pubDate"),
-            source: get("source"),
-          };
-        })
-        .filter((item) => item.title && item.link);
-
-      if (!items.length) {
-        return Response.json({
-          reply:
-            "Abhi is sawal ke liye news results nahi mile. Thodi der baad dobara try karein.",
-          hasLiveSources: false,
-        });
-      }
-
-      const reply =
-        `Google News se mili taaza headlines:\n\n` +
-        items
-          .map(
-            (item, i) =>
-              `${i + 1}. ${item.title}\n` +
-              (item.source ? `Source: ${item.source}\n` : "") +
-              (item.date ? `Date: ${item.date}\n` : "") +
-              `Link: ${item.link}`
-          )
-          .join("\n\n");
-
-      return Response.json({
-        reply,
-        hasLiveSources: true,
-      });
-    }
-
-    // Gemini for other questions, with Google Search grounding
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
       return Response.json(
-        { error: "Vercel Environment Variables mein GEMINI_API_KEY missing hai." },
+        {
+          error:
+            "GEMINI_API_KEY missing hai. Vercel Environment Variables mein API key add karein.",
+        },
         { status: 500 }
       );
     }
 
     const systemPrompt = `
-You are ORION AI, a helpful assistant.
-Current date and time in India: ${indiaTime()}.
-Reply in the user's preferred language, including Hindi and Hinglish.
-Use Google Search grounding for current facts whenever useful.
-Never invent current events, sources, or search results.
-If live search was not performed, be honest about it.
+You are ORION AI, an intelligent assistant.
+
+Current date and time in India:
+${currentIndiaTime}
+
+Rules:
+- Reply in the user's language, including Hindi and Hinglish.
+- For current date/time, use the supplied India time.
+- For latest news, current events, government announcements,
+  sports scores, prices, weather, technology updates, current
+  public information and other changing facts, use Google Search
+  grounding when relevant.
+- Search for recent information instead of relying only on memory.
+- Clearly mention dates when discussing news.
+- Never invent live information, search results, or sources.
+- If live information cannot be verified, explain that honestly.
+- Give a direct and useful answer.
 `;
 
+    // Current supported models; first try the economical model
     const models = [
       "gemini-3.5-flash-lite",
-      "gemini-3.5-flash",
+      "gemini-3.8-flash",
     ];
 
     let lastError = "";
+    let quotaError = false;
 
     for (const model of models) {
       try {
-        const apiResponse = await fetch(
+        const response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
           {
             method: "POST",
@@ -157,80 +122,105 @@ If live search was not performed, be honest about it.
               ],
               tools: [{ google_search: {} }],
               generationConfig: {
-                temperature: 0.7,
+                temperature: 0.6,
                 maxOutputTokens: 4096,
               },
             }),
-            signal: AbortSignal.timeout(45000),
           }
         );
 
-        const data = await apiResponse.json();
+        const data = await response.json();
 
-        if (!apiResponse.ok) {
-          lastError = data?.error?.message || `API error ${apiResponse.status}`;
-          console.error(`${model}:`, lastError);
+        if (!response.ok) {
+          lastError =
+            data?.error?.message ||
+            `Gemini API error (${response.status})`;
 
-          // Quota error usually affects the same project/key.
-          if (apiResponse.status === 429) break;
+          const status = data?.error?.status;
+          const isQuota =
+            response.status === 429 ||
+            status === "RESOURCE_EXHAUSTED";
+
+          if (isQuota) quotaError = true;
+
+          console.error(`${model} failed:`, lastError);
           continue;
         }
 
-        const candidate = data?.candidates?.[0];
-        let reply = (candidate?.content?.parts || [])
-          .map((part) => part.text || "")
-          .filter(Boolean)
-          .join("\n")
-          .trim();
+        let reply =
+          data?.candidates?.[0]?.content?.parts
+            ?.map((part) => part.text || "")
+            .filter(Boolean)
+            .join("\n")
+            .trim() || "";
 
         if (!reply) {
-          lastError = "Gemini returned an empty response.";
+          lastError = "Gemini se khaali response mila.";
           continue;
         }
 
+        // Search sources from Google's grounding metadata
         const chunks =
-          candidate?.groundingMetadata?.groundingChunks || [];
+          data?.candidates?.[0]?.groundingMetadata
+            ?.groundingChunks || [];
+
         const sources = [];
         const seen = new Set();
 
         for (const chunk of chunks) {
           const web = chunk?.web;
+
           if (web?.uri && !seen.has(web.uri)) {
             seen.add(web.uri);
-            sources.push(`- ${web.title || "Source"}: ${web.uri}`);
+            sources.push({
+              title: web.title || "Source",
+              url: web.uri,
+            });
           }
         }
 
         if (sources.length) {
-          reply += "\n\nSources:\n" + sources.join("\n");
+          reply += "\n\nSources:\n";
+          reply += sources
+            .map((source) => `- ${source.title}: ${source.url}`)
+            .join("\n");
         }
 
         return Response.json({
           reply,
           hasLiveSources: sources.length > 0,
+          sources,
         });
       } catch (error) {
         lastError = error?.message || "Unknown error";
-        console.error(`${model} request failed:`, lastError);
+        console.error(`${model} failed:`, lastError);
       }
+    }
+
+    if (quotaError) {
+      return Response.json(
+        {
+          error:
+            "Gemini API ki quota ya rate limit khatam ho gayi hai. Google AI Studio mein Usage aur Rate Limits check karein. Agar free quota available nahi hai, to quota reset hone ka wait karein ya billing enable karein. Is waqt live news verify nahi ho paayi.",
+        },
+        { status: 429 }
+      );
     }
 
     return Response.json(
       {
         error:
-          lastError.includes("quota") || lastError.includes("Quota")
-            ? "Gemini ki API quota khatam hai. Date/time aur Google News headlines alag se kaam kar sakte hain. Baaki AI answers ke liye quota reset ya billing check karein."
-            : `Gemini API se jawab nahi mila. ${lastError}`,
+          "Gemini se response nahi mila. API key, model access aur Vercel logs check karein. Details: " +
+          lastError,
       },
       { status: 503 }
     );
   } catch (error) {
-    console.error("ORION route error:", error);
+    console.error("Chat API error:", error);
 
     return Response.json(
-      { error: "Request fail hui. Internet check karke dobara try karein." },
+      { error: "Request process nahi ho saki. Dobara try karein." },
       { status: 500 }
     );
   }
-          }
-            
+                }
