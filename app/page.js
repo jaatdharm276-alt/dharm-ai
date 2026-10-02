@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -218,8 +217,7 @@ export default function Home() {
       setLoading(false);
     }
   }
-
-  function handleChatScroll(event) {
+    function handleChatScroll(event) {
     const el = event.currentTarget;
     const distanceFromBottom =
       el.scrollHeight - el.scrollTop - el.clientHeight;
@@ -346,7 +344,6 @@ export default function Home() {
                   fill="url(#orionGradient)"
                 />
               </svg>
-      
             </div>
 
             <div className="brandInfo">
@@ -366,7 +363,8 @@ export default function Home() {
             </div>
           </div>
         </header>
-          <main
+
+        <main
           ref={chatAreaRef}
           className="chatArea"
           onScroll={handleChatScroll}
@@ -451,7 +449,6 @@ export default function Home() {
             )}
           </div>
         </main>
-
         <footer className="bottomArea">
           <div className="inputBox">
             <textarea
@@ -501,31 +498,19 @@ export default function Home() {
       </div>
 
       <style jsx global>{`
-        * {
-          box-sizing: border-box;
-        }
-
-        html,
-        body {
+        * { box-sizing: border-box; }
+        html, body {
           width: 100%;
           height: 100%;
           margin: 0;
           padding: 0;
         }
-
         body {
           overflow: hidden;
-          background: #03050c;
+          background: #ffffff;
         }
-
-        button,
-        textarea {
-          font: inherit;
-        }
-
-        button {
-          -webkit-tap-highlight-color: transparent;
-        }
+        button, textarea { font: inherit; }
+        button { -webkit-tap-highlight-color: transparent; }
 
         .page {
           position: fixed;
@@ -534,14 +519,8 @@ export default function Home() {
           height: 100vh;
           height: 100dvh;
           overflow: hidden;
-          color: #f4f3ff;
-          background:
-            radial-gradient(
-              circle at 15% 5%,
-              rgba(70, 71, 150, 0.12),
-              transparent 30%
-            ),
-            #03050c;
+          color: #202437;
+          background: #ffffff;
         }
 
         .backgroundGlow {
@@ -551,20 +530,18 @@ export default function Home() {
           border-radius: 50%;
           pointer-events: none;
           filter: blur(85px);
-          opacity: 0.1;
+          opacity: 0.08;
           animation: orionGlow 8s ease-in-out infinite alternate;
         }
-
         .glowOne {
           left: -110px;
           top: -110px;
-          background: #725cff;
+          background: #9c8bff;
         }
-
         .glowTwo {
           right: -120px;
           bottom: -120px;
-          background: #365bff;
+          background: #76baff;
         }
 
         .app {
@@ -574,7 +551,7 @@ export default function Home() {
           flex-direction: column;
           min-height: 0;
           overflow: hidden;
-          background: rgba(3, 5, 12, 0.65);
+          background: rgba(255,255,255,0.92);
         }
 
         .header {
@@ -585,8 +562,8 @@ export default function Home() {
           display: flex;
           align-items: center;
           padding: 8px 13px;
-          border-bottom: 1px solid rgba(153, 155, 202, 0.13);
-          background: rgba(6, 8, 16, 0.98);
+          border-bottom: 1px solid #e8eaf2;
+          background: rgba(255,255,255,0.98);
         }
 
         .brand {
@@ -594,61 +571,49 @@ export default function Home() {
           align-items: center;
           gap: 10px;
         }
-
         .logo {
           width: 42px;
           height: 42px;
           flex: 0 0 42px;
           display: grid;
           place-items: center;
-          border: 1px solid rgba(151, 139, 255, 0.5);
+          border: 1px solid #dcd7ff;
           border-radius: 13px;
-          background: linear-gradient(145deg, #17182e, #0b1020);
-          box-shadow: 0 0 9px rgba(104, 126, 255, 0.15);
+          background: linear-gradient(145deg,#ffffff,#f1efff);
+          box-shadow: 0 2px 10px rgba(104,126,255,0.12);
         }
-
-        .logo svg {
-          width: 34px;
-          height: 34px;
-        }
+        .logo svg { width: 34px; height: 34px; }
 
         .brandName {
-          color: #f5f2ff;
+          color: #20213b;
           font-size: 19px;
           font-weight: 900;
           letter-spacing: 1.1px;
         }
-
-        .brandName span {
-          color: #b9b0ff;
-        }
-
+        .brandName span { color: #7665d9; }
         .brandTagline {
           margin-top: 3px;
-          color: #c5c6df;
+          color: #62677c;
           font-size: 10px;
         }
-
         .brandCredit {
           margin-top: 2px;
-          color: #958bbd;
+          color: #8379b2;
           font-size: 9px;
         }
-
         .online {
           display: flex;
           align-items: center;
           gap: 6px;
           margin-top: 3px;
-          color: #929ab3;
+          color: #747b8f;
           font-size: 11px;
         }
-
         .online span {
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          background: #43d991;
+          background: #25b978;
         }
 
         .chatArea {
@@ -660,9 +625,8 @@ export default function Home() {
           -webkit-overflow-scrolling: touch;
           overscroll-behavior: contain;
           scrollbar-width: thin;
-          scrollbar-color: #272c43 transparent;
+          scrollbar-color: #d7dbea transparent;
         }
-
         .chat {
           width: 100%;
           max-width: 850px;
@@ -678,45 +642,36 @@ export default function Home() {
           margin-bottom: 11px;
           animation: messageEnter 0.2s ease-out both;
         }
-
-        .assistantMessage {
-          justify-content: flex-start;
-        }
-
-        .userMessage {
-          justify-content: flex-end;
-        }
+        .assistantMessage { justify-content: flex-start; }
+        .userMessage { justify-content: flex-end; }
 
         .avatar {
           width: 32px;
           height: 32px;
           flex: 0 0 32px;
           display: grid;
-                    
           place-items: center;
-          border: 1px solid rgba(130, 140, 198, 0.2);
+          border: 1px solid #e0def7;
           border-radius: 11px;
-          background: #151a2b;
-          color: #b8a6ff;
+          background: #f3f1ff;
+          color: #7665d9;
         }
 
         .bubble {
           min-width: 0;
-          max-width: min(90%, 720px);
+          max-width: min(90%,720px);
           padding: 11px 13px;
           border-radius: 17px;
           overflow-wrap: anywhere;
         }
-
         .assistantBubble {
-          border: 1px solid rgba(105, 114, 150, 0.22);
-          background: linear-gradient(145deg, #171d31, #101524);
-          box-shadow: 0 5px 16px rgba(0, 0, 0, 0.12);
+          border: 1px solid #e7e9f1;
+          background: #f8f9fc;
+          box-shadow: 0 4px 14px rgba(30,40,80,0.04);
         }
-
         .userBubble {
-          border: 1px solid rgba(120, 130, 170, 0.22);
-          background: #252c48;
+          border: 1px solid #dedbfa;
+          background: #eeecff;
         }
 
         .assistantTitle {
@@ -724,63 +679,40 @@ export default function Home() {
           align-items: center;
           gap: 6px;
           margin-bottom: 7px;
-          color: #c3b8f1;
+          color: #6d60b6;
           font-size: 12px;
         }
-
         .assistantTitle span {
-          color: #b8a6ff;
+          color: #7665d9;
           font-size: 15px;
         }
 
         .messageContent {
-          color: #f1f1f7;
+          color: #25283a;
           font-size: 14px;
           line-height: 1.55;
           overflow-wrap: anywhere;
         }
-
-        .messageContent p {
-          margin: 0 0 8px;
-        }
-
-        .messageContent p:last-child {
-          margin-bottom: 0;
-        }
-
+        .messageContent p { margin: 0 0 8px; }
+        .messageContent p:last-child { margin-bottom: 0; }
         .messageContent h1,
         .messageContent h2,
         .messageContent h3 {
           margin: 0 0 8px;
-          color: #fff;
+          color: #202238;
           line-height: 1.35;
         }
-
-        .messageContent h1 {
-          font-size: 20px;
-        }
-
-        .messageContent h2 {
-          font-size: 18px;
-        }
-
-        .messageContent h3 {
-          font-size: 16px;
-        }
-
-        .spaceLine {
-          height: 5px;
-        }
+        .messageContent h1 { font-size: 20px; }
+        .messageContent h2 { font-size: 18px; }
+        .messageContent h3 { font-size: 16px; }
+        .spaceLine { height: 5px; }
 
         .textBullet {
           display: flex;
           gap: 7px;
           margin: 5px 0;
         }
-
-        .textBullet span:first-child {
-          color: #b5a1ff;
-        }
+        .textBullet span:first-child { color: #7665d9; }
 
         .speakButton {
           width: 29px;
@@ -788,8 +720,8 @@ export default function Home() {
           margin-top: 7px;
           border: 0;
           border-radius: 9px;
-          background: #20263b;
-          color: #bec5df;
+          background: #efeff8;
+          color: #60698a;
           cursor: pointer;
         }
 
@@ -797,66 +729,54 @@ export default function Home() {
           margin: 1px 0 18px 40px;
           max-width: 680px;
         }
-
         .suggestionHeading {
           margin: 5px 0 10px;
-          color: #858eaf;
+          color: #777e95;
           font-size: 9px;
           font-weight: 700;
           letter-spacing: 1px;
           text-align: center;
         }
-
         .suggestionGrid {
           display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          grid-template-columns: repeat(2,minmax(0,1fr));
           gap: 7px;
         }
-
         .suggestionChip {
           min-width: 0;
           display: flex;
           align-items: center;
           gap: 7px;
           padding: 10px 9px;
-          border: 1px solid rgba(127, 135, 190, 0.22);
+          border: 1px solid #e3e5f0;
           border-radius: 12px;
-          background: linear-gradient(145deg, #101526, #0b101c);
-          color: #d7daf0;
+          background: linear-gradient(145deg,#ffffff,#f8f8ff);
+          color: #34384f;
           font-size: 11px;
           text-align: left;
           cursor: pointer;
         }
-
         .suggestionIcon {
-          color: #b9adff;
+          color: #7665d9;
           font-size: 15px;
         }
-
-        .suggestionText {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .suggestionArrow {
-          color: #8278bd;
-        }
+        .suggestionText { flex: 1; min-width: 0; }
+        .suggestionArrow { color: #8278bd; }
 
         .loadingNote {
           display: flex;
           align-items: center;
           gap: 8px;
           margin: 10px 0 12px 40px;
-          color: #b9adff;
+          color: #7665d9;
           font-size: 12px;
         }
-
         .loadingDot {
           width: 7px;
           height: 7px;
           border-radius: 50%;
-          background: #b9adff;
-          box-shadow: 0 0 12px #8875ff;
+          background: #8875ff;
+          box-shadow: 0 0 8px rgba(136,117,255,0.3);
           animation: typing 1s infinite alternate;
         }
 
@@ -866,11 +786,10 @@ export default function Home() {
           flex: 0 0 auto;
           width: 100%;
           padding: 7px 9px;
-          padding-bottom: max(7px, env(safe-area-inset-bottom));
-          border-top: 1px solid rgba(255, 255, 255, 0.05);
-          background: #03050c;
+          padding-bottom: max(7px,env(safe-area-inset-bottom));
+          border-top: 1px solid #eceef4;
+          background: #ffffff;
         }
-
         .inputBox {
           display: flex;
           align-items: flex-end;
@@ -878,15 +797,14 @@ export default function Home() {
           width: 100%;
           min-height: 52px;
           padding: 5px;
-          border: 1px solid rgba(111, 120, 159, 0.25);
+          border: 1px solid #dfe2ed;
           border-radius: 17px;
-          background: #101422;
+          background: #f8f9fc;
         }
-
         .inputBox:focus-within {
-          border-color: rgba(157, 127, 255, 0.45);
+          border-color: #a99cf0;
+          box-shadow: 0 0 0 2px rgba(157,127,255,0.08);
         }
-
         .inputBox textarea {
           flex: 1 1 auto;
           width: 0;
@@ -897,15 +815,12 @@ export default function Home() {
           outline: none;
           border: 0;
           background: transparent;
-          color: #f5f5f8;
+          color: #24283a;
           padding: 9px 7px;
           font-size: 14px;
           line-height: 1.4;
         }
-
-        .inputBox textarea::placeholder {
-          color: #737b98;
-        }
+        .inputBox textarea::placeholder { color: #9298ab; }
 
         .voiceButton,
         .sendButton {
@@ -918,24 +833,20 @@ export default function Home() {
           border-radius: 11px;
           cursor: pointer;
         }
-
         .voiceButton {
-          background: #191e30;
-          color: #a0a8c7;
+          background: #efeff8;
+          color: #69708b;
           font-size: 16px;
         }
-
         .voiceButton.active {
-          background: #30223d;
-          color: #ffb1df;
+          background: #fceaf5;
+          color: #c34c96;
         }
-
         .sendButton {
-          background: linear-gradient(135deg, #44358e, #292362);
-          color: #e0d9ff;
+          background: linear-gradient(135deg,#7665d9,#6555c5);
+          color: #ffffff;
           font-size: 21px;
         }
-
         .sendButton:disabled {
           opacity: 0.42;
           cursor: default;
@@ -943,7 +854,7 @@ export default function Home() {
 
         .footerCredit {
           padding-top: 6px;
-          color: #68718d;
+          color: #8b91a4;
           text-align: center;
           font-size: 9px;
           letter-spacing: 0.25px;
@@ -959,15 +870,19 @@ export default function Home() {
             transform: translateY(0);
           }
         }
-
         @keyframes orionGlow {
-          from { opacity: 0.07; }
-          to { opacity: 0.13; }
+          from { opacity: 0.04; }
+          to { opacity: 0.1; }
         }
-
         @keyframes typing {
-          from { opacity: 0.35; transform: scale(0.9); }
-          to { opacity: 1; transform: scale(1.1); }
+          from {
+            opacity: 0.35;
+            transform: scale(0.9);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1.1);
+          }
         }
 
         @media (max-width: 380px) {
@@ -975,47 +890,25 @@ export default function Home() {
             min-height: 68px;
             padding: 7px 10px;
           }
-
-          .brandName {
-            font-size: 17px;
-          }
-
-          .brandTagline {
-            font-size: 9px;
-          }
-
-          .brandCredit {
-            font-size: 8px;
-          }
-
+          .brandName { font-size: 17px; }
+          .brandTagline { font-size: 9px; }
+          .brandCredit { font-size: 8px; }
           .logo {
             width: 38px;
             height: 38px;
             flex-basis: 38px;
           }
-
           .logo svg {
             width: 31px;
             height: 31px;
           }
-
-          .messageContent {
-            font-size: 13px;
-          }
-
-          .suggestions {
-            margin-left: 39px;
-          }
-
-          .suggestionGrid {
-            gap: 6px;
-          }
-
+          .messageContent { font-size: 13px; }
+          .suggestions { margin-left: 39px; }
+          .suggestionGrid { gap: 6px; }
           .suggestionChip {
             padding: 8px 7px;
             font-size: 10px;
           }
-
           .voiceButton,
           .sendButton {
             width: 35px;
@@ -1024,9 +917,7 @@ export default function Home() {
         }
 
         @media (prefers-reduced-motion: reduce) {
-          *,
-          *::before,
-          *::after {
+          *,*::before,*::after {
             animation-duration: 0.01ms !important;
             animation-iteration-count: 1 !important;
             transition-duration: 0.01ms !important;
