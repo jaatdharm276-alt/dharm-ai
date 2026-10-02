@@ -30,18 +30,20 @@ function formatText(text) {
         return <div key={i} className="spaceLine" />;
       }
 
-      const heading = trimmed.match(/^(#{1,3})\s+(.*)$/);
+const heading = trimmed.match(/^(#{1,6})\s+(.*)$/);
 
-      if (heading) {
-        const Tag =
-          heading[1].length === 1
-            ? "h1"
-            : heading[1].length === 2
-              ? "h2"
-              : "h3";
+if (heading) {
+  const Tag =
+    heading[1].length === 1
+      ? "h1"
+      : heading[1].length === 2
+        ? "h2"
+        : "h3";
 
-        return <Tag key={i}>{renderInline(heading[2])}</Tag>;
-      }
+  return <Tag key={i}>{renderInline(heading[2])}</Tag>;
+}
+      
+    
 
       const bullet = trimmed.match(/^[-*•]\s+(.*)$/);
 
