@@ -8,11 +8,19 @@ function renderInline(text) {
   );
 
   return parts.map((part, i) => {
-    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+    if (
+      part.startsWith("**") &&
+      part.endsWith("**") &&
+      part.length > 4
+    ) {
       return <strong key={i}>{part.slice(2, -2)}</strong>;
     }
 
-    if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
+    if (
+      part.startsWith("*") &&
+      part.endsWith("*") &&
+      part.length > 2
+    ) {
       return <em key={i}>{part.slice(1, -1)}</em>;
     }
 
@@ -30,20 +38,18 @@ function formatText(text) {
         return <div key={i} className="spaceLine" />;
       }
 
-const heading = trimmed.match(/^(#{1,6})\s+(.*)$/);
+      const heading = trimmed.match(/^(#{1,6})\s+(.*)$/);
 
-if (heading) {
-  const Tag =
-    heading[1].length === 1
-      ? "h1"
-      : heading[1].length === 2
-        ? "h2"
-        : "h3";
+      if (heading) {
+        const Tag =
+          heading[1].length === 1
+            ? "h1"
+            : heading[1].length === 2
+              ? "h2"
+              : "h3";
 
-  return <Tag key={i}>{renderInline(heading[2])}</Tag>;
-}
-      
-    
+        return <Tag key={i}>{renderInline(heading[2])}</Tag>;
+      }
 
       const bullet = trimmed.match(/^[-*•]\s+(.*)$/);
 
@@ -74,7 +80,7 @@ const suggestions = [
   {
     icon: "✎",
     title: "Padhai mein help",
-    prompt: "Mujhe kisi bhi topic ko aasan bhasha mein samjhao."
+    prompt: "Mujhe kisi topic ko aasan bhasha mein samjhao."
   },
   {
     icon: "⌘",
@@ -88,8 +94,8 @@ const suggestions = [
   },
   {
     icon: "✦",
-    title: "Creative ideas",
-    prompt: "Mujhe kuch naye aur creative ideas do."
+    title: "Image banao",
+    prompt: "Ek futuristic glowing purple robot ka cinematic image banao."
   }
 ];
 
@@ -98,20 +104,19 @@ export default function Home() {
     {
       role: "assistant",
       content:
-        "Namaste 🙏\n\nMain ORION AI hoon — aapka intelligent companion. Aap mujhse kisi bhi topic par sawaal pooch sakte ho."
+        "Namaste 🙏\n\nMain ORION AI hoon — aapka intelligent companion. Aap mujhse sawaal pooch sakte ho ya AI image banwa sakte ho."
     }
   ]);
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
+  const [imageMode, setImageMode] = useState(false);
 
   const chatAreaRef = useRef(null);
   const shouldAutoScrollRef = useRef(true);
   const recognitionRef = useRef(null);
-  const touchStartYRef = useRef(null);
 
-  // User neeche ho tabhi jawab ke saath scroll kare.
   useEffect(() => {
     const el = chatAreaRef.current;
 
@@ -137,69 +142,123 @@ export default function Home() {
   }, []);
 
   async function sendMessage(text) {
-    const message = String(text !== undefined ? text : input).trim();
+    const message = String(
+      text !== undefined ? text : input
+    ).trim();
 
     if (!message || loading) return;
 
+    const generateImage = imageMode;
+
     shouldAutoScrollRef.current = true;
     setInput("");
+    setLoading(true);
 
     setMessages((old) => [
       ...old,
-      { role: "user", content: message }
+      {
+        role: "user",
+        content: message,
+        kind: generateImage ? "image-request" : "text"
+      }
     ]);
 
-    setLoading(true);
-
     try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ message })
-      });
+      if (generateImage) {
+        setMessages((old) => [
+          ...old,
+          {
+            role: "assistant",
+            content: "Aapki image ban rahi hai... 🎨",
+            kind: "image-loading"
+          }
+        ]);
 
-      const data = await response.json();
+        const response = await fetch("/api/generate-image", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ prompt: message })
+        });
 
-      if (!response.ok) {
-        throw new Error(
-          data?.error || "Server se response nahi mila."
-        );
-      }
+        const data = await response.json();
 
-      const reply = String(
-        data?.reply || "Maaf kijiye 🙏 Abhi response nahi mila."
-      );
-
-      setMessages((old) => [
-        ...old,
-        { role: "assistant", content: "" }
-      ]);
-
-      // Jawab dheere-dheere likhega.
-      const charactersPerStep = 3;
-      const typingDelay = 18;
-
-      for (let i = 0; i < reply.length; i += charactersPerStep) {
-        const visibleText = reply.slice(0, i + charactersPerStep);
+        if (!response.ok) {
+          throw new Error(
+            data?.error || "Image generate nahi ho payi."
+          );
+        }
 
         setMessages((old) => {
           const updated = [...old];
           const lastIndex = updated.length - 1;
-          const lastMessage = updated[lastIndex];
 
-          if (lastMessage?.role === "assistant") {
-            updated[lastIndex] = {
-              ...lastMessage,
-              content: visibleText
-            };
-          }
+          updated[lastIndex] = {
+            role: "assistant",
+            content: data.message || "Aapki image taiyar hai! ✨",
+            image: data.image,
+            kind: "image"
+          };
 
           return updated;
         });
 
-        await new Promise((resolve) => setTimeout(resolve, typingDelay));
+        setImageMode(false);
+      } else {
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ message })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data?.error || "Server se response nahi mila."
+          );
+        }
+
+        const reply = String(
+          data?.reply || "Maaf kijiye 🙏 Abhi response nahi mila."
+        );
+
+        setMessages((old) => [
+          ...old,
+          { role: "assistant", content: "" }
+        ]);
+
+        const charactersPerStep = 3;
+        const typingDelay = 18;
+
+        for (let i = 0; i < reply.length; i += charactersPerStep) {
+          const visibleText = reply.slice(0, i + charactersPerStep);
+
+          setMessages((old) => {
+            const updated = [...old];
+            const lastIndex = updated.length - 1;
+            const lastMessage = updated[lastIndex];
+
+            if (
+              lastMessage?.role === "assistant" &&
+              !lastMessage.image
+            ) {
+              updated[lastIndex] = {
+                ...lastMessage,
+                content: visibleText
+              };
+            }
+
+            return updated;
+          });
+
+          await new Promise((resolve) =>
+            setTimeout(resolve, typingDelay)
+          );
+        }
       }
     } catch (error) {
       setMessages((old) => [
@@ -219,41 +278,14 @@ export default function Home() {
 
   function handleChatScroll(event) {
     const el = event.currentTarget;
-
     const distanceFromBottom =
       el.scrollHeight - el.scrollTop - el.clientHeight;
 
-    // Neeche aane par auto-scroll phir chalu hoga.
     if (distanceFromBottom <= 24) {
       shouldAutoScrollRef.current = true;
     } else if (distanceFromBottom > 48) {
       shouldAutoScrollRef.current = false;
     }
-  }
-
-  function handleChatWheel(event) {
-    if (event.deltaY < 0) {
-      shouldAutoScrollRef.current = false;
-    }
-  }
-
-  function handleChatTouchStart(event) {
-    touchStartYRef.current = event.touches?.[0]?.clientY ?? null;
-  }
-
-  function handleChatTouchMove(event) {
-    const currentY = event.touches?.[0]?.clientY;
-    const startY = touchStartYRef.current;
-
-    if (
-      startY !== null &&
-      currentY !== undefined &&
-      currentY > startY + 6
-    ) {
-      shouldAutoScrollRef.current = false;
-    }
-
-    touchStartYRef.current = currentY ?? startY;
   }
 
   function startVoice() {
@@ -275,7 +307,6 @@ export default function Home() {
     }
 
     const recognition = new SpeechRecognition();
-
     recognition.lang = "hi-IN";
     recognition.continuous = false;
     recognition.interimResults = true;
@@ -314,7 +345,7 @@ export default function Home() {
     window.speechSynthesis.cancel();
 
     const cleanText = String(text)
-      .replace(/#{1,3}\s/g, "")
+      .replace(/#{1,6}\s/g, "")
       .replace(/\*\*/g, "")
       .replace(/`/g, "")
       .replace(/\n/g, " ");
@@ -335,11 +366,7 @@ export default function Home() {
         <header className="header">
           <div className="brand">
             <div className="logo">
-              <svg
-                viewBox="0 0 100 100"
-                role="img"
-                aria-label="ORION AI logo"
-              >
+              <svg viewBox="0 0 100 100" aria-label="ORION AI logo">
                 <defs>
                   <linearGradient
                     id="orionGradient"
@@ -353,7 +380,6 @@ export default function Home() {
                     <stop offset="100%" stopColor="#e4a5ff" />
                   </linearGradient>
                 </defs>
-
                 <ellipse
                   cx="50"
                   cy="50"
@@ -364,7 +390,6 @@ export default function Home() {
                   strokeWidth="3"
                   transform="rotate(-35 50 50)"
                 />
-
                 <circle
                   cx="50"
                   cy="50"
@@ -373,7 +398,6 @@ export default function Home() {
                   stroke="url(#orionGradient)"
                   strokeWidth="2.5"
                 />
-
                 <path
                   d="M50 32 L56 44 L68 50 L56 56 L50 68 L44 56 L32 50 L44 44 Z"
                   fill="url(#orionGradient)"
@@ -385,15 +409,12 @@ export default function Home() {
               <div className="brandName">
                 ORION <span>AI</span>
               </div>
-
               <div className="brandTagline">
                 Your Intelligent Companion
               </div>
-
               <div className="brandCredit">
                 Powered by Dharm AI
               </div>
-
               <div className="online">
                 <span />
                 Online
@@ -401,16 +422,12 @@ export default function Home() {
             </div>
           </div>
         </header>
-
-        <main
+          <main
           ref={chatAreaRef}
           className="chatArea"
           onScroll={handleChatScroll}
-          onWheel={handleChatWheel}
-          onTouchStart={handleChatTouchStart}
-          onTouchMove={handleChatTouchMove}
         >
-                      <div className="chat">
+          <div className="chat">
             {messages.map((message, index) => (
               <div
                 key={index}
@@ -421,36 +438,14 @@ export default function Home() {
                 }
               >
                 {message.role === "assistant" && (
-                  <div className="avatar">
-                    <svg viewBox="0 0 100 100" aria-hidden="true">
-                      <path
-                        d="M50 17 L62 39 L83 50 L62 61 L50 83 L38 61 L17 50 L38 39 Z"
-                        fill="url(#avatarGradient)"
-                      />
-                      <defs>
-                        <linearGradient
-                          id="avatarGradient"
-                          x1="0%"
-                          y1="0%"
-                          x2="100%"
-                          y2="100%"
-                        >
-                          <stop offset="0%" stopColor="#70eaff" />
-                          <stop offset="55%" stopColor="#b3a1ff" />
-                          <stop offset="100%" stopColor="#e4a5ff" />
-                        </linearGradient>
-                      </defs>
-                    </svg>
-                  </div>
+                  <div className="avatar">✦</div>
                 )}
 
                 <div
                   className={
                     message.role === "user"
                       ? "bubble userBubble"
-                      : index === 0
-                        ? "bubble assistantBubble welcomeBubble"
-                        : "bubble assistantBubble"
+                      : "bubble assistantBubble"
                   }
                 >
                   {message.role === "assistant" && (
@@ -460,30 +455,57 @@ export default function Home() {
                     </div>
                   )}
 
+                  {message.image && (
+                    <div className="generatedImageBox">
+                      <img
+                        src={message.image}
+                        alt="ORION AI generated image"
+                        className="generatedImage"
+                      />
+                      <a
+                        href={message.image}
+                        download={`orion-ai-${Date.now()}.png`}
+                        className="downloadImage"
+                      >
+                        ⬇ Image Download Karein
+                      </a>
+                    </div>
+                  )}
+
                   <div className="messageContent">
                     {formatText(message.content)}
                   </div>
 
-                  {message.role === "assistant" && (
-                    <button
-                      className="speakButton"
-                      onClick={() => speak(message.content)}
-                      aria-label="Jawab sunen"
-                      title="Jawab sunen"
-                    >
-                      🔊
-                    </button>
-                  )}
+                  {message.role === "assistant" &&
+                    message.content &&
+                    !message.image &&
+                    message.kind !== "image-loading" && (
+                      <button
+                        className="speakButton"
+                        onClick={() => speak(message.content)}
+                        title="Jawab sunen"
+                        aria-label="Jawab sunen"
+                      >
+                        🔊
+                      </button>
+                    )}
                 </div>
               </div>
             ))}
 
+            {loading && (
+              <div className="loadingNote">
+                <span className="loadingDot" />
+                {imageMode
+                  ? "Image generate karne ke liye taiyar..."
+                  : "ORION AI jawab taiyar kar raha hai..."}
+              </div>
+            )}
+
             {messages.length === 1 && !loading && (
               <div className="suggestions">
                 <div className="suggestionHeading">
-                  <span className="headingLine" />
-                  <span>AAP KYA JAANNA CHAHTE HAIN?</span>
-                  <span className="headingLine" />
+                  AAP KYA JAANNA CHAHTE HAIN?
                 </div>
 
                 <div className="suggestionGrid">
@@ -491,46 +513,22 @@ export default function Home() {
                     <button
                       key={item.title}
                       className="suggestionChip"
-                      onClick={() => sendMessage(item.prompt)}
-                      disabled={loading}
+                      onClick={() => {
+                        if (item.title === "Image banao") {
+                          setImageMode(true);
+                          setInput(item.prompt);
+                        } else {
+                          sendMessage(item.prompt);
+                        }
+                      }}
                     >
                       <span className="suggestionIcon">
                         {item.icon}
                       </span>
-
-                      <span className="suggestionText">
-                        {item.title}
-                      </span>
-
+                      <span>{item.title}</span>
                       <span className="suggestionArrow">↗</span>
                     </button>
                   ))}
-                </div>
-              </div>
-            )}
-
-            {loading && messages[messages.length - 1]?.role === "user" && (
-              <div className="message assistantMessage">
-                <div className="avatar">
-                  <svg viewBox="0 0 100 100" aria-hidden="true">
-                    <path
-                      d="M50 17 L62 39 L83 50 L62 61 L50 83 L38 61 L17 50 L38 39 Z"
-                      fill="#b8a6ff"
-                    />
-                  </svg>
-                </div>
-
-                <div className="bubble assistantBubble">
-                  <div className="assistantTitle">
-                    <span>✦</span>
-                    <b>ORION AI</b>
-                  </div>
-
-                  <div className="typing">
-                    <span />
-                    <span />
-                    <span />
-                  </div>
                 </div>
               </div>
             )}
@@ -538,6 +536,18 @@ export default function Home() {
         </main>
 
         <footer className="bottomArea">
+          {imageMode && (
+            <div className="imageModeNotice">
+              <span>✦ Image Generation Mode ON</span>
+              <button
+                onClick={() => setImageMode(false)}
+                aria-label="Image mode band karein"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           <div className="inputBox">
             <textarea
               value={input}
@@ -552,20 +562,35 @@ export default function Home() {
                   sendMessage();
                 }
               }}
-              placeholder="ORION AI se kuch poochiye..."
+              placeholder={
+                imageMode
+                  ? "Kaisi image banani hai? Likho..."
+                  : "ORION AI se kuch poochiye..."
+              }
               rows={1}
-              aria-label="Apna message likhein"
+              aria-label="Message likhein"
             />
 
             <button
               className={
-                listening
-                  ? "voiceButton active"
-                  : "voiceButton"
+                imageMode
+                  ? "imageButton imageButtonActive"
+                  : "imageButton"
+              }
+              onClick={() => setImageMode((old) => !old)}
+              title="AI image generation"
+              aria-label="Image mode toggle"
+            >
+              🎨
+            </button>
+
+            <button
+              className={
+                listening ? "voiceButton active" : "voiceButton"
               }
               onClick={startVoice}
-              aria-label="Voice input"
               title="Voice input"
+              aria-label="Voice input"
             >
               🎙️
             </button>
@@ -574,8 +599,8 @@ export default function Home() {
               className="sendButton"
               onClick={() => sendMessage()}
               disabled={!input.trim() || loading}
-              aria-label="Message bhejein"
               title="Send"
+              aria-label="Message bhejein"
             >
               ➤
             </button>
@@ -652,7 +677,6 @@ export default function Home() {
           right: -120px;
           bottom: -120px;
           background: #365bff;
-          animation-delay: 3s;
         }
 
         .app {
@@ -681,7 +705,6 @@ export default function Home() {
           display: flex;
           align-items: center;
           gap: 10px;
-          min-width: 0;
         }
 
         .logo {
@@ -701,22 +724,15 @@ export default function Home() {
           height: 34px;
         }
 
-        .brandInfo {
-          min-width: 0;
-        }
-
         .brandName {
           color: #f5f2ff;
           font-size: 19px;
           font-weight: 900;
           letter-spacing: 1.1px;
-          line-height: 1.15;
-          text-shadow: 0 0 7px rgba(140, 133, 255, 0.3);
         }
 
         .brandName span {
           color: #b9b0ff;
-          text-shadow: 0 0 6px rgba(146, 126, 255, 0.35);
         }
 
         .brandTagline {
@@ -745,7 +761,6 @@ export default function Home() {
           height: 6px;
           border-radius: 50%;
           background: #43d991;
-          box-shadow: 0 0 5px rgba(67, 217, 145, 0.35);
         }
 
         .chatArea {
@@ -758,15 +773,6 @@ export default function Home() {
           overscroll-behavior: contain;
           scrollbar-width: thin;
           scrollbar-color: #272c43 transparent;
-        }
-
-        .chatArea::-webkit-scrollbar {
-          width: 4px;
-        }
-
-        .chatArea::-webkit-scrollbar-thumb {
-          background: #272c43;
-          border-radius: 8px;
         }
 
         .chat {
@@ -802,11 +808,7 @@ export default function Home() {
           border: 1px solid rgba(130, 140, 198, 0.2);
           border-radius: 11px;
           background: #151a2b;
-        }
-
-        .avatar svg {
-          width: 24px;
-          height: 24px;
+          color: #b8a6ff;
         }
 
         .bubble {
@@ -819,21 +821,13 @@ export default function Home() {
 
         .assistantBubble {
           border: 1px solid rgba(105, 114, 150, 0.22);
-                    background: linear-gradient(145deg, #171d31, #101524);
+          background: linear-gradient(145deg, #171d31, #101524);
           box-shadow: 0 5px 16px rgba(0, 0, 0, 0.12);
         }
 
         .userBubble {
           border: 1px solid rgba(120, 130, 170, 0.22);
           background: #252c48;
-        }
-
-        .welcomeBubble {
-          padding: 8px 11px;
-          border-radius: 14px;
-          background: linear-gradient(145deg, #141a2d, #101422);
-          border-color: rgba(137, 145, 195, 0.2);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
         }
 
         .assistantTitle {
@@ -848,12 +842,6 @@ export default function Home() {
         .assistantTitle span {
           color: #b8a6ff;
           font-size: 15px;
-          text-shadow: 0 0 5px rgba(170, 143, 255, 0.35);
-        }
-
-        .welcomeBubble .assistantTitle {
-          margin-bottom: 3px;
-          font-size: 11px;
         }
 
         .messageContent {
@@ -861,20 +849,6 @@ export default function Home() {
           font-size: 14px;
           line-height: 1.55;
           overflow-wrap: anywhere;
-        }
-
-        .welcomeBubble .messageContent {
-          font-size: 13px;
-          line-height: 1.45;
-        }
-
-        .messageContent strong {
-          color: #fff;
-          font-weight: 750;
-        }
-
-        .messageContent em {
-          font-style: italic;
         }
 
         .messageContent p {
@@ -911,7 +885,6 @@ export default function Home() {
 
         .textBullet {
           display: flex;
-          align-items: flex-start;
           gap: 7px;
           margin: 5px 0;
         }
@@ -928,33 +901,54 @@ export default function Home() {
           border-radius: 9px;
           background: #20263b;
           color: #bec5df;
-          font-size: 13px;
           cursor: pointer;
+        }
+
+        .generatedImageBox {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          width: 100%;
+          max-width: 500px;
+          margin: 8px 0 12px;
+        }
+
+        .generatedImage {
+          display: block;
+          width: 100%;
+          height: auto;
+          max-height: 650px;
+          object-fit: contain;
+          border: 1px solid rgba(166, 148, 255, 0.3);
+          border-radius: 13px;
+          background: #0b1020;
+        }
+
+        .downloadImage {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 10px 13px;
+          border: 1px solid rgba(153, 139, 255, 0.35);
+          border-radius: 11px;
+          background: #252044;
+          color: #e5dcff;
+          font-size: 12px;
+          text-decoration: none;
         }
 
         .suggestions {
           margin: 1px 0 18px 40px;
           max-width: 680px;
-          animation: messageEnter 0.25s ease-out both;
         }
 
         .suggestionHeading {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          margin: 4px 0 10px;
+          margin: 5px 0 10px;
           color: #858eaf;
           font-size: 9px;
           font-weight: 700;
           letter-spacing: 1px;
           text-align: center;
-        }
-
-        .headingLine {
-          width: 18px;
-          height: 1px;
-          background: rgba(151, 145, 214, 0.3);
         }
 
         .suggestionGrid {
@@ -976,18 +970,9 @@ export default function Home() {
           font-size: 11px;
           text-align: left;
           cursor: pointer;
-          transition: background 0.18s ease, border-color 0.18s ease;
         }
 
         .suggestionIcon {
-          flex: 0 0 23px;
-          width: 23px;
-          height: 23px;
-          display: grid;
-          place-items: center;
-          border: 1px solid rgba(157, 143, 255, 0.22);
-          border-radius: 7px;
-          background: rgba(105, 89, 183, 0.12);
           color: #b9adff;
           font-size: 15px;
         }
@@ -995,40 +980,28 @@ export default function Home() {
         .suggestionText {
           flex: 1;
           min-width: 0;
-          line-height: 1.35;
         }
 
         .suggestionArrow {
           color: #8278bd;
-          font-size: 13px;
         }
 
-        .suggestionChip:active {
-          background: #1a2038;
-          border-color: rgba(157, 142, 255, 0.4);
-        }
-
-        .typing {
+        .loadingNote {
           display: flex;
           align-items: center;
-          gap: 5px;
-          height: 18px;
+          gap: 8px;
+          margin: 10px 0 12px 40px;
+          color: #b9adff;
+          font-size: 12px;
         }
 
-        .typing span {
-          width: 6px;
-          height: 6px;
+        .loadingDot {
+          width: 7px;
+          height: 7px;
           border-radius: 50%;
-          background: #b4a0ff;
-          animation: typing 1.2s infinite ease-in-out;
-        }
-
-        .typing span:nth-child(2) {
-          animation-delay: 0.15s;
-        }
-
-        .typing span:nth-child(3) {
-          animation-delay: 0.3s;
+          background: #b9adff;
+          box-shadow: 0 0 12px #8875ff;
+          animation: typing 1s infinite alternate;
         }
 
         .bottomArea {
@@ -1042,17 +1015,36 @@ export default function Home() {
           background: #03050c;
         }
 
+        .imageModeNotice {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 7px;
+          padding: 7px 10px;
+          border: 1px solid rgba(153, 139, 255, 0.25);
+          border-radius: 10px;
+          background: #15132b;
+          color: #c9bcff;
+          font-size: 11px;
+        }
+
+        .imageModeNotice button {
+          border: 0;
+          background: transparent;
+          color: #c9bcff;
+          cursor: pointer;
+        }
+
         .inputBox {
           display: flex;
           align-items: flex-end;
-          gap: 6px;
+          gap: 5px;
           width: 100%;
           min-height: 52px;
           padding: 5px;
           border: 1px solid rgba(111, 120, 159, 0.25);
           border-radius: 17px;
           background: #101422;
-          transition: border-color 0.2s;
         }
 
         .inputBox:focus-within {
@@ -1079,17 +1071,28 @@ export default function Home() {
           color: #737b98;
         }
 
+        .imageButton,
         .voiceButton,
         .sendButton {
-          width: 40px;
+          width: 38px;
           height: 40px;
-          flex: 0 0 40px;
+          flex: 0 0 38px;
           display: grid;
           place-items: center;
           border: 0;
-          border-radius: 12px;
+          border-radius: 11px;
           cursor: pointer;
-          transition: transform 0.18s ease;
+        }
+
+        .imageButton {
+          background: #191e30;
+          color: #b7a6ff;
+          font-size: 16px;
+        }
+
+        .imageButtonActive {
+          background: #372b65;
+          box-shadow: inset 0 0 0 1px #8c79ff;
         }
 
         .voiceButton {
@@ -1107,12 +1110,6 @@ export default function Home() {
           background: linear-gradient(135deg, #44358e, #292362);
           color: #e0d9ff;
           font-size: 21px;
-        }
-
-        .sendButton:not(:disabled):active,
-        .voiceButton:active,
-        .speakButton:active {
-          transform: scale(0.94);
         }
 
         .sendButton:disabled {
@@ -1140,23 +1137,13 @@ export default function Home() {
         }
 
         @keyframes orionGlow {
-          from {
-            opacity: 0.07;
-          }
-          to {
-            opacity: 0.13;
-          }
+          from { opacity: 0.07; }
+          to { opacity: 0.13; }
         }
 
         @keyframes typing {
-          0%, 70%, 100% {
-            opacity: 0.4;
-            transform: translateY(0);
-          }
-          35% {
-            opacity: 1;
-            transform: translateY(-3px);
-          }
+          from { opacity: 0.35; transform: scale(0.9); }
+          to { opacity: 1; transform: scale(1.1); }
         }
 
         @media (max-width: 380px) {
@@ -1192,14 +1179,6 @@ export default function Home() {
             font-size: 13px;
           }
 
-          .bubble {
-            padding: 10px 11px;
-          }
-
-          .welcomeBubble {
-            padding: 8px 10px;
-          }
-
           .suggestions {
             margin-left: 39px;
           }
@@ -1212,6 +1191,13 @@ export default function Home() {
             padding: 8px 7px;
             font-size: 10px;
           }
+
+          .imageButton,
+          .voiceButton,
+          .sendButton {
+            width: 35px;
+            flex-basis: 35px;
+          }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -1220,11 +1206,145 @@ export default function Home() {
           *::after {
             animation-duration: 0.01ms !important;
             animation-iteration-count: 1 !important;
-            scroll-behavior: auto !important;
             transition-duration: 0.01ms !important;
           }
         }
       `}</style>
     </div>
   );
-}
+  export const runtime = "nodejs";
+export const maxDuration = 60;
+
+export async function POST(request) {
+  try {
+    const apiKey =
+      process.env.GEMINI_API_KEY ||
+      process.env.GOOGLE_API_KEY;
+
+    if (!apiKey) {
+      return Response.json(
+        {
+          error:
+            "Gemini API key nahi mili. Vercel Environment Variables mein GEMINI_API_KEY add karein."
+        },
+        { status: 500 }
+      );
+    }
+
+    const body = await request.json();
+    const prompt = String(body?.prompt || "").trim();
+
+    if (!prompt) {
+      return Response.json(
+        { error: "Image banane ke liye prompt likhein." },
+        { status: 400 }
+      );
+    }
+
+    if (prompt.length > 4000) {
+      return Response.json(
+        {
+          error:
+            "Prompt bahut lamba hai. Kripya 4000 characters se kam likhein."
+        },
+        { status: 400 }
+      );
+    }
+
+    const response = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/interactions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey
+        },
+        body: JSON.stringify({
+          model: "gemini-3.1-flash-image",
+          input:
+            "Generate a high-quality image based on this user prompt. " +
+            "Create the image itself, not just a description. " +
+            "Prompt: " +
+            prompt,
+          response_format: {
+            type: "image",
+            mime_type: "image/png",
+            aspect_ratio: "1:1",
+            image_size: "1K"
+          }
+        }),
+        signal: AbortSignal.timeout(55000)
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      console.error("Gemini image API error:", result);
+
+      const message =
+        result?.error?.message ||
+        "Gemini image generation request fail ho gayi.";
+
+      return Response.json(
+        { error: message },
+        { status: response.status >= 500 ? 502 : response.status }
+      );
+    }
+
+    let imageData = result?.output_image?.data;
+    let mimeType =
+      result?.output_image?.mime_type || "image/png";
+
+    // Agar image output_image ke bajay steps mein aaye.
+    if (!imageData && Array.isArray(result?.steps)) {
+      for (const step of result.steps) {
+        if (step?.type !== "model_output") continue;
+
+        for (const item of step?.content || []) {
+          if (item?.type === "image" && item?.data) {
+            imageData = item.data;
+            mimeType = item.mime_type || "image/png";
+            break;
+          }
+        }
+
+        if (imageData) break;
+      }
+    }
+
+    if (!imageData) {
+      console.error(
+        "Gemini response mein image nahi mili:",
+        JSON.stringify(result).slice(0, 1500)
+      );
+
+      return Response.json(
+        {
+          error:
+            "Gemini ne image return nahi ki. Dobara try karein ya API/model availability check karein."
+        },
+        { status: 502 }
+      );
+    }
+
+    return Response.json({
+      success: true,
+      message: "Aapki image taiyar hai! ✨",
+      image: `data:${mimeType};base64,${imageData}`
+    });
+  } catch (error) {
+    console.error("Image generation error:", error);
+
+    return Response.json(
+      {
+        error:
+          error?.name === "TimeoutError"
+            ? "Image banane mein zyada samay laga. Dobara try karein."
+            : error?.message ||
+              "Image generate karte waqt technical problem aa gayi."
+      },
+      { status: 500 }
+    );
+  }
+}                  }
