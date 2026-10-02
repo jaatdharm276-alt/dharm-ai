@@ -106,6 +106,7 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
 
   const chatAreaRef = useRef(null);
   const shouldAutoScrollRef = useRef(true);
@@ -216,7 +217,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-    }
+}
     function handleChatScroll(event) {
     const el = event.currentTarget;
     const distanceFromBottom =
@@ -280,10 +281,15 @@ export default function Home() {
       typeof window === "undefined" ||
       !window.speechSynthesis
     ) {
+      alert("Aapke browser mein read aloud support nahi hai.");
       return;
     }
 
-    window.speechSynthesis.cancel();
+    if (window.speechSynthesis.speaking || speaking) {
+      window.speechSynthesis.cancel();
+      setSpeaking(false);
+      return;
+    }
 
     const cleanText = String(text)
       .replace(/#{1,6}\s/g, "")
@@ -292,8 +298,13 @@ export default function Home() {
       .replace(/\n/g, " ");
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.lang = "hi-IN";
+    utterance.lang = /[\u0900-\u097F]/.test(cleanText)
+      ? "hi-IN"
+      : "en-IN";
     utterance.rate = 0.95;
+    utterance.onstart = () => setSpeaking(true);
+    utterance.onend = () => setSpeaking(false);
+    utterance.onerror = () => setSpeaking(false);
 
     window.speechSynthesis.speak(utterance);
   }
@@ -321,7 +332,6 @@ export default function Home() {
                     <stop offset="100%" stopColor="#e4a5ff" />
                   </linearGradient>
                 </defs>
-
                 <ellipse
                   cx="50"
                   cy="50"
@@ -332,7 +342,6 @@ export default function Home() {
                   strokeWidth="3"
                   transform="rotate(-35 50 50)"
                 />
-
                 <circle
                   cx="50"
                   cy="50"
@@ -341,7 +350,6 @@ export default function Home() {
                   stroke="url(#orionGradient)"
                   strokeWidth="2.5"
                 />
-
                 <path
                   d="M50 32 L56 44 L68 50 L56 56 L50 68 L44 56 L32 50 L44 44 Z"
                   fill="url(#orionGradient)"
@@ -353,15 +361,12 @@ export default function Home() {
               <div className="brandName">
                 ORION <span>AI</span>
               </div>
-
               <div className="brandTagline">
                 Your Intelligent Companion
               </div>
-
               <div className="brandCredit">
                 Powered by Dharm AI
               </div>
-
               <div className="online">
                 <span />
                 Online
@@ -411,12 +416,45 @@ export default function Home() {
                     message.content &&
                     (
                       <button
-                        className="speakButton"
+                        className={speaking ? "speakButton active" : "speakButton"}
                         onClick={() => speak(message.content)}
-                        title="Jawab sunen"
-                        aria-label="Jawab sunen"
+                        title={speaking ? "Awaaz rokein" : "Jawab sunen"}
+                        aria-label={speaking ? "Awaaz rokein" : "Jawab sunen"}
                       >
-                        🔊
+                        {speaking ? (
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <rect
+                              x="7"
+                              y="5"
+                              width="3.5"
+                              height="14"
+                              rx="1.2"
+                              fill="currentColor"
+                            />
+                            <rect
+                              x="13.5"
+                              y="5"
+                              width="3.5"
+                              height="14"
+                              rx="1.2"
+                              fill="currentColor"
+                            />
+                          </svg>
+                        ) : (
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path
+                              d="M4 9v6h4l5 4V5L8 9H4Z"
+                              fill="currentColor"
+                            />
+                            <path
+                              d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                        )}
                       </button>
                     )}
                 </div>
@@ -481,10 +519,26 @@ export default function Home() {
                 listening ? "voiceButton active" : "voiceButton"
               }
               onClick={startVoice}
-              title="Voice input"
-              aria-label="Voice input"
+              title={listening ? "Sun raha hoon..." : "Voice input"}
+              aria-label={listening ? "Sun raha hoon..." : "Voice input"}
             >
-              🎙️
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect
+                  x="9"
+                  y="3"
+                  width="6"
+                  height="12"
+                  rx="3"
+                  fill="currentColor"
+                />
+                <path
+                  d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+              </svg>
             </button>
 
             <button
@@ -623,7 +677,6 @@ export default function Home() {
         .logo svg {
           width: 34px;
           height: 34px;
-          filter: drop-shadow(0 0 5px rgba(128, 100, 244, 0.45));
         }
 
         .brandName {
@@ -632,16 +685,15 @@ export default function Home() {
           font-weight: 900;
           letter-spacing: 1.1px;
           text-shadow:
-            0 0 8px rgba(133, 105, 255, 0.38),
-            0 0 18px rgba(133, 105, 255, 0.18);
-          animation: nameGlow 3s ease-in-out infinite alternate;
+            0 0 8px rgba(133, 105, 255, 0.28),
+            0 0 18px rgba(133, 105, 255, 0.12);
         }
 
         .brandName span {
           color: #8064f4;
           text-shadow:
-            0 0 7px rgba(128, 100, 244, 0.75),
-            0 0 17px rgba(128, 100, 244, 0.42);
+            0 0 7px rgba(128, 100, 244, 0.65),
+            0 0 17px rgba(128, 100, 244, 0.32);
         }
 
         .brandTagline {
@@ -720,8 +772,7 @@ export default function Home() {
           background: linear-gradient(145deg, #ffffff, #f0edff);
           color: #8064f4;
           box-shadow:
-            0 0 10px rgba(128, 100, 244, 0.30),
-            0 0 20px rgba(128, 100, 244, 0.12),
+            0 0 10px rgba(128, 100, 244, 0.22),
             inset 0 0 8px rgba(128, 100, 244, 0.10);
         }
 
@@ -734,7 +785,7 @@ export default function Home() {
         }
 
         .assistantBubble {
-          border: 1px solid rgba(177, 164, 255, 0.45);
+          border: 1px solid rgba(177, 164, 255, 0.34);
           background: linear-gradient(
             145deg,
             rgba(255, 255, 255, 0.98),
@@ -742,16 +793,14 @@ export default function Home() {
           );
           box-shadow:
             0 4px 16px rgba(70, 60, 130, 0.05),
-            0 0 13px rgba(145, 122, 255, 0.16),
-            inset 0 0 10px rgba(145, 122, 255, 0.04);
+            0 0 13px rgba(145, 122, 255, 0.10);
         }
 
         .userBubble {
-          border: 1px solid rgba(160, 139, 255, 0.58);
+          border: 1px solid rgba(160, 139, 255, 0.48);
           background: linear-gradient(135deg, #f1efff, #e9e5ff);
           box-shadow:
-            0 0 13px rgba(130, 103, 255, 0.20),
-            0 0 24px rgba(130, 103, 255, 0.08),
+            0 0 13px rgba(130, 103, 255, 0.13),
             inset 0 0 10px rgba(255, 255, 255, 0.6);
         }
 
@@ -762,15 +811,13 @@ export default function Home() {
           margin-bottom: 7px;
           color: #6d60b6;
           font-size: 12px;
-          text-shadow: 0 0 9px rgba(118, 101, 217, 0.35);
+          text-shadow: 0 0 9px rgba(118, 101, 217, 0.24);
         }
 
         .assistantTitle span {
           color: #8064f4;
           font-size: 15px;
-          text-shadow:
-            0 0 8px rgba(128, 100, 244, 0.75),
-            0 0 16px rgba(128, 100, 244, 0.35);
+          text-shadow: 0 0 8px rgba(128, 100, 244, 0.65);
         }
 
         .messageContent {
@@ -820,19 +867,39 @@ export default function Home() {
 
         .textBullet span:first-child {
           color: #7665d9;
-          text-shadow: 0 0 6px rgba(118, 101, 217, 0.35);
         }
 
         .speakButton {
-          width: 29px;
-          height: 29px;
-          margin-top: 7px;
-          border: 1px solid rgba(160, 139, 255, 0.30);
-          border-radius: 9px;
-          background: linear-gradient(145deg, #f5f2ff, #e9e6ff);
-          color: #6060a1;
-          box-shadow: 0 0 10px rgba(128, 100, 244, 0.20);
+          width: 34px;
+          height: 34px;
+          margin-top: 8px;
+          display: grid;
+          place-items: center;
+          border: 1px solid rgba(160, 139, 255, 0.24);
+          border-radius: 11px;
+          background: linear-gradient(145deg, #ffffff, #eeeaff);
+          color: #7061c7;
+          box-shadow: 0 0 10px rgba(128, 100, 244, 0.14);
           cursor: pointer;
+          transition:
+            transform 0.18s ease,
+            box-shadow 0.18s ease,
+            background 0.18s ease;
+        }
+
+        .speakButton svg {
+          width: 20px;
+          height: 20px;
+        }
+
+        .speakButton.active {
+          color: #ffffff;
+          background: linear-gradient(135deg, #9b83ff, #6751d5);
+          box-shadow: 0 0 12px rgba(118, 101, 217, 0.45);
+        }
+
+        .speakButton:active {
+          transform: scale(0.94);
         }
 
         .suggestions {
@@ -861,13 +928,11 @@ export default function Home() {
           align-items: center;
           gap: 7px;
           padding: 10px 9px;
-          border: 1px solid rgba(173, 159, 255, 0.40);
+          border: 1px solid rgba(173, 159, 255, 0.30);
           border-radius: 12px;
           background: linear-gradient(145deg, #ffffff, #f5f2ff);
           color: #34384f;
-          box-shadow:
-            0 0 12px rgba(128, 100, 244, 0.12),
-            inset 0 0 8px rgba(128, 100, 244, 0.04);
+          box-shadow: 0 0 12px rgba(128, 100, 244, 0.08);
           font-size: 11px;
           text-align: left;
           cursor: pointer;
@@ -875,18 +940,14 @@ export default function Home() {
         }
 
         .suggestionChip:hover {
-          box-shadow:
-            0 0 16px rgba(128, 100, 244, 0.25),
-            0 0 28px rgba(128, 100, 244, 0.10);
+          box-shadow: 0 0 16px rgba(128, 100, 244, 0.18);
           transform: translateY(-1px);
         }
 
         .suggestionIcon {
           color: #8064f4;
           font-size: 15px;
-          text-shadow:
-            0 0 7px rgba(128, 100, 244, 0.65),
-            0 0 14px rgba(128, 100, 244, 0.25);
+          text-shadow: 0 0 7px rgba(128, 100, 244, 0.45);
         }
 
         .suggestionText {
@@ -905,7 +966,6 @@ export default function Home() {
           margin: 10px 0 12px 40px;
           color: #7665d9;
           font-size: 12px;
-          text-shadow: 0 0 8px rgba(118, 101, 217, 0.22);
         }
 
         .loadingDot {
@@ -913,9 +973,7 @@ export default function Home() {
           height: 7px;
           border-radius: 50%;
           background: #8875ff;
-          box-shadow:
-            0 0 8px rgba(136, 117, 255, 0.60),
-            0 0 16px rgba(136, 117, 255, 0.25);
+          box-shadow: 0 0 8px rgba(136, 117, 255, 0.3);
           animation: typing 1s infinite alternate;
         }
 
@@ -926,9 +984,9 @@ export default function Home() {
           width: 100%;
           padding: 7px 9px;
           padding-bottom: max(7px, env(safe-area-inset-bottom));
-          border-top: 1px solid rgba(153, 132, 255, 0.28);
+          border-top: 1px solid rgba(153, 132, 255, 0.20);
           background: rgba(255, 255, 255, 0.96);
-          box-shadow: 0 -5px 20px rgba(125, 101, 235, 0.10);
+          box-shadow: 0 -5px 20px rgba(125, 101, 235, 0.07);
         }
 
         .inputBox {
@@ -938,22 +996,19 @@ export default function Home() {
           width: 100%;
           min-height: 52px;
           padding: 5px;
-          border: 1px solid rgba(160, 139, 255, 0.50);
+          border: 1px solid rgba(160, 139, 255, 0.42);
           border-radius: 17px;
           background: linear-gradient(145deg, #ffffff, #f8f7ff);
           box-shadow:
-            0 0 12px rgba(128, 100, 244, 0.15),
-            0 0 22px rgba(128, 100, 244, 0.06),
+            0 0 12px rgba(128, 100, 244, 0.10),
             inset 0 0 8px rgba(128, 100, 244, 0.04);
-          transition: box-shadow 0.25s ease, border-color 0.25s ease;
         }
 
         .inputBox:focus-within {
           border-color: #9b83ff;
           box-shadow:
             0 0 0 2px rgba(157, 127, 255, 0.13),
-            0 0 18px rgba(128, 100, 244, 0.30),
-            0 0 32px rgba(128, 100, 244, 0.12);
+            0 0 18px rgba(128, 100, 244, 0.24);
         }
 
         .inputBox textarea {
@@ -986,25 +1041,34 @@ export default function Home() {
           border: 0;
           border-radius: 11px;
           cursor: pointer;
-          transition: box-shadow 0.2s ease, transform 0.2s ease;
         }
 
         .voiceButton {
-          background: linear-gradient(145deg, #f6f3ff, #ebe8ff);
-          color: #69708b;
-          font-size: 16px;
-          box-shadow:
-            0 0 9px rgba(128, 100, 244, 0.18),
-            inset 0 0 8px rgba(128, 100, 244, 0.05);
+          background: linear-gradient(145deg, #ffffff, #eeeaff);
+          color: #6c5fc4;
+          box-shadow: 0 0 10px rgba(128, 100, 244, 0.16);
+          transition:
+            transform 0.18s ease,
+            box-shadow 0.18s ease,
+            background 0.18s ease;
+        }
+
+        .voiceButton svg {
+          width: 22px;
+          height: 22px;
         }
 
         .voiceButton.active {
-          background: #fceaf5;
-          color: #c34c96;
+          background: linear-gradient(135deg, #9b83ff, #6751d5);
+          color: #ffffff;
           box-shadow:
-            0 0 12px rgba(220, 87, 165, 0.40),
-            0 0 22px rgba(220, 87, 165, 0.15);
-          animation: logoPulse 1.4s ease-in-out infinite;
+            0 0 0 4px rgba(128, 100, 244, 0.10),
+            0 0 18px rgba(128, 100, 244, 0.45);
+          animation: micPulse 1.1s infinite;
+        }
+
+        .voiceButton:active {
+          transform: scale(0.94);
         }
 
         .sendButton {
@@ -1012,8 +1076,9 @@ export default function Home() {
           color: #ffffff;
           font-size: 21px;
           box-shadow:
-            0 0 10px rgba(118, 101, 217, 0.50),
-            0 0 22px rgba(118, 101, 217, 0.25);
+            0 0 10px rgba(118, 101, 217, 0.45),
+            0 0 22px rgba(118, 101, 217, 0.20);
+          transition: box-shadow 0.2s ease, transform 0.2s ease;
         }
 
         .sendButton:disabled {
@@ -1024,9 +1089,7 @@ export default function Home() {
 
         .sendButton:not(:disabled):active {
           transform: scale(0.96);
-          box-shadow:
-            0 0 16px rgba(118, 101, 217, 0.65),
-            0 0 28px rgba(118, 101, 217, 0.28);
+          box-shadow: 0 0 16px rgba(118, 101, 217, 0.55);
         }
 
         .footerCredit {
@@ -1035,7 +1098,7 @@ export default function Home() {
           text-align: center;
           font-size: 9px;
           letter-spacing: 0.25px;
-          text-shadow: 0 0 8px rgba(128, 100, 244, 0.28);
+          text-shadow: 0 0 8px rgba(128, 100, 244, 0.18);
         }
 
         @keyframes messageEnter {
@@ -1043,7 +1106,6 @@ export default function Home() {
             opacity: 0;
             transform: translateY(4px);
           }
-
           to {
             opacity: 1;
             transform: translateY(0);
@@ -1055,7 +1117,6 @@ export default function Home() {
             opacity: 0.08;
             transform: scale(0.92);
           }
-
           to {
             opacity: 0.18;
             transform: scale(1.08);
@@ -1063,33 +1124,17 @@ export default function Home() {
         }
 
         @keyframes logoPulse {
-          0%,
-          100% {
+          0%, 100% {
             box-shadow:
-              0 0 8px rgba(132, 103, 255, 0.35),
-              0 0 18px rgba(132, 103, 255, 0.16),
+              0 0 8px rgba(132, 103, 255, 0.30),
+              0 0 18px rgba(132, 103, 255, 0.14),
               inset 0 0 12px rgba(132, 103, 255, 0.10);
           }
-
           50% {
             box-shadow:
-              0 0 13px rgba(132, 103, 255, 0.58),
-              0 0 28px rgba(132, 103, 255, 0.30),
+              0 0 12px rgba(132, 103, 255, 0.48),
+              0 0 27px rgba(132, 103, 255, 0.25),
               inset 0 0 14px rgba(132, 103, 255, 0.16);
-          }
-        }
-
-        @keyframes nameGlow {
-          from {
-            text-shadow:
-              0 0 7px rgba(133, 105, 255, 0.28),
-              0 0 14px rgba(133, 105, 255, 0.12);
-          }
-
-          to {
-            text-shadow:
-              0 0 11px rgba(133, 105, 255, 0.48),
-              0 0 23px rgba(133, 105, 255, 0.24);
           }
         }
 
@@ -1098,10 +1143,22 @@ export default function Home() {
             opacity: 0.35;
             transform: scale(0.9);
           }
-
           to {
             opacity: 1;
             transform: scale(1.1);
+          }
+        }
+
+        @keyframes micPulse {
+          0%, 100% {
+            box-shadow:
+              0 0 0 3px rgba(128, 100, 244, 0.08),
+              0 0 12px rgba(128, 100, 244, 0.28);
+          }
+          50% {
+            box-shadow:
+              0 0 0 6px rgba(128, 100, 244, 0.12),
+              0 0 20px rgba(128, 100, 244, 0.48);
           }
         }
 
@@ -1170,4 +1227,4 @@ export default function Home() {
       `}</style>
     </div>
   );
-}
+                    }
