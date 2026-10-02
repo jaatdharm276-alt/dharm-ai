@@ -1,11 +1,26 @@
+
 export async function POST(req) {
   try {
     const { message } = await req.json();
 
-    if (!message) {
+    if (typeof message !== "string" || !message.trim()) {
       return Response.json(
-        { error: "Message is required" },
+        { error: "Message is required." },
         { status: 400 }
+      );
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+      console.error("GEMINI_API_KEY is missing.");
+
+      return Response.json(
+        {
+          error:
+            "API key missing. Vercel Environment Variables mein GEMINI_API_KEY set karo."
+        },
+        { status: 500 }
       );
     }
 
@@ -14,7 +29,7 @@ export async function POST(req) {
       "gemini-3.5-flash",
     ];
 
-    let lastError = null;
+    let lastError = "Gemini se jawab nahi mila.";
 
     for (const model of models) {
       try {
@@ -24,56 +39,92 @@ export async function POST(req) {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "x-goog-api-key": process.env.GEMINI_API_KEY,
+              "x-goog-api-key": apiKey,
             },
             body: JSON.stringify({
               contents: [
                 {
-                  parts: [
-                    {
-                      text: message,
-                    },
-                  ],
+                  role: "user",
+                  parts: [{ text: message.trim() }],
                 },
               ],
+              generationConfig: {
+                maxOutputTokens: 8192,
+              },
             }),
+            cache: "no-store",
           }
         );
 
         const data = await response.json();
 
-        if (response.ok) {
-          const reply =
-            data?.candidates?.[0]?.content?.parts?.[0]?.text ||
-            "No response received.";
+        if (!response.ok) {
+          lastError =
+            data?.error?.message ||
+            `Gemini API error (${response.status})`;
 
-          return Response.json({ reply });
+          console.error(`${model} failed:`, {
+            status: response.status,
+            error: lastError,
+          });
+
+          continue;
         }
 
-        lastError =
-          data?.error?.message ||
-          `Gemini API error (${response.status})`;
+        const candidates = data?.candidates || [];
 
-        console.error(`${model} failed:`, data);
+        const reply = candidates
+          .flatMap((candidate) => candidate?.content?.parts || [])
+          .map((part) => part?.text || "")
+          .filter(Boolean)
+          .join("");
+
+        if (reply.trim()) {
+          console.log(`${model} response successful.`);
+
+          return Response.json({
+            reply: reply.trim(),
+            model,
+          });
+        }
+
+        const finishReason =
+          candidates[0]?.finishReason || "UNKNOWN";
+
+        const blockReason =
+          data?.promptFeedback?.blockReason;
+
+        lastError = blockReason
+          ? `Prompt blocked by Gemini: ${blockReason}`
+          : `Gemini ne text response nahi diya. Finish reason: ${finishReason}`;
+
+        console.error(`${model} returned no text:`, {
+          finishReason,
+          blockReason,
+        });
+
       } catch (error) {
-        lastError = error.message;
-        console.error(`${model} failed:`, error);
+        lastError =
+          error?.message || "Gemini se connection nahi ho paya.";
+
+        console.error(`${model} request failed:`, lastError);
       }
     }
 
     return Response.json(
       {
-        error:
-          lastError ||
-          "All Gemini models are currently unavailable.",
+        error: lastError,
       },
       { status: 503 }
     );
+
   } catch (error) {
     console.error("Chat API error:", error);
 
     return Response.json(
-      { error: "Something went wrong" },
+      {
+        error: "Request process nahi ho saki. Dobara try karo.",
+      },
       { status: 500 }
     );
   }
