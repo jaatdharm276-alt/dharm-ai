@@ -2,67 +2,60 @@
 
 import { useEffect, useRef, useState } from "react";
 
-function formatText(text) {
-  const lines = String(text || "").split("\n");
+function renderInline(text) {
+  const parts = String(text || "").split(
+    /(\*\*[^*]+\*\*|\*[^*]+\*)/g
+  );
 
-  return lines.map((line, index) => {
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={i}>{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
+      return <em key={i}>{part.slice(1, -1)}</em>;
+    }
+    return part;
+  });
+}
+
+function formatText(text) {
+  return String(text || "").split("\n").map((line, i) => {
     const trimmed = line.trim();
 
     if (!trimmed) {
-      return <div key={index} className="spaceLine" />;
+      return <div key={i} className="spaceLine" />;
     }
 
-    if (trimmed.startsWith("### ")) {
-      return (
-        <h3 key={index}>
-          {trimmed.replace("### ", "")}
-        </h3>
-      );
+    const heading = trimmed.match(/^(#{1,3})\s+(.*)$/);
+    if (heading) {
+      const Tag =
+        heading[1].length === 1 ? "h1" :
+        heading[1].length === 2 ? "h2" : "h3";
+
+      return <Tag key={i}>{renderInline(heading[2])}</Tag>;
     }
 
-    if (trimmed.startsWith("## ")) {
-      return (
-        <h2 key={index}>
-          {trimmed.replace("## ", "")}
-        </h2>
-      );
-    }
-
-    if (trimmed.startsWith("# ")) {
-      return (
-        <h1 key={index}>
-          {trimmed.replace("# ", "")}
-        </h1>
-      );
-    }
-
-    if (
-      trimmed.startsWith("- ") ||
-      trimmed.startsWith("* ") ||
-      trimmed.startsWith("• ")
-    ) {
-      return (
-        <div key={index} className="bullet">
-          <span>•</span>
-          <span>
-            {trimmed.replace(/^[-*•]\s*/, "")}
-          </span>
-        </div>
-      );
-    }
-
-    const numbered = trimmed.match(/^(\d+)[.)]\s+(.*)$/);
-
+    const numbered = trimmed.match(/^\*{0,2}(\d+)[.)]\s+(.*?)\*{0,2}$/);
     if (numbered) {
       return (
-        <div key={index} className="numbered">
+        <div className="numbered" key={i}>
           <span>{numbered[1]}.</span>
-          <span>{numbered[2]}</span>
+          <span>{renderInline(numbered[2].replace(/\*\*/g, ""))}</span>
         </div>
       );
     }
 
-    return <p key={index}>{line}</p>;
+    const bullet = trimmed.match(/^[-*•]\s+(.*)$/);
+    if (bullet) {
+      return (
+        <div className="bullet" key={i}>
+          <span>•</span>
+          <span>{renderInline(bullet[1])}</span>
+        </div>
+      );
+    }
+
+    return <p key={i}>{renderInline(line)}</p>;
   });
 }
 
@@ -71,7 +64,7 @@ export default function Home() {
     {
       role: "assistant",
       content:
-        "Namaste 🙏\n\nMain ORION AI hoon. Aap Bhagavad Gita, Ramayana, Mahabharata, puja, mantra, dharma aur spiritual life se jude sawaal pooch sakte ho."
+        "Namaste 🙏\n\nMain ORION AI hoon — aapka intelligent companion. Aap mujhse kisi bhi topic par sawaal pooch sakte ho."
     }
   ]);
 
@@ -82,86 +75,69 @@ export default function Home() {
   const chatAreaRef = useRef(null);
   const recognitionRef = useRef(null);
 
-  // Smooth automatic chat scrolling
   useEffect(() => {
     const el = chatAreaRef.current;
+    if (!el) return;
 
-    if (el) {
+    const frame = requestAnimationFrame(() => {
       el.scrollTo({
         top: el.scrollHeight,
         behavior: "smooth"
       });
-    }
+    });
+
+    return () => cancelAnimationFrame(frame);
   }, [messages, loading]);
 
   useEffect(() => {
     return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
+      recognitionRef.current?.stop();
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
       }
     };
   }, []);
 
   async function sendMessage(text) {
-    const message = String(
-      text !== undefined ? text : input
-    ).trim();
+    const message = String(text !== undefined ? text : input).trim();
 
-    if (!message || loading) {
-      return;
-    }
+    if (!message || loading) return;
 
     setInput("");
-
-    setMessages((oldMessages) => [
-      ...oldMessages,
-      {
-        role: "user",
-        content: message
-      }
+    setMessages((old) => [
+      ...old,
+      { role: "user", content: message }
     ]);
-
     setLoading(true);
 
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          message: message
-        })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message })
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data?.error || "Server response nahi mila."
-        );
+        throw new Error(data?.error || "Server response nahi mila.");
       }
 
-      const reply =
-        data?.reply ||
-        "Maaf kijiye 🙏 Abhi response nahi mila.";
-
-      setMessages((oldMessages) => [
-        ...oldMessages,
+      setMessages((old) => [
+        ...old,
         {
           role: "assistant",
-          content: reply
+          content: data?.reply || "Maaf kijiye 🙏 Abhi response nahi mila."
         }
       ]);
     } catch (error) {
-      setMessages((oldMessages) => [
-        ...oldMessages,
+      setMessages((old) => [
+        ...old,
         {
           role: "assistant",
           content:
             "Maaf kijiye 🙏\n\n" +
-            (error?.message ||
-              "Kuch technical problem aa gayi.")
+            (error?.message || "Kuch technical problem aa gayi.")
         }
       ]);
     } finally {
@@ -170,18 +146,13 @@ export default function Home() {
   }
 
   function startVoice() {
-    if (typeof window === "undefined") {
-      return;
-    }
+    if (typeof window === "undefined") return;
 
     const SpeechRecognition =
-      window.SpeechRecognition ||
-      window.webkitSpeechRecognition;
+      window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      alert(
-        "Aapke browser mein voice input supported nahi hai."
-      );
+      alert("Aapke browser mein voice input supported nahi hai.");
       return;
     }
 
@@ -192,35 +163,20 @@ export default function Home() {
     }
 
     const recognition = new SpeechRecognition();
-
     recognition.lang = "hi-IN";
     recognition.continuous = false;
     recognition.interimResults = true;
 
-    recognition.onstart = () => {
-      setListening(true);
-    };
+    recognition.onstart = () => setListening(true);
+    recognition.onerror = () => setListening(false);
+    recognition.onend = () => setListening(false);
 
     recognition.onresult = (event) => {
       let transcript = "";
-
-      for (
-        let i = event.resultIndex;
-        i < event.results.length;
-        i++
-      ) {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
         transcript += event.results[i][0].transcript;
       }
-
       setInput(transcript);
-    };
-
-    recognition.onerror = () => {
-      setListening(false);
-    };
-
-    recognition.onend = () => {
-      setListening(false);
     };
 
     recognitionRef.current = recognition;
@@ -230,14 +186,10 @@ export default function Home() {
     } catch {
       setListening(false);
     }
-}
-    function speak(text) {
-    if (
-      typeof window === "undefined" ||
-      !window.speechSynthesis
-    ) {
-      return;
-    }
+  }
+
+  function speak(text) {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
 
     window.speechSynthesis.cancel();
 
@@ -245,60 +197,29 @@ export default function Home() {
       .replace(/[#*`]/g, "")
       .replace(/\n/g, " ");
 
-    const speech =
-      new SpeechSynthesisUtterance(cleanText);
-
-    speech.lang = "hi-IN";
-    speech.rate = 0.95;
-
-    window.speechSynthesis.speak(speech);
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.lang = "hi-IN";
+    utterance.rate = 0.95;
+    window.speechSynthesis.speak(utterance);
   }
-
-  function quickQuestion(question) {
-    sendMessage(question);
-  }
-
-  const quickQuestions = [
-    "Bhagavad Gita ka saar batao",
-    "Dharma kya hai?",
-    "Hanuman ji ka mantra batao",
-    "Aaj ka dharmik vichar batao"
-  ];
 
   return (
     <div className="page">
-      <div className="backgroundGlow glow1"></div>
-      <div className="backgroundGlow glow2"></div>
+      <div className="backgroundGlow glow1" />
+      <div className="backgroundGlow glow2" />
 
       <div className="app">
         <header className="header">
           <div className="brand">
-            <div className="logo">✦</div>
+            <div className="logo"><span>✦</span></div>
 
             <div className="brandInfo">
-              <div className="brandName">ORION AI</div>
-              <div className="tagline">
-                Your Intelligent Companion
-              </div>
-              <div className="credit">Powered by Dharm AI</div>
-              <div className="online">
-                <span></span>
-                Online
-              </div>
+              <div className="brandName">ORION <span>AI</span></div>
+              <div className="brandTagline">Your Intelligent Companion</div>
+              <div className="brandCredit">Powered by Dharm AI</div>
+              <div className="online"><span />Online</div>
             </div>
           </div>
-
-          <button
-            className="sparkButton"
-            onClick={() =>
-              quickQuestion(
-                "Mujhe aaj ka ek shubh dharmik vichar batao"
-              )
-            }
-            aria-label="Quick question"
-          >
-            ✦
-          </button>
         </header>
 
         <main ref={chatAreaRef} className="chatArea">
@@ -325,8 +246,7 @@ export default function Home() {
                 >
                   {message.role === "assistant" && (
                     <div className="assistantTitle">
-                      <span>✦</span>
-                      <b>ORION AI</b>
+                      <span>✦</span><b>ORION AI</b>
                     </div>
                   )}
 
@@ -338,7 +258,8 @@ export default function Home() {
                     <button
                       className="speakButton"
                       onClick={() => speak(message.content)}
-                      aria-label="Listen"
+                      aria-label="Jawab sunein"
+                      title="Jawab sunein"
                     >
                       🔊
                     </button>
@@ -350,32 +271,14 @@ export default function Home() {
             {loading && (
               <div className="message assistantMessage">
                 <div className="avatar">✦</div>
-
                 <div className="bubble assistantBubble">
                   <div className="assistantTitle">
-                    <span>✦</span>
-                    <b>ORION AI</b>
+                    <span>✦</span><b>ORION AI</b>
                   </div>
-
                   <div className="typing">
-                    <span></span>
-                    <span></span>
-                    <span></span>
+                    <span /><span /><span />
                   </div>
                 </div>
-              </div>
-            )}
-
-            {messages.length === 1 && !loading && (
-              <div className="quickQuestions">
-                {quickQuestions.map((question) => (
-                  <button
-                    key={question}
-                    onClick={() => quickQuestion(question)}
-                  >
-                    {question}
-                  </button>
-                ))}
               </div>
             )}
           </div>
@@ -385,30 +288,22 @@ export default function Home() {
           <div className="inputBox">
             <textarea
               value={input}
-              onChange={(event) =>
-                setInput(event.target.value)
-              }
+              onChange={(event) => setInput(event.target.value)}
               onKeyDown={(event) => {
-                if (
-                  event.key === "Enter" &&
-                  !event.shiftKey
-                ) {
+                if (event.key === "Enter" && !event.shiftKey) {
                   event.preventDefault();
                   sendMessage();
                 }
               }}
-              placeholder="Message ORION AI..."
+              placeholder="ORION AI se kuch poochiye..."
               rows={1}
             />
 
             <button
-              className={
-                listening
-                  ? "voiceButton active"
-                  : "voiceButton"
-              }
+              className={listening ? "voiceButton active" : "voiceButton"}
               onClick={startVoice}
-              aria-label="Voice"
+              aria-label="Voice input"
+              title="Voice input"
             >
               🎙️
             </button>
@@ -418,6 +313,7 @@ export default function Home() {
               onClick={() => sendMessage()}
               disabled={!input.trim() || loading}
               aria-label="Send"
+              title="Send"
             >
               ➤
             </button>
@@ -459,17 +355,18 @@ export default function Home() {
           position: fixed;
           inset: 0;
           width: 100%;
+          height: 100vh;
           height: 100dvh;
           overflow: hidden;
           background:
             radial-gradient(
               circle at 10% 0%,
-              rgba(116, 75, 255, 0.2),
-              transparent 35%
+              rgba(94, 65, 190, 0.15),
+              transparent 32%
             ),
             radial-gradient(
               circle at 100% 100%,
-              rgba(36, 120, 255, 0.18),
+              rgba(45, 75, 180, 0.12),
               transparent 35%
             ),
             #02040b;
@@ -478,28 +375,26 @@ export default function Home() {
 
         .backgroundGlow {
           position: absolute;
+          width: 220px;
+          height: 220px;
           border-radius: 50%;
           pointer-events: none;
-          filter: blur(90px);
-          opacity: 0.25;
-          animation: glowPulse 6s ease-in-out infinite alternate;
+          filter: blur(85px);
+          opacity: 0.16;
+          animation: glowPulse 7s ease-in-out infinite alternate;
         }
 
         .glow1 {
-          width: 280px;
-          height: 280px;
           left: -120px;
           top: -120px;
           background: #704cff;
         }
 
         .glow2 {
-          width: 320px;
-          height: 320px;
           right: -140px;
           bottom: -140px;
           background: #315dff;
-          animation-delay: 1.5s;
+          animation-delay: 2s;
         }
 
         .app {
@@ -509,46 +404,50 @@ export default function Home() {
           flex-direction: column;
           min-height: 0;
           overflow: hidden;
-          background: rgba(3, 5, 12, 0.76);
-          backdrop-filter: blur(12px);
+          background: rgba(3, 5, 12, 0.82);
         }
 
         .header {
           position: relative;
-          z-index: 10;
+          z-index: 5;
           flex: 0 0 auto;
-          width: 100%;
-          min-height: 76px;
+          min-height: 72px;
           display: flex;
           align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-          padding: 8px 15px;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-          background: rgba(7, 9, 18, 0.96);
+          padding: 8px 13px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+          background: rgba(7, 9, 18, 0.97);
         }
 
         .brand {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
           min-width: 0;
         }
 
         .logo {
-          width: 48px;
-          height: 48px;
-          flex: 0 0 48px;
+          position: relative;
+          isolation: isolate;
+          width: 42px;
+          height: 42px;
+          flex: 0 0 42px;
           display: grid;
           place-items: center;
-          border: 1px solid rgba(174, 144, 255, 0.6);
-          border-radius: 16px;
-          background: linear-gradient(145deg, #35235e, #10182f);
-          color: #e1d7ff;
-          font-size: 30px;
-          text-shadow: 0 0 12px #b69cff, 0 0 26px #7654ff;
-          box-shadow: 0 0 15px rgba(128, 83, 255, 0.4);
-          animation: logoGlow 3s ease-in-out infinite alternate;
+          overflow: hidden;
+          border: 1px solid rgba(174, 144, 255, 0.45);
+          border-radius: 13px;
+          background: linear-gradient(145deg, #292142, #14182a);
+          color: #e0d5ff;
+          font-size: 24px;
+          box-shadow: 0 0 10px rgba(128, 83, 255, 0.25);
+          animation: logoPulse 4s ease-in-out infinite alternate;
+        }
+
+        .logo span {
+          position: relative;
+          z-index: 1;
+          text-shadow: 0 0 8px #b69cff;
         }
 
         .brandInfo {
@@ -557,58 +456,45 @@ export default function Home() {
 
         .brandName {
           color: #fff;
-          font-size: 21px;
+          font-size: 19px;
           font-weight: 900;
-          letter-spacing: 1.6px;
-          text-shadow: 0 0 12px rgba(150, 119, 255, 0.6);
+          letter-spacing: 1.1px;
+          line-height: 1.15;
+          text-shadow: 0 0 10px rgba(155, 127, 255, 0.3);
         }
 
-        .tagline {
-          margin-top: 2px;
-          color: #c2b4ff;
-          font-size: 11px;
+        .brandName span {
+          color: #b7a4ff;
         }
 
-        .credit {
+        .brandTagline {
           margin-top: 2px;
-          color: #858da8;
+          color: #c7c9e4;
           font-size: 10px;
+        }
+
+        .brandCredit {
+          margin-top: 2px;
+          color: #9184c6;
+          font-size: 9px;
         }
 
         .online {
           display: flex;
           align-items: center;
           gap: 6px;
-          margin-top: 4px;
-          color: #8b96b5;
+          margin-top: 3px;
+          color: #8b94b0;
           font-size: 11px;
         }
 
         .online span {
-          width: 7px;
-          height: 7px;
+          width: 6px;
+          height: 6px;
           border-radius: 50%;
           background: #43e78d;
-          box-shadow: 0 0 10px #43e78d;
-          animation: onlinePulse 2s infinite;
-        }
-
-        .sparkButton {
-          width: 44px;
-          height: 44px;
-          flex: 0 0 44px;
-          border: 1px solid rgba(156, 125, 255, 0.35);
-          border-radius: 14px;
-          background: #111526;
-          color: #c5b4ff;
-          font-size: 23px;
-          cursor: pointer;
-          transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .sparkButton:active {
-          transform: scale(0.92);
-          box-shadow: 0 0 18px #7654ff;
+          box-shadow: 0 0 7px #43e78d;
+          animation: onlinePulse 2.5s ease-in-out infinite;
         }
 
         .chatArea {
@@ -624,18 +510,18 @@ export default function Home() {
 
         .chat {
           width: 100%;
-          max-width: 900px;
+          max-width: 850px;
           margin: 0 auto;
-          padding: 18px 12px 22px;
+          padding: 14px 10px 18px;
         }
 
         .message {
           display: flex;
           align-items: flex-start;
-          gap: 9px;
+          gap: 8px;
           width: 100%;
-          margin-bottom: 18px;
-          animation: messageEnter 0.38s ease-out both;
+          margin-bottom: 12px;
+          animation: messageEnter 0.22s ease-out both;
         }
 
         .assistantMessage {
@@ -647,60 +533,73 @@ export default function Home() {
         }
 
         .avatar {
-          width: 39px;
-          height: 39px;
-          flex: 0 0 39px;
+          width: 31px;
+          height: 31px;
+          flex: 0 0 31px;
           display: grid;
           place-items: center;
-          border: 1px solid rgba(157, 129, 255, 0.25);
-          border-radius: 13px;
+          border: 1px solid rgba(157, 129, 255, 0.2);
+          border-radius: 11px;
           background: #171d31;
           color: #c9b8ff;
-          font-size: 23px;
-          text-shadow: 0 0 12px #9473ff;
+          font-size: 20px;
+          text-shadow: 0 0 8px #9473ff;
         }
 
         .bubble {
-          max-width: min(88%, 760px);
-          padding: 16px 17px;
-          border-radius: 22px;
+          max-width: min(90%, 720px);
+          padding: 11px 13px;
+          border-radius: 17px;
           overflow-wrap: anywhere;
+          min-width: 0;
         }
 
         .assistantBubble {
-          border: 1px solid rgba(105, 114, 150, 0.25);
+          border: 1px solid rgba(105, 114, 150, 0.22);
           background: linear-gradient(145deg, #171d31, #101524);
-          box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
+          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14);
         }
 
         .userBubble {
-          border: 1px solid rgba(143, 127, 255, 0.3);
-          background: linear-gradient(135deg, #30245f, #252c48);
+          border: 1px solid rgba(120, 130, 170, 0.2);
+          background: #252c48;
         }
 
         .assistantTitle {
           display: flex;
           align-items: center;
-          gap: 8px;
-          margin-bottom: 10px;
-          color: #c4b6ff;
-          font-size: 14px;
+          gap: 7px;
+          margin-bottom: 7px;
+          color: #c0b5ec;
+          font-size: 12px;
         }
 
         .assistantTitle span {
-          color: #c7b4ff;
-          font-size: 20px;
-          text-shadow: 0 0 10px #8e6aff;
+          color: #c1adff;
+          font-size: 16px;
+          text-shadow: 0 0 8px rgba(170, 143, 255, 0.65);
+          animation: miniGlow 4s ease-in-out infinite;
         }
 
         .messageContent {
           color: #f4f4f8;
-          font-size: 16px;
-          line-height: 1.62;
+          font-size: 14px;
+          line-height: 1.55;
+          overflow-wrap: anywhere;
+          word-break: normal;
+        }
+
+        .messageContent strong {
+          color: #fff;
+          font-weight: 750;
+        }
+
+        .messageContent em {
+          font-style: italic;
         }
 
         .messageContent p {
-          margin: 0 0 11px;
+          margin: 0 0 8px;
         }
 
         .messageContent p:last-child {
@@ -710,76 +609,73 @@ export default function Home() {
         .messageContent h1,
         .messageContent h2,
         .messageContent h3 {
-          margin: 0 0 12px;
+          margin: 0 0 8px;
           color: #fff;
           line-height: 1.3;
         }
 
         .messageContent h1 {
-          font-size: 24px;
+          font-size: 20px;
         }
 
         .messageContent h2 {
-          font-size: 21px;
+          font-size: 18px;
         }
 
         .messageContent h3 {
-          font-size: 19px;
+          font-size: 16px;
         }
 
         .spaceLine {
-          height: 8px;
+          height: 4px;
         }
 
-        .bullet {
+        .bullet,
+        .numbered {
           display: flex;
-          gap: 9px;
-          margin: 6px 0;
+          align-items: flex-start;
+          gap: 7px;
+          margin: 5px 0;
         }
 
         .bullet span:first-child,
         .numbered span:first-child {
+          flex: 0 0 auto;
           color: #b5a1ff;
-          font-weight: 800;
-        }
-
-        .numbered {
-          display: flex;
-          gap: 9px;
-          margin: 6px 0;
+          font-weight: 700;
         }
 
         .speakButton {
-          width: 37px;
-          height: 37px;
-          margin-top: 11px;
+          width: 30px;
+          height: 30px;
+          margin-top: 8px;
           border: 0;
-          border-radius: 11px;
+          border-radius: 9px;
           background: #20263b;
           color: #bec5df;
+          font-size: 13px;
           cursor: pointer;
-          transition: background 0.2s, transform 0.2s;
+          transition: transform 0.18s ease;
         }
 
         .speakButton:active {
           transform: scale(0.92);
-          background: #37305e;
         }
 
         .typing {
           display: flex;
           align-items: center;
           gap: 5px;
-          height: 22px;
+          height: 18px;
         }
 
         .typing span {
-          width: 7px;
-          height: 7px;
+          width: 6px;
+          height: 6px;
           border-radius: 50%;
-          background: #b5a1ff;
-          box-shadow: 0 0 8px rgba(181, 161, 255, 0.4);
-          animation: typing 1.1s infinite ease-in-out;
+          background: #b4a0ff;
+          box-shadow: 0 0 6px rgba(180, 160, 255, 0.4);
+          animation: typing 1.2s infinite ease-in-out;
         }
 
         .typing span:nth-child(2) {
@@ -788,77 +684,50 @@ export default function Home() {
 
         .typing span:nth-child(3) {
           animation-delay: 0.3s;
-        }
-
-        .quickQuestions {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 9px;
-          width: 100%;
-          margin-top: 5px;
-          animation: messageEnter 0.5s ease-out both;
-        }
-
-        .quickQuestions button {
-          min-height: 50px;
-          padding: 10px 13px;
-          border: 1px solid rgba(125, 112, 190, 0.3);
-          border-radius: 15px;
-          background: #0e1220;
-          color: #d3cbed;
-          text-align: left;
-          cursor: pointer;
-          transition: border-color 0.2s, background 0.2s, transform 0.2s;
-        }
-
-        .quickQuestions button:active {
-          transform: scale(0.98);
-          background: #211a3c;
-        }
-
-        .bottomArea {
+                }
+                        .bottomArea {
           position: relative;
-          z-index: 20;
+          z-index: 5;
           flex: 0 0 auto;
           width: 100%;
-          padding: 8px 10px;
-          padding-bottom: max(8px, env(safe-area-inset-bottom));
+          padding: 7px 9px;
+          padding-bottom: max(7px, env(safe-area-inset-bottom));
           background: #03050c;
-          border-top: 1px solid rgba(255, 255, 255, 0.06);
+          border-top: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .inputBox {
           display: flex;
           align-items: flex-end;
-          gap: 7px;
+          gap: 6px;
           width: 100%;
-          min-height: 60px;
-          padding: 6px;
-          border: 1px solid rgba(130, 116, 196, 0.3);
-          border-radius: 20px;
+          min-height: 52px;
+          padding: 5px;
+          border: 1px solid rgba(111, 120, 159, 0.25);
+          border-radius: 17px;
           background: #101422;
-          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
-          transition: border-color 0.25s, box-shadow 0.25s;
+          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+          transition: border-color 0.2s, box-shadow 0.2s;
         }
 
         .inputBox:focus-within {
-          border-color: rgba(157, 127, 255, 0.65);
-          box-shadow: 0 0 18px rgba(111, 75, 255, 0.14);
+          border-color: rgba(157, 127, 255, 0.5);
+          box-shadow: 0 0 12px rgba(111, 75, 255, 0.12);
         }
 
         textarea {
           flex: 1 1 auto;
           width: 0;
           min-width: 0;
-          height: 46px;
-          max-height: 100px;
+          height: 40px;
+          max-height: 90px;
           resize: none;
           outline: none;
           border: 0;
           background: transparent;
           color: #f5f5f8;
-          padding: 11px 7px;
-          font-size: 16px;
+          padding: 9px 7px;
+          font-size: 14px;
           line-height: 1.4;
         }
 
@@ -868,57 +737,59 @@ export default function Home() {
 
         .voiceButton,
         .sendButton {
-          width: 46px;
-          height: 46px;
-          flex: 0 0 46px;
+          width: 40px;
+          height: 40px;
+          flex: 0 0 40px;
+          display: grid;
+          place-items: center;
           border: 0;
-          border-radius: 14px;
+          border-radius: 12px;
           cursor: pointer;
-          transition: transform 0.2s, box-shadow 0.2s;
+          transition: transform 0.18s ease, box-shadow 0.18s ease;
         }
 
         .voiceButton {
           background: #191e30;
           color: #a0a8c7;
-          font-size: 18px;
+          font-size: 16px;
         }
 
         .voiceButton.active {
           background: #39243c;
           color: #ff9ed0;
-          box-shadow: 0 0 15px rgba(255, 100, 200, 0.2);
+          box-shadow: 0 0 10px rgba(255, 100, 200, 0.16);
           animation: onlinePulse 1.2s infinite;
         }
 
         .sendButton {
-          background: linear-gradient(135deg, #5343ad, #292362);
+          background: linear-gradient(135deg, #44358e, #292362);
           color: #e0d9ff;
-          font-size: 23px;
-          box-shadow: 0 0 12px rgba(111, 75, 255, 0.18);
+          font-size: 21px;
+          box-shadow: 0 0 10px rgba(91, 73, 210, 0.15);
         }
 
-        .sendButton:active:not(:disabled) {
-          transform: scale(0.92);
-          box-shadow: 0 0 18px rgba(111, 75, 255, 0.5);
+        .sendButton:not(:disabled):active,
+        .voiceButton:active {
+          transform: scale(0.93);
         }
 
         .sendButton:disabled {
-          opacity: 0.45;
+          opacity: 0.42;
           cursor: default;
         }
 
         .footerCredit {
-          padding-top: 7px;
+          padding-top: 6px;
           color: #68718d;
           text-align: center;
-          font-size: 10px;
-          letter-spacing: 0.4px;
+          font-size: 9px;
+          letter-spacing: 0.25px;
         }
 
         @keyframes messageEnter {
           from {
             opacity: 0;
-            transform: translateY(12px);
+            transform: translateY(5px);
           }
           to {
             opacity: 1;
@@ -928,23 +799,28 @@ export default function Home() {
 
         @keyframes glowPulse {
           from {
-            opacity: 0.14;
-            transform: scale(0.95);
+            opacity: 0.1;
           }
           to {
-            opacity: 0.32;
-            transform: scale(1.08);
+            opacity: 0.2;
           }
         }
 
-        @keyframes logoGlow {
+        @keyframes logoPulse {
           from {
-            box-shadow: 0 0 10px rgba(128, 83, 255, 0.25);
+            box-shadow: 0 0 7px rgba(128, 83, 255, 0.2);
           }
           to {
-            box-shadow:
-              0 0 22px rgba(128, 83, 255, 0.6),
-              0 0 38px rgba(88, 108, 255, 0.2);
+            box-shadow: 0 0 13px rgba(128, 83, 255, 0.4);
+          }
+        }
+
+        @keyframes miniGlow {
+          0%, 100% {
+            opacity: 0.8;
+          }
+          50% {
+            opacity: 1;
           }
         }
 
@@ -964,57 +840,41 @@ export default function Home() {
           }
           35% {
             opacity: 1;
-            transform: translateY(-5px);
-          }
-        }
-
-        @media (max-width: 600px) {
-          .header {
-            min-height: 76px;
-            padding: 7px 12px;
-          }
-
-          .chat {
-            padding: 14px 9px 16px;
-          }
-
-          .bubble {
-            max-width: 91%;
-          }
-
-          .quickQuestions {
-            grid-template-columns: 1fr;
-          }
-
-          .bottomArea {
-            padding-left: 8px;
-            padding-right: 8px;
+            transform: translateY(-4px);
           }
         }
 
         @media (max-width: 380px) {
-          .brandName {
-            font-size: 18px;
+          .header {
+            min-height: 68px;
+            padding: 7px 10px;
           }
 
-          .tagline {
-            font-size: 10px;
+          .brandName {
+            font-size: 17px;
+          }
+
+          .brandTagline {
+            font-size: 9px;
+          }
+
+          .brandCredit {
+            font-size: 8px;
           }
 
           .logo {
-            width: 42px;
-            height: 42px;
-            flex-basis: 42px;
-          }
-
-          .sparkButton {
-            width: 42px;
-            height: 42px;
-            flex-basis: 42px;
+            width: 38px;
+            height: 38px;
+            flex-basis: 38px;
+            font-size: 21px;
           }
 
           .messageContent {
-            font-size: 15px;
+            font-size: 13px;
+          }
+
+          .bubble {
+            padding: 10px 11px;
           }
         }
 
@@ -1031,4 +891,4 @@ export default function Home() {
       `}</style>
     </div>
   );
-                }
+}
