@@ -71,7 +71,7 @@ export default function Home() {
     {
       role: "assistant",
       content:
-        "Namaste 🙏\n\nMain Dharm AI hoon. Aap Bhagavad Gita, Ramayana, Mahabharata, puja, mantra, dharma aur spiritual life se jude sawaal pooch sakte ho."
+        "Namaste 🙏\n\nMain ORION AI hoon. Aap Bhagavad Gita, Ramayana, Mahabharata, puja, mantra, dharma aur spiritual life se jude sawaal pooch sakte ho."
     }
   ]);
 
@@ -80,15 +80,19 @@ export default function Home() {
   const [listening, setListening] = useState(false);
 
   const chatAreaRef = useRef(null);
-const recognitionRef = useRef(null);
+  const recognitionRef = useRef(null);
 
-useEffect(() => {
-  const el = chatAreaRef.current;
+  // Smooth automatic chat scrolling
+  useEffect(() => {
+    const el = chatAreaRef.current;
 
-  if (el) {
-    el.scrollTop = el.scrollHeight;
-  }
-}, [messages, loading]);
+    if (el) {
+      el.scrollTo({
+        top: el.scrollHeight,
+        behavior: "smooth"
+      });
+    }
+  }, [messages, loading]);
 
   useEffect(() => {
     return () => {
@@ -205,8 +209,7 @@ useEffect(() => {
         i < event.results.length;
         i++
       ) {
-        transcript +=
-          event.results[i][0].transcript;
+        transcript += event.results[i][0].transcript;
       }
 
       setInput(transcript);
@@ -227,9 +230,8 @@ useEffect(() => {
     } catch {
       setListening(false);
     }
-  }
-
-  function speak(text) {
+}
+    function speak(text) {
     if (
       typeof window === "undefined" ||
       !window.speechSynthesis
@@ -253,11 +255,7 @@ useEffect(() => {
   }
 
   function quickQuestion(question) {
-    setInput(question);
-
-    setTimeout(() => {
-      sendMessage(question);
-    }, 50);
+    sendMessage(question);
   }
 
   const quickQuestions = [
@@ -269,33 +267,25 @@ useEffect(() => {
 
   return (
     <div className="page">
-
       <div className="backgroundGlow glow1"></div>
       <div className="backgroundGlow glow2"></div>
 
       <div className="app">
-
         <header className="header">
-
           <div className="brand">
-
-            <div className="logo">
-              🌸
-            </div>
+            <div className="logo">✦</div>
 
             <div className="brandInfo">
-
-              <div className="brandName">
-                Dharm AI
+              <div className="brandName">ORION AI</div>
+              <div className="tagline">
+                Your Intelligent Companion
               </div>
-
+              <div className="credit">Powered by Dharm AI</div>
               <div className="online">
                 <span></span>
                 Online
               </div>
-
             </div>
-
           </div>
 
           <button
@@ -309,15 +299,11 @@ useEffect(() => {
           >
             ✦
           </button>
-
         </header>
 
         <main ref={chatAreaRef} className="chatArea">
-
           <div className="chat">
-
             {messages.map((message, index) => (
-
               <div
                 key={index}
                 className={
@@ -326,11 +312,8 @@ useEffect(() => {
                     : "message assistantMessage"
                 }
               >
-
                 {message.role === "assistant" && (
-                  <div className="avatar">
-                    🌸
-                  </div>
+                  <div className="avatar">✦</div>
                 )}
 
                 <div
@@ -340,11 +323,10 @@ useEffect(() => {
                       : "bubble assistantBubble"
                   }
                 >
-
                   {message.role === "assistant" && (
                     <div className="assistantTitle">
-                      <span>🌸</span>
-                      <b>Dharm AI</b>
+                      <span>✦</span>
+                      <b>ORION AI</b>
                     </div>
                   )}
 
@@ -355,33 +337,24 @@ useEffect(() => {
                   {message.role === "assistant" && (
                     <button
                       className="speakButton"
-                      onClick={() =>
-                        speak(message.content)
-                      }
+                      onClick={() => speak(message.content)}
                       aria-label="Listen"
                     >
                       🔊
                     </button>
                   )}
-
                 </div>
-
               </div>
-
             ))}
 
             {loading && (
               <div className="message assistantMessage">
-
-                <div className="avatar">
-                  🌸
-                </div>
+                <div className="avatar">✦</div>
 
                 <div className="bubble assistantBubble">
-
                   <div className="assistantTitle">
-                    <span>🌸</span>
-                    <b>Dharm AI</b>
+                    <span>✦</span>
+                    <b>ORION AI</b>
                   </div>
 
                   <div className="typing">
@@ -389,39 +362,27 @@ useEffect(() => {
                     <span></span>
                     <span></span>
                   </div>
-
                 </div>
-
               </div>
             )}
 
             {messages.length === 1 && !loading && (
               <div className="quickQuestions">
-
                 {quickQuestions.map((question) => (
                   <button
                     key={question}
-                    onClick={() =>
-                      quickQuestion(question)
-                    }
+                    onClick={() => quickQuestion(question)}
                   >
                     {question}
                   </button>
                 ))}
-
               </div>
             )}
-
-            <div></div>
-
           </div>
-
         </main>
 
         <footer className="bottomArea">
-
           <div className="inputBox">
-
             <textarea
               value={input}
               onChange={(event) =>
@@ -436,7 +397,7 @@ useEffect(() => {
                   sendMessage();
                 }
               }}
-              placeholder="Dharm AI se kuch poochiye..."
+              placeholder="Message ORION AI..."
               rows={1}
             />
 
@@ -455,22 +416,19 @@ useEffect(() => {
             <button
               className="sendButton"
               onClick={() => sendMessage()}
-              disabled={
-                !input.trim() || loading
-              }
+              disabled={!input.trim() || loading}
               aria-label="Send"
             >
               ➤
             </button>
-
           </div>
 
+          <div className="footerCredit">
+            ORION AI · Powered by Dharm AI
+          </div>
         </footer>
-
       </div>
-
       <style jsx global>{`
-
         * {
           box-sizing: border-box;
         }
@@ -483,14 +441,10 @@ useEffect(() => {
           padding: 0;
         }
 
-     body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  background: #02040b;
-}
+        body {
+          overflow: hidden;
+          background: #02040b;
+        }
 
         button,
         textarea {
@@ -501,33 +455,34 @@ useEffect(() => {
           -webkit-tap-highlight-color: transparent;
         }
 
-       .page {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100dvh;
-  min-height: 0;
-  overflow: hidden; 
-  background:
-    radial-gradient(
-      circle at 10% 0%,
-      rgba(94, 65, 190, 0.18),
-      transparent 30%
-    ),
-    radial-gradient(
-      circle at 100% 100%,
-      rgba(45, 75, 180, 0.14),
-      transparent 35%
-    ),
-    #02040b;
-}
+        .page {
+          position: fixed;
+          inset: 0;
+          width: 100%;
+          height: 100dvh;
+          overflow: hidden;
+          background:
+            radial-gradient(
+              circle at 10% 0%,
+              rgba(116, 75, 255, 0.2),
+              transparent 35%
+            ),
+            radial-gradient(
+              circle at 100% 100%,
+              rgba(36, 120, 255, 0.18),
+              transparent 35%
+            ),
+            #02040b;
+          color: #fff;
+        }
 
         .backgroundGlow {
           position: absolute;
           border-radius: 50%;
           pointer-events: none;
           filter: blur(90px);
-          opacity: 0.18;
+          opacity: 0.25;
+          animation: glowPulse 6s ease-in-out infinite alternate;
         }
 
         .glow1 {
@@ -544,58 +499,56 @@ useEffect(() => {
           right: -140px;
           bottom: -140px;
           background: #315dff;
+          animation-delay: 1.5s;
         }
 
-      .app {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: rgba(3, 5, 12, 0.82);
-}
+        .app {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+          overflow: hidden;
+          background: rgba(3, 5, 12, 0.76);
+          backdrop-filter: blur(12px);
+        }
 
         .header {
-  position: relative;
-  z-index: 10;
-  flex: 0 0 auto;
-  width: 100%;
-  height: 72px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 15px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-  background: rgba(7, 9, 18, 0.98);
-}
+          position: relative;
+          z-index: 10;
+          flex: 0 0 auto;
+          width: 100%;
+          min-height: 76px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 8px 15px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          background: rgba(7, 9, 18, 0.96);
+        }
 
         .brand {
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 12px;
           min-width: 0;
         }
 
         .logo {
-          width: 45px;
-          height: 45px;
-          flex: 0 0 45px;
+          width: 48px;
+          height: 48px;
+          flex: 0 0 48px;
           display: grid;
           place-items: center;
-          border-radius: 14px;
-          background:
-            linear-gradient(
-              145deg,
-              #292142,
-              #14182a
-            );
-          font-size: 23px;
-          box-shadow:
-            0 8px 25px
-              rgba(95, 65, 190, 0.2);
+          border: 1px solid rgba(174, 144, 255, 0.6);
+          border-radius: 16px;
+          background: linear-gradient(145deg, #35235e, #10182f);
+          color: #e1d7ff;
+          font-size: 30px;
+          text-shadow: 0 0 12px #b69cff, 0 0 26px #7654ff;
+          box-shadow: 0 0 15px rgba(128, 83, 255, 0.4);
+          animation: logoGlow 3s ease-in-out infinite alternate;
         }
 
         .brandInfo {
@@ -603,18 +556,32 @@ useEffect(() => {
         }
 
         .brandName {
-          color: #ffffff;
+          color: #fff;
           font-size: 21px;
-          font-weight: 800;
+          font-weight: 900;
+          letter-spacing: 1.6px;
+          text-shadow: 0 0 12px rgba(150, 119, 255, 0.6);
+        }
+
+        .tagline {
+          margin-top: 2px;
+          color: #c2b4ff;
+          font-size: 11px;
+        }
+
+        .credit {
+          margin-top: 2px;
+          color: #858da8;
+          font-size: 10px;
         }
 
         .online {
           display: flex;
           align-items: center;
           gap: 6px;
-          margin-top: 3px;
-          color: #7f89a7;
-          font-size: 12px;
+          margin-top: 4px;
+          color: #8b96b5;
+          font-size: 11px;
         }
 
         .online span {
@@ -623,19 +590,25 @@ useEffect(() => {
           border-radius: 50%;
           background: #43e78d;
           box-shadow: 0 0 10px #43e78d;
+          animation: onlinePulse 2s infinite;
         }
 
         .sparkButton {
           width: 44px;
           height: 44px;
           flex: 0 0 44px;
-          border: 1px solid
-            rgba(156, 125, 255, 0.25);
+          border: 1px solid rgba(156, 125, 255, 0.35);
           border-radius: 14px;
           background: #111526;
-          color: #aa91ff;
-          font-size: 22px;
+          color: #c5b4ff;
+          font-size: 23px;
           cursor: pointer;
+          transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .sparkButton:active {
+          transform: scale(0.92);
+          box-shadow: 0 0 18px #7654ff;
         }
 
         .chatArea {
@@ -646,13 +619,14 @@ useEffect(() => {
           overflow-x: hidden;
           -webkit-overflow-scrolling: touch;
           overscroll-behavior: contain;
+          scroll-behavior: smooth;
         }
 
         .chat {
           width: 100%;
           max-width: 900px;
           margin: 0 auto;
-          padding: 18px 12px 18px;
+          padding: 18px 12px 22px;
         }
 
         .message {
@@ -661,6 +635,7 @@ useEffect(() => {
           gap: 9px;
           width: 100%;
           margin-bottom: 18px;
+          animation: messageEnter 0.38s ease-out both;
         }
 
         .assistantMessage {
@@ -677,9 +652,12 @@ useEffect(() => {
           flex: 0 0 39px;
           display: grid;
           place-items: center;
+          border: 1px solid rgba(157, 129, 255, 0.25);
           border-radius: 13px;
           background: #171d31;
-          font-size: 18px;
+          color: #c9b8ff;
+          font-size: 23px;
+          text-shadow: 0 0 12px #9473ff;
         }
 
         .bubble {
@@ -690,23 +668,14 @@ useEffect(() => {
         }
 
         .assistantBubble {
-          border: 1px solid
-            rgba(105, 114, 150, 0.23);
-          background:
-            linear-gradient(
-              145deg,
-              #171d31,
-              #101524
-            );
-          box-shadow:
-            0 18px 40px
-              rgba(0, 0, 0, 0.18);
+          border: 1px solid rgba(105, 114, 150, 0.25);
+          background: linear-gradient(145deg, #171d31, #101524);
+          box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
         }
 
         .userBubble {
-          border: 1px solid
-            rgba(120, 130, 170, 0.2);
-          background: #252c48;
+          border: 1px solid rgba(143, 127, 255, 0.3);
+          background: linear-gradient(135deg, #30245f, #252c48);
         }
 
         .assistantTitle {
@@ -714,12 +683,14 @@ useEffect(() => {
           align-items: center;
           gap: 8px;
           margin-bottom: 10px;
-          color: #b4b9cc;
+          color: #c4b6ff;
           font-size: 14px;
         }
 
         .assistantTitle span {
+          color: #c7b4ff;
           font-size: 20px;
+          text-shadow: 0 0 10px #8e6aff;
         }
 
         .messageContent {
@@ -740,7 +711,7 @@ useEffect(() => {
         .messageContent h2,
         .messageContent h3 {
           margin: 0 0 12px;
-          color: #ffffff;
+          color: #fff;
           line-height: 1.3;
         }
 
@@ -766,8 +737,9 @@ useEffect(() => {
           margin: 6px 0;
         }
 
-        .bullet span:first-child {
-          color: #a995ff;
+        .bullet span:first-child,
+        .numbered span:first-child {
+          color: #b5a1ff;
           font-weight: 800;
         }
 
@@ -775,11 +747,6 @@ useEffect(() => {
           display: flex;
           gap: 9px;
           margin: 6px 0;
-        }
-
-        .numbered span:first-child {
-          color: #a995ff;
-          font-weight: 800;
         }
 
         .speakButton {
@@ -791,6 +758,12 @@ useEffect(() => {
           background: #20263b;
           color: #bec5df;
           cursor: pointer;
+          transition: background 0.2s, transform 0.2s;
+        }
+
+        .speakButton:active {
+          transform: scale(0.92);
+          background: #37305e;
         }
 
         .typing {
@@ -804,9 +777,9 @@ useEffect(() => {
           width: 7px;
           height: 7px;
           border-radius: 50%;
-          background: #9785dc;
-          animation: typing 1.1s
-            infinite ease-in-out;
+          background: #b5a1ff;
+          box-shadow: 0 0 8px rgba(181, 161, 255, 0.4);
+          animation: typing 1.1s infinite ease-in-out;
         }
 
         .typing span:nth-child(2) {
@@ -817,43 +790,30 @@ useEffect(() => {
           animation-delay: 0.3s;
         }
 
-        @keyframes typing {
-          0%,
-          70%,
-          100% {
-            opacity: 0.4;
-            transform: translateY(0);
-          }
-
-          35% {
-            opacity: 1;
-            transform: translateY(-5px);
-          }
-        }
-
         .quickQuestions {
           display: grid;
-          grid-template-columns:
-            repeat(2, minmax(0, 1fr));
+          grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 9px;
           width: 100%;
           margin-top: 5px;
+          animation: messageEnter 0.5s ease-out both;
         }
 
         .quickQuestions button {
           min-height: 50px;
           padding: 10px 13px;
-          border: 1px solid
-            rgba(125, 112, 190, 0.22);
+          border: 1px solid rgba(125, 112, 190, 0.3);
           border-radius: 15px;
           background: #0e1220;
-          color: #c8c4db;
+          color: #d3cbed;
           text-align: left;
           cursor: pointer;
+          transition: border-color 0.2s, background 0.2s, transform 0.2s;
         }
 
         .quickQuestions button:active {
           transform: scale(0.98);
+          background: #211a3c;
         }
 
         .bottomArea {
@@ -861,11 +821,10 @@ useEffect(() => {
           z-index: 20;
           flex: 0 0 auto;
           width: 100%;
-          padding: 8px 10px
-            max(8px, env(safe-area-inset-bottom));
+          padding: 8px 10px;
+          padding-bottom: max(8px, env(safe-area-inset-bottom));
           background: #03050c;
-          border-top: 1px solid
-            rgba(255, 255, 255, 0.04);
+          border-top: 1px solid rgba(255, 255, 255, 0.06);
         }
 
         .inputBox {
@@ -875,13 +834,16 @@ useEffect(() => {
           width: 100%;
           min-height: 60px;
           padding: 6px;
-          border: 1px solid
-            rgba(111, 120, 159, 0.25);
+          border: 1px solid rgba(130, 116, 196, 0.3);
           border-radius: 20px;
           background: #101422;
-          box-shadow:
-            0 8px 30px
-              rgba(0, 0, 0, 0.25);
+          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+          transition: border-color 0.25s, box-shadow 0.25s;
+        }
+
+        .inputBox:focus-within {
+          border-color: rgba(157, 127, 255, 0.65);
+          box-shadow: 0 0 18px rgba(111, 75, 255, 0.14);
         }
 
         textarea {
@@ -912,6 +874,7 @@ useEffect(() => {
           border: 0;
           border-radius: 14px;
           cursor: pointer;
+          transition: transform 0.2s, box-shadow 0.2s;
         }
 
         .voiceButton {
@@ -923,72 +886,149 @@ useEffect(() => {
         .voiceButton.active {
           background: #39243c;
           color: #ff9ed0;
+          box-shadow: 0 0 15px rgba(255, 100, 200, 0.2);
+          animation: onlinePulse 1.2s infinite;
         }
 
         .sendButton {
-          background: #292362;
-          color: #c2b8ff;
-             color: #c2b8ff;
-      font-size: 23px;
-    }
+          background: linear-gradient(135deg, #5343ad, #292362);
+          color: #e0d9ff;
+          font-size: 23px;
+          box-shadow: 0 0 12px rgba(111, 75, 255, 0.18);
+        }
 
-    .sendButton:disabled {
-      opacity: 0.45;
-      cursor: default;
-    }
+        .sendButton:active:not(:disabled) {
+          transform: scale(0.92);
+          box-shadow: 0 0 18px rgba(111, 75, 255, 0.5);
+        }
 
-    @media (max-width: 600px) {
+        .sendButton:disabled {
+          opacity: 0.45;
+          cursor: default;
+        }
 
-      .header {
-        height: 70px;
-        padding: 7px 13px;
-      }
+        .footerCredit {
+          padding-top: 7px;
+          color: #68718d;
+          text-align: center;
+          font-size: 10px;
+          letter-spacing: 0.4px;
+        }
 
-      .chat {
-        padding: 14px 9px 16px;
-      }
+        @keyframes messageEnter {
+          from {
+            opacity: 0;
+            transform: translateY(12px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
 
-      .bubble {
-        max-width: 91%;
-      }
+        @keyframes glowPulse {
+          from {
+            opacity: 0.14;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 0.32;
+            transform: scale(1.08);
+          }
+        }
 
-      .quickQuestions {
-        grid-template-columns: 1fr;
-      }
+        @keyframes logoGlow {
+          from {
+            box-shadow: 0 0 10px rgba(128, 83, 255, 0.25);
+          }
+          to {
+            box-shadow:
+              0 0 22px rgba(128, 83, 255, 0.6),
+              0 0 38px rgba(88, 108, 255, 0.2);
+          }
+        }
 
-      .bottomArea {
-        padding-left: 8px;
-        padding-right: 8px;
-      }
+        @keyframes onlinePulse {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.55;
+          }
+        }
 
-    }
+        @keyframes typing {
+          0%, 70%, 100% {
+            opacity: 0.4;
+            transform: translateY(0);
+          }
+          35% {
+            opacity: 1;
+            transform: translateY(-5px);
+          }
+        }
 
-    @media (max-width: 380px) {
+        @media (max-width: 600px) {
+          .header {
+            min-height: 76px;
+            padding: 7px 12px;
+          }
 
-      .brandName {
-        font-size: 19px;
-      }
+          .chat {
+            padding: 14px 9px 16px;
+          }
 
-      .logo {
-        width: 42px;
-        height: 42px;
-        flex-basis: 42px;
-      }
+          .bubble {
+            max-width: 91%;
+          }
 
-      .sparkButton {
-        width: 42px;
-        height: 42px;
-        flex-basis: 42px;
-      }
+          .quickQuestions {
+            grid-template-columns: 1fr;
+          }
 
-      .messageContent {
-        font-size: 15px;
-      }
+          .bottomArea {
+            padding-left: 8px;
+            padding-right: 8px;
+          }
+        }
 
-    }
+        @media (max-width: 380px) {
+          .brandName {
+            font-size: 18px;
+          }
 
-  `}</style>
+          .tagline {
+            font-size: 10px;
+          }
 
-</div>
-);
-}
+          .logo {
+            width: 42px;
+            height: 42px;
+            flex-basis: 42px;
+          }
+
+          .sparkButton {
+            width: 42px;
+            height: 42px;
+            flex-basis: 42px;
+          }
+
+          .messageContent {
+            font-size: 15px;
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          *,
+          *::before,
+          *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            scroll-behavior: auto !important;
+            transition-duration: 0.01ms !important;
+          }
+        }
+      `}</style>
+    </div>
+  );
+                }
