@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -108,9 +107,9 @@ export default function Home() {
   const chatAreaRef = useRef(null);
   const shouldAutoScrollRef = useRef(true);
   const recognitionRef = useRef(null);
+  const touchStartYRef = useRef(null);
 
-  // Naya text aate hi chat ko neeche follow karayein.
-  // User upar scroll kare to auto-scroll ruk jayega.
+  // User neeche ho tabhi jawab ke saath scroll kare.
   useEffect(() => {
     const el = chatAreaRef.current;
 
@@ -171,12 +170,12 @@ export default function Home() {
         data?.reply || "Maaf kijiye 🙏 Abhi response nahi mila."
       );
 
-      // Jawab ko dheere-dheere likhein.
       setMessages((old) => [
         ...old,
         { role: "assistant", content: "" }
       ]);
 
+      // Jawab dheere-dheere likhega.
       const charactersPerStep = 3;
       const typingDelay = 18;
 
@@ -222,7 +221,37 @@ export default function Home() {
     const distanceFromBottom =
       el.scrollHeight - el.scrollTop - el.clientHeight;
 
-    shouldAutoScrollRef.current = distanceFromBottom < 100;
+    // Neeche aane par auto-scroll phir chalu hoga.
+    if (distanceFromBottom <= 24) {
+      shouldAutoScrollRef.current = true;
+    } else if (distanceFromBottom > 48) {
+      shouldAutoScrollRef.current = false;
+    }
+  }
+
+  function handleChatWheel(event) {
+    if (event.deltaY < 0) {
+      shouldAutoScrollRef.current = false;
+    }
+  }
+
+  function handleChatTouchStart(event) {
+    touchStartYRef.current = event.touches?.[0]?.clientY ?? null;
+  }
+
+  function handleChatTouchMove(event) {
+    const currentY = event.touches?.[0]?.clientY;
+    const startY = touchStartYRef.current;
+
+    if (
+      startY !== null &&
+      currentY !== undefined &&
+      currentY > startY + 6
+    ) {
+      shouldAutoScrollRef.current = false;
+    }
+
+    touchStartYRef.current = currentY ?? startY;
   }
 
   function startVoice() {
@@ -370,12 +399,16 @@ export default function Home() {
             </div>
           </div>
         </header>
+
         <main
           ref={chatAreaRef}
           className="chatArea"
           onScroll={handleChatScroll}
+          onWheel={handleChatWheel}
+          onTouchStart={handleChatTouchStart}
+          onTouchMove={handleChatTouchMove}
         >
-          <div className="chat">
+                      <div className="chat">
             {messages.map((message, index) => (
               <div
                 key={index}
@@ -442,7 +475,7 @@ export default function Home() {
                 </div>
               </div>
             ))}
-        
+
             {messages.length === 1 && !loading && (
               <div className="suggestions">
                 <div className="suggestionHeading">
@@ -551,6 +584,7 @@ export default function Home() {
           </div>
         </footer>
       </div>
+
       <style jsx global>{`
         * {
           box-sizing: border-box;
@@ -783,7 +817,7 @@ export default function Home() {
 
         .assistantBubble {
           border: 1px solid rgba(105, 114, 150, 0.22);
-          background: linear-gradient(145deg, #171d31, #101524);
+                    background: linear-gradient(145deg, #171d31, #101524);
           box-shadow: 0 5px 16px rgba(0, 0, 0, 0.12);
         }
 
@@ -894,8 +928,8 @@ export default function Home() {
           color: #bec5df;
           font-size: 13px;
           cursor: pointer;
-}
-                        
+        }
+
         .suggestions {
           margin: 1px 0 18px 40px;
           max-width: 680px;
