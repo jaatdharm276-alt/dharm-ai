@@ -216,7 +216,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }
+    }
     function handleChatScroll(event) {
     const el = event.currentTarget;
     const distanceFromBottom =
@@ -321,6 +321,7 @@ export default function Home() {
                     <stop offset="100%" stopColor="#e4a5ff" />
                   </linearGradient>
                 </defs>
+
                 <ellipse
                   cx="50"
                   cy="50"
@@ -331,6 +332,7 @@ export default function Home() {
                   strokeWidth="3"
                   transform="rotate(-35 50 50)"
                 />
+
                 <circle
                   cx="50"
                   cy="50"
@@ -339,6 +341,7 @@ export default function Home() {
                   stroke="url(#orionGradient)"
                   strokeWidth="2.5"
                 />
+
                 <path
                   d="M50 32 L56 44 L68 50 L56 56 L50 68 L44 56 L32 50 L44 44 Z"
                   fill="url(#orionGradient)"
@@ -350,12 +353,15 @@ export default function Home() {
               <div className="brandName">
                 ORION <span>AI</span>
               </div>
+
               <div className="brandTagline">
                 Your Intelligent Companion
               </div>
+
               <div className="brandCredit">
                 Powered by Dharm AI
               </div>
+
               <div className="online">
                 <span />
                 Online
@@ -449,6 +455,7 @@ export default function Home() {
             )}
           </div>
         </main>
+
         <footer className="bottomArea">
           <div className="inputBox">
             <textarea
@@ -496,21 +503,32 @@ export default function Home() {
           </div>
         </footer>
       </div>
-
       <style jsx global>{`
-        * { box-sizing: border-box; }
-        html, body {
+        * {
+          box-sizing: border-box;
+        }
+
+        html,
+        body {
           width: 100%;
           height: 100%;
           margin: 0;
           padding: 0;
         }
+
         body {
           overflow: hidden;
           background: #ffffff;
         }
-        button, textarea { font: inherit; }
-        button { -webkit-tap-highlight-color: transparent; }
+
+        button,
+        textarea {
+          font: inherit;
+        }
+
+        button {
+          -webkit-tap-highlight-color: transparent;
+        }
 
         .page {
           position: fixed;
@@ -520,24 +538,37 @@ export default function Home() {
           height: 100dvh;
           overflow: hidden;
           color: #202437;
-          background: #ffffff;
+          background:
+            radial-gradient(
+              ellipse at 8% 0%,
+              rgba(155, 130, 255, 0.12),
+              transparent 38%
+            ),
+            radial-gradient(
+              ellipse at 100% 100%,
+              rgba(79, 190, 255, 0.10),
+              transparent 36%
+            ),
+            #ffffff;
         }
 
         .backgroundGlow {
           position: absolute;
-          width: 180px;
-          height: 180px;
+          width: 220px;
+          height: 220px;
           border-radius: 50%;
           pointer-events: none;
-          filter: blur(85px);
-          opacity: 0.08;
-          animation: orionGlow 8s ease-in-out infinite alternate;
+          filter: blur(75px);
+          opacity: 0.14;
+          animation: orionGlow 6s ease-in-out infinite alternate;
         }
+
         .glowOne {
           left: -110px;
           top: -110px;
           background: #9c8bff;
         }
+
         .glowTwo {
           right: -120px;
           bottom: -120px;
@@ -551,7 +582,7 @@ export default function Home() {
           flex-direction: column;
           min-height: 0;
           overflow: hidden;
-          background: rgba(255,255,255,0.92);
+          background: rgba(255, 255, 255, 0.88);
         }
 
         .header {
@@ -562,8 +593,9 @@ export default function Home() {
           display: flex;
           align-items: center;
           padding: 8px 13px;
-          border-bottom: 1px solid #e8eaf2;
-          background: rgba(255,255,255,0.98);
+          border-bottom: 1px solid rgba(153, 132, 255, 0.25);
+          background: rgba(255, 255, 255, 0.94);
+          box-shadow: 0 4px 22px rgba(125, 101, 235, 0.10);
         }
 
         .brand {
@@ -571,36 +603,59 @@ export default function Home() {
           align-items: center;
           gap: 10px;
         }
+
         .logo {
           width: 42px;
           height: 42px;
           flex: 0 0 42px;
           display: grid;
           place-items: center;
-          border: 1px solid #dcd7ff;
+          border: 1px solid #c8bcff;
           border-radius: 13px;
-          background: linear-gradient(145deg,#ffffff,#f1efff);
-          box-shadow: 0 2px 10px rgba(104,126,255,0.12);
+          background: linear-gradient(145deg, #ffffff, #eeebff);
+          box-shadow:
+            0 0 8px rgba(132, 103, 255, 0.35),
+            0 0 22px rgba(132, 103, 255, 0.18),
+            inset 0 0 12px rgba(132, 103, 255, 0.12);
+          animation: logoPulse 3.2s ease-in-out infinite;
         }
-        .logo svg { width: 34px; height: 34px; }
+
+        .logo svg {
+          width: 34px;
+          height: 34px;
+          filter: drop-shadow(0 0 5px rgba(128, 100, 244, 0.45));
+        }
 
         .brandName {
-          color: #20213b;
+          color: #282044;
           font-size: 19px;
           font-weight: 900;
           letter-spacing: 1.1px;
+          text-shadow:
+            0 0 8px rgba(133, 105, 255, 0.38),
+            0 0 18px rgba(133, 105, 255, 0.18);
+          animation: nameGlow 3s ease-in-out infinite alternate;
         }
-        .brandName span { color: #7665d9; }
+
+        .brandName span {
+          color: #8064f4;
+          text-shadow:
+            0 0 7px rgba(128, 100, 244, 0.75),
+            0 0 17px rgba(128, 100, 244, 0.42);
+        }
+
         .brandTagline {
           margin-top: 3px;
           color: #62677c;
           font-size: 10px;
         }
+
         .brandCredit {
           margin-top: 2px;
           color: #8379b2;
           font-size: 9px;
         }
+
         .online {
           display: flex;
           align-items: center;
@@ -609,11 +664,13 @@ export default function Home() {
           color: #747b8f;
           font-size: 11px;
         }
+
         .online span {
           width: 6px;
           height: 6px;
           border-radius: 50%;
           background: #25b978;
+          box-shadow: 0 0 7px rgba(37, 185, 120, 0.75);
         }
 
         .chatArea {
@@ -627,6 +684,7 @@ export default function Home() {
           scrollbar-width: thin;
           scrollbar-color: #d7dbea transparent;
         }
+
         .chat {
           width: 100%;
           max-width: 850px;
@@ -642,8 +700,14 @@ export default function Home() {
           margin-bottom: 11px;
           animation: messageEnter 0.2s ease-out both;
         }
-        .assistantMessage { justify-content: flex-start; }
-        .userMessage { justify-content: flex-end; }
+
+        .assistantMessage {
+          justify-content: flex-start;
+        }
+
+        .userMessage {
+          justify-content: flex-end;
+        }
 
         .avatar {
           width: 32px;
@@ -651,27 +715,44 @@ export default function Home() {
           flex: 0 0 32px;
           display: grid;
           place-items: center;
-          border: 1px solid #e0def7;
+          border: 1px solid #d5caff;
           border-radius: 11px;
-          background: #f3f1ff;
-          color: #7665d9;
+          background: linear-gradient(145deg, #ffffff, #f0edff);
+          color: #8064f4;
+          box-shadow:
+            0 0 10px rgba(128, 100, 244, 0.30),
+            0 0 20px rgba(128, 100, 244, 0.12),
+            inset 0 0 8px rgba(128, 100, 244, 0.10);
         }
 
         .bubble {
           min-width: 0;
-          max-width: min(90%,720px);
+          max-width: min(90%, 720px);
           padding: 11px 13px;
           border-radius: 17px;
           overflow-wrap: anywhere;
         }
+
         .assistantBubble {
-          border: 1px solid #e7e9f1;
-          background: #f8f9fc;
-          box-shadow: 0 4px 14px rgba(30,40,80,0.04);
+          border: 1px solid rgba(177, 164, 255, 0.45);
+          background: linear-gradient(
+            145deg,
+            rgba(255, 255, 255, 0.98),
+            rgba(248, 247, 255, 0.97)
+          );
+          box-shadow:
+            0 4px 16px rgba(70, 60, 130, 0.05),
+            0 0 13px rgba(145, 122, 255, 0.16),
+            inset 0 0 10px rgba(145, 122, 255, 0.04);
         }
+
         .userBubble {
-          border: 1px solid #dedbfa;
-          background: #eeecff;
+          border: 1px solid rgba(160, 139, 255, 0.58);
+          background: linear-gradient(135deg, #f1efff, #e9e5ff);
+          box-shadow:
+            0 0 13px rgba(130, 103, 255, 0.20),
+            0 0 24px rgba(130, 103, 255, 0.08),
+            inset 0 0 10px rgba(255, 255, 255, 0.6);
         }
 
         .assistantTitle {
@@ -681,10 +762,15 @@ export default function Home() {
           margin-bottom: 7px;
           color: #6d60b6;
           font-size: 12px;
+          text-shadow: 0 0 9px rgba(118, 101, 217, 0.35);
         }
+
         .assistantTitle span {
-          color: #7665d9;
+          color: #8064f4;
           font-size: 15px;
+          text-shadow:
+            0 0 8px rgba(128, 100, 244, 0.75),
+            0 0 16px rgba(128, 100, 244, 0.35);
         }
 
         .messageContent {
@@ -693,8 +779,15 @@ export default function Home() {
           line-height: 1.55;
           overflow-wrap: anywhere;
         }
-        .messageContent p { margin: 0 0 8px; }
-        .messageContent p:last-child { margin-bottom: 0; }
+
+        .messageContent p {
+          margin: 0 0 8px;
+        }
+
+        .messageContent p:last-child {
+          margin-bottom: 0;
+        }
+
         .messageContent h1,
         .messageContent h2,
         .messageContent h3 {
@@ -702,26 +795,43 @@ export default function Home() {
           color: #202238;
           line-height: 1.35;
         }
-        .messageContent h1 { font-size: 20px; }
-        .messageContent h2 { font-size: 18px; }
-        .messageContent h3 { font-size: 16px; }
-        .spaceLine { height: 5px; }
+
+        .messageContent h1 {
+          font-size: 20px;
+        }
+
+        .messageContent h2 {
+          font-size: 18px;
+        }
+
+        .messageContent h3 {
+          font-size: 16px;
+        }
+
+        .spaceLine {
+          height: 5px;
+        }
 
         .textBullet {
           display: flex;
           gap: 7px;
           margin: 5px 0;
         }
-        .textBullet span:first-child { color: #7665d9; }
+
+        .textBullet span:first-child {
+          color: #7665d9;
+          text-shadow: 0 0 6px rgba(118, 101, 217, 0.35);
+        }
 
         .speakButton {
           width: 29px;
           height: 29px;
           margin-top: 7px;
-          border: 0;
+          border: 1px solid rgba(160, 139, 255, 0.30);
           border-radius: 9px;
-          background: #efeff8;
-          color: #60698a;
+          background: linear-gradient(145deg, #f5f2ff, #e9e6ff);
+          color: #6060a1;
+          box-shadow: 0 0 10px rgba(128, 100, 244, 0.20);
           cursor: pointer;
         }
 
@@ -729,6 +839,7 @@ export default function Home() {
           margin: 1px 0 18px 40px;
           max-width: 680px;
         }
+
         .suggestionHeading {
           margin: 5px 0 10px;
           color: #777e95;
@@ -737,31 +848,55 @@ export default function Home() {
           letter-spacing: 1px;
           text-align: center;
         }
+
         .suggestionGrid {
           display: grid;
-          grid-template-columns: repeat(2,minmax(0,1fr));
+          grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 7px;
         }
+
         .suggestionChip {
           min-width: 0;
           display: flex;
           align-items: center;
           gap: 7px;
           padding: 10px 9px;
-          border: 1px solid #e3e5f0;
+          border: 1px solid rgba(173, 159, 255, 0.40);
           border-radius: 12px;
-          background: linear-gradient(145deg,#ffffff,#f8f8ff);
+          background: linear-gradient(145deg, #ffffff, #f5f2ff);
           color: #34384f;
+          box-shadow:
+            0 0 12px rgba(128, 100, 244, 0.12),
+            inset 0 0 8px rgba(128, 100, 244, 0.04);
           font-size: 11px;
           text-align: left;
           cursor: pointer;
+          transition: box-shadow 0.2s ease, transform 0.2s ease;
         }
+
+        .suggestionChip:hover {
+          box-shadow:
+            0 0 16px rgba(128, 100, 244, 0.25),
+            0 0 28px rgba(128, 100, 244, 0.10);
+          transform: translateY(-1px);
+        }
+
         .suggestionIcon {
-          color: #7665d9;
+          color: #8064f4;
           font-size: 15px;
+          text-shadow:
+            0 0 7px rgba(128, 100, 244, 0.65),
+            0 0 14px rgba(128, 100, 244, 0.25);
         }
-        .suggestionText { flex: 1; min-width: 0; }
-        .suggestionArrow { color: #8278bd; }
+
+        .suggestionText {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .suggestionArrow {
+          color: #8278bd;
+        }
 
         .loadingNote {
           display: flex;
@@ -770,13 +905,17 @@ export default function Home() {
           margin: 10px 0 12px 40px;
           color: #7665d9;
           font-size: 12px;
+          text-shadow: 0 0 8px rgba(118, 101, 217, 0.22);
         }
+
         .loadingDot {
           width: 7px;
           height: 7px;
           border-radius: 50%;
           background: #8875ff;
-          box-shadow: 0 0 8px rgba(136,117,255,0.3);
+          box-shadow:
+            0 0 8px rgba(136, 117, 255, 0.60),
+            0 0 16px rgba(136, 117, 255, 0.25);
           animation: typing 1s infinite alternate;
         }
 
@@ -786,10 +925,12 @@ export default function Home() {
           flex: 0 0 auto;
           width: 100%;
           padding: 7px 9px;
-          padding-bottom: max(7px,env(safe-area-inset-bottom));
-          border-top: 1px solid #eceef4;
-          background: #ffffff;
+          padding-bottom: max(7px, env(safe-area-inset-bottom));
+          border-top: 1px solid rgba(153, 132, 255, 0.28);
+          background: rgba(255, 255, 255, 0.96);
+          box-shadow: 0 -5px 20px rgba(125, 101, 235, 0.10);
         }
+
         .inputBox {
           display: flex;
           align-items: flex-end;
@@ -797,14 +938,24 @@ export default function Home() {
           width: 100%;
           min-height: 52px;
           padding: 5px;
-          border: 1px solid #dfe2ed;
+          border: 1px solid rgba(160, 139, 255, 0.50);
           border-radius: 17px;
-          background: #f8f9fc;
+          background: linear-gradient(145deg, #ffffff, #f8f7ff);
+          box-shadow:
+            0 0 12px rgba(128, 100, 244, 0.15),
+            0 0 22px rgba(128, 100, 244, 0.06),
+            inset 0 0 8px rgba(128, 100, 244, 0.04);
+          transition: box-shadow 0.25s ease, border-color 0.25s ease;
         }
+
         .inputBox:focus-within {
-          border-color: #a99cf0;
-          box-shadow: 0 0 0 2px rgba(157,127,255,0.08);
+          border-color: #9b83ff;
+          box-shadow:
+            0 0 0 2px rgba(157, 127, 255, 0.13),
+            0 0 18px rgba(128, 100, 244, 0.30),
+            0 0 32px rgba(128, 100, 244, 0.12);
         }
+
         .inputBox textarea {
           flex: 1 1 auto;
           width: 0;
@@ -820,7 +971,10 @@ export default function Home() {
           font-size: 14px;
           line-height: 1.4;
         }
-        .inputBox textarea::placeholder { color: #9298ab; }
+
+        .inputBox textarea::placeholder {
+          color: #9298ab;
+        }
 
         .voiceButton,
         .sendButton {
@@ -832,32 +986,56 @@ export default function Home() {
           border: 0;
           border-radius: 11px;
           cursor: pointer;
+          transition: box-shadow 0.2s ease, transform 0.2s ease;
         }
+
         .voiceButton {
-          background: #efeff8;
+          background: linear-gradient(145deg, #f6f3ff, #ebe8ff);
           color: #69708b;
           font-size: 16px;
+          box-shadow:
+            0 0 9px rgba(128, 100, 244, 0.18),
+            inset 0 0 8px rgba(128, 100, 244, 0.05);
         }
+
         .voiceButton.active {
           background: #fceaf5;
           color: #c34c96;
+          box-shadow:
+            0 0 12px rgba(220, 87, 165, 0.40),
+            0 0 22px rgba(220, 87, 165, 0.15);
+          animation: logoPulse 1.4s ease-in-out infinite;
         }
+
         .sendButton {
-          background: linear-gradient(135deg,#7665d9,#6555c5);
+          background: linear-gradient(135deg, #9b83ff, #6751d5);
           color: #ffffff;
           font-size: 21px;
+          box-shadow:
+            0 0 10px rgba(118, 101, 217, 0.50),
+            0 0 22px rgba(118, 101, 217, 0.25);
         }
+
         .sendButton:disabled {
-          opacity: 0.42;
+          opacity: 0.48;
           cursor: default;
+          box-shadow: none;
+        }
+
+        .sendButton:not(:disabled):active {
+          transform: scale(0.96);
+          box-shadow:
+            0 0 16px rgba(118, 101, 217, 0.65),
+            0 0 28px rgba(118, 101, 217, 0.28);
         }
 
         .footerCredit {
           padding-top: 6px;
-          color: #8b91a4;
+          color: #8580a5;
           text-align: center;
           font-size: 9px;
           letter-spacing: 0.25px;
+          text-shadow: 0 0 8px rgba(128, 100, 244, 0.28);
         }
 
         @keyframes messageEnter {
@@ -865,20 +1043,62 @@ export default function Home() {
             opacity: 0;
             transform: translateY(4px);
           }
+
           to {
             opacity: 1;
             transform: translateY(0);
           }
         }
+
         @keyframes orionGlow {
-          from { opacity: 0.04; }
-          to { opacity: 0.1; }
+          from {
+            opacity: 0.08;
+            transform: scale(0.92);
+          }
+
+          to {
+            opacity: 0.18;
+            transform: scale(1.08);
+          }
         }
+
+        @keyframes logoPulse {
+          0%,
+          100% {
+            box-shadow:
+              0 0 8px rgba(132, 103, 255, 0.35),
+              0 0 18px rgba(132, 103, 255, 0.16),
+              inset 0 0 12px rgba(132, 103, 255, 0.10);
+          }
+
+          50% {
+            box-shadow:
+              0 0 13px rgba(132, 103, 255, 0.58),
+              0 0 28px rgba(132, 103, 255, 0.30),
+              inset 0 0 14px rgba(132, 103, 255, 0.16);
+          }
+        }
+
+        @keyframes nameGlow {
+          from {
+            text-shadow:
+              0 0 7px rgba(133, 105, 255, 0.28),
+              0 0 14px rgba(133, 105, 255, 0.12);
+          }
+
+          to {
+            text-shadow:
+              0 0 11px rgba(133, 105, 255, 0.48),
+              0 0 23px rgba(133, 105, 255, 0.24);
+          }
+        }
+
         @keyframes typing {
           from {
             opacity: 0.35;
             transform: scale(0.9);
           }
+
           to {
             opacity: 1;
             transform: scale(1.1);
@@ -890,25 +1110,47 @@ export default function Home() {
             min-height: 68px;
             padding: 7px 10px;
           }
-          .brandName { font-size: 17px; }
-          .brandTagline { font-size: 9px; }
-          .brandCredit { font-size: 8px; }
+
+          .brandName {
+            font-size: 17px;
+          }
+
+          .brandTagline {
+            font-size: 9px;
+          }
+
+          .brandCredit {
+            font-size: 8px;
+          }
+
           .logo {
             width: 38px;
             height: 38px;
             flex-basis: 38px;
           }
+
           .logo svg {
             width: 31px;
             height: 31px;
           }
-          .messageContent { font-size: 13px; }
-          .suggestions { margin-left: 39px; }
-          .suggestionGrid { gap: 6px; }
+
+          .messageContent {
+            font-size: 13px;
+          }
+
+          .suggestions {
+            margin-left: 39px;
+          }
+
+          .suggestionGrid {
+            gap: 6px;
+          }
+
           .suggestionChip {
             padding: 8px 7px;
             font-size: 10px;
           }
+
           .voiceButton,
           .sendButton {
             width: 35px;
@@ -917,7 +1159,9 @@ export default function Home() {
         }
 
         @media (prefers-reduced-motion: reduce) {
-          *,*::before,*::after {
+          *,
+          *::before,
+          *::after {
             animation-duration: 0.01ms !important;
             animation-iteration-count: 1 !important;
             transition-duration: 0.01ms !important;
