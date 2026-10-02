@@ -47,10 +47,10 @@ Instructions:
   actually returned search information.
 `;
 
-    const models = [
-      "gemini-2.5-flash",
-      "gemini-2.5-flash-lite"
-    ];
+  const models = [
+  "gemini-3.5-flash-lite",
+  "gemini-3.5-flash"
+];  
 
     let lastError = null;
    
