@@ -3,9 +3,9 @@ export async function POST(req) {
   try {
     const { message } = await req.json();
 
-    if (typeof message !== "string" || !message.trim()) {
+    if (!message || !String(message).trim()) {
       return Response.json(
-        { error: "Message is required." },
+        { error: "Message is required" },
         { status: 400 }
       );
     }
@@ -13,24 +13,47 @@ export async function POST(req) {
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
-      console.error("GEMINI_API_KEY is missing.");
-
       return Response.json(
-        {
-          error:
-            "API key missing. Vercel Environment Variables mein GEMINI_API_KEY set karo."
-        },
+        { error: "GEMINI_API_KEY environment variable missing hai." },
         { status: 500 }
       );
     }
 
+    // India ka current date aur time
+    const currentIndiaTime = new Date().toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      dateStyle: "full",
+      timeStyle: "long"
+    });
+
+    const systemPrompt = `
+You are ORION AI, an intelligent and helpful assistant.
+Current date and time in India: ${currentIndiaTime}.
+
+Instructions:
+- Reply in the language the user prefers, including Hindi and Hinglish.
+- Use the current date and time above when asked about today's date,
+  current time, today, tomorrow, yesterday, or recent dates.
+- For current events, latest news, current people information,
+  cricket scores, sports results, prices, technology updates,
+  weather, government announcements, and other changing facts,
+  use Google Search grounding whenever relevant.
+- Prefer recent and reliable information.
+- Clearly distinguish verified facts from uncertainty.
+- Never invent live information, search results, dates, or sources.
+- If current information cannot be verified, say so honestly.
+- Keep answers clear, useful, and easy to understand.
+- Do not claim that you searched the web unless search grounding
+  actually returned search information.
+`;
+
     const models = [
-      "gemini-3.5-flash-lite",
-      "gemini-3.5-flash",
+      "gemini-2.5-flash",
+      "gemini-2.5-flash-lite"
     ];
 
-    let lastError = "Gemini se jawab nahi mila.";
-
+    let lastError = null;
+   
     for (const model of models) {
       try {
         const response = await fetch(
@@ -39,20 +62,28 @@ export async function POST(req) {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "x-goog-api-key": apiKey,
+              "x-goog-api-key": apiKey
             },
             body: JSON.stringify({
+              systemInstruction: {
+                parts: [{ text: systemPrompt }]
+              },
               contents: [
                 {
                   role: "user",
-                  parts: [{ text: message.trim() }],
-                },
+                  parts: [{ text: String(message).trim() }]
+                }
+              ],
+              tools: [
+                {
+                  google_search: {}
+                }
               ],
               generationConfig: {
-                maxOutputTokens: 8192,
-              },
-            }),
-            cache: "no-store",
+                temperature: 0.7,
+                maxOutputTokens: 4096
+              }
+            })
           }
         );
 
@@ -63,68 +94,69 @@ export async function POST(req) {
             data?.error?.message ||
             `Gemini API error (${response.status})`;
 
-          console.error(`${model} failed:`, {
-            status: response.status,
-            error: lastError,
-          });
-
+          console.error(`${model} failed:`, data);
           continue;
         }
 
-        const candidates = data?.candidates || [];
+        let reply =
+          data?.candidates?.[0]?.content?.parts
+            ?.map((part) => part.text || "")
+            .filter(Boolean)
+            .join("\n")
+            .trim() || "";
 
-        const reply = candidates
-          .flatMap((candidate) => candidate?.content?.parts || [])
-          .map((part) => part?.text || "")
-          .filter(Boolean)
-          .join("");
-
-        if (reply.trim()) {
-          console.log(`${model} response successful.`);
-
-          return Response.json({
-            reply: reply.trim(),
-            model,
-          });
+        if (!reply) {
+          lastError = "Gemini se khaali response mila.";
+          continue;
         }
 
-        const finishReason =
-          candidates[0]?.finishReason || "UNKNOWN";
+        // Search se mile sources ko jawab ke saath dikhana
+        const groundingChunks =
+          data?.candidates?.[0]?.groundingMetadata
+            ?.groundingChunks || [];
 
-        const blockReason =
-          data?.promptFeedback?.blockReason;
+        const sources = [];
+        const seenUrls = new Set();
 
-        lastError = blockReason
-          ? `Prompt blocked by Gemini: ${blockReason}`
-          : `Gemini ne text response nahi diya. Finish reason: ${finishReason}`;
+        for (const chunk of groundingChunks) {
+          const webSource = chunk?.web;
 
-        console.error(`${model} returned no text:`, {
-          finishReason,
-          blockReason,
+          if (webSource?.uri && !seenUrls.has(webSource.uri)) {
+            seenUrls.add(webSource.uri);
+
+            sources.push(
+              `- ${webSource.title || "Source"}: ${webSource.uri}`
+            );
+          }
+        }
+
+        if (sources.length > 0) {
+          reply += "\n\nSources:\n" + sources.join("\n");
+        }
+
+        return Response.json({
+          reply,
+          hasLiveSources: sources.length > 0
         });
-
       } catch (error) {
-        lastError =
-          error?.message || "Gemini se connection nahi ho paya.";
-
-        console.error(`${model} request failed:`, lastError);
+        lastError = error?.message || "Unknown error";
+        console.error(`${model} failed:`, error);
       }
     }
-
+    
     return Response.json(
       {
-        error: lastError,
+        error:
+          lastError ||
+          "Abhi Gemini models available nahi hain. Baad mein dobara try karein."
       },
       { status: 503 }
     );
-
   } catch (error) {
     console.error("Chat API error:", error);
 
     return Response.json(
-      {
-        error: "Request process nahi ho saki. Dobara try karo.",
-      },
+      { error: "Something went wrong. Dobara try karein." },
       { status: 500 }
     );
   }
