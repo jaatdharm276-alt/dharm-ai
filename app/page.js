@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -108,6 +109,8 @@ export default function Home() {
   const shouldAutoScrollRef = useRef(true);
   const recognitionRef = useRef(null);
 
+  // Naya text aate hi chat ko neeche follow karayein.
+  // User upar scroll kare to auto-scroll ruk jayega.
   useEffect(() => {
     const el = chatAreaRef.current;
 
@@ -115,10 +118,7 @@ export default function Home() {
 
     const frame = requestAnimationFrame(() => {
       if (shouldAutoScrollRef.current) {
-        el.scrollTo({
-          top: el.scrollHeight,
-          behavior: "smooth"
-        });
+        el.scrollTop = el.scrollHeight;
       }
     });
 
@@ -167,15 +167,39 @@ export default function Home() {
         );
       }
 
+      const reply = String(
+        data?.reply || "Maaf kijiye 🙏 Abhi response nahi mila."
+      );
+
+      // Jawab ko dheere-dheere likhein.
       setMessages((old) => [
         ...old,
-        {
-          role: "assistant",
-          content:
-            data?.reply ||
-            "Maaf kijiye 🙏 Abhi response nahi mila."
-        }
+        { role: "assistant", content: "" }
       ]);
+
+      const charactersPerStep = 3;
+      const typingDelay = 18;
+
+      for (let i = 0; i < reply.length; i += charactersPerStep) {
+        const visibleText = reply.slice(0, i + charactersPerStep);
+
+        setMessages((old) => {
+          const updated = [...old];
+          const lastIndex = updated.length - 1;
+          const lastMessage = updated[lastIndex];
+
+          if (lastMessage?.role === "assistant") {
+            updated[lastIndex] = {
+              ...lastMessage,
+              content: visibleText
+            };
+          }
+
+          return updated;
+        });
+
+        await new Promise((resolve) => setTimeout(resolve, typingDelay));
+      }
     } catch (error) {
       setMessages((old) => [
         ...old,
@@ -346,7 +370,7 @@ export default function Home() {
             </div>
           </div>
         </header>
-          <main
+        <main
           ref={chatAreaRef}
           className="chatArea"
           onScroll={handleChatScroll}
@@ -418,7 +442,7 @@ export default function Home() {
                 </div>
               </div>
             ))}
-
+        
             {messages.length === 1 && !loading && (
               <div className="suggestions">
                 <div className="suggestionHeading">
@@ -450,7 +474,7 @@ export default function Home() {
               </div>
             )}
 
-            {loading && (
+            {loading && messages[messages.length - 1]?.role === "user" && (
               <div className="message assistantMessage">
                 <div className="avatar">
                   <svg viewBox="0 0 100 100" aria-hidden="true">
@@ -870,8 +894,8 @@ export default function Home() {
           color: #bec5df;
           font-size: 13px;
           cursor: pointer;
-        }
-
+}
+                        
         .suggestions {
           margin: 1px 0 18px 40px;
           max-width: 680px;
@@ -1167,4 +1191,4 @@ export default function Home() {
       `}</style>
     </div>
   );
-                }
+}
