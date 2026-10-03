@@ -5,66 +5,113 @@ import { useEffect, useRef, useState } from "react";
 
 function renderInline(text) {
   const parts = String(text || "").split(
-    /(\*\*.*?\*\*|\*[^*]+\*)/g
+    /(`[^`]+`|\*\*.*?\*\*|\*[^*]+\*)/g
   );
 
   return parts.map((part, i) => {
-    if (
-      part.startsWith("**") &&
-      part.endsWith("**") &&
-      part.length > 4
-    ) {
+    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
       return <strong key={i}>{part.slice(2, -2)}</strong>;
     }
 
-    if (
-      part.startsWith("*") &&
-      part.endsWith("*") &&
-      part.length > 2
-    ) {
+    if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
       return <em key={i}>{part.slice(1, -1)}</em>;
     }
 
-    return part;
+    if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
+      return <code key={i}>{part.slice(1, -1)}</code>;
+    }
+
+    return <span key={i}>{part}</span>;
   });
 }
 
 function formatText(text) {
-  return String(text || "")
-    .split("\n")
-    .map((line, i) => {
-      const trimmed = line.trim();
+  const cleaned = String(text || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/^\s*```(?:markdown|md|text|plaintext)?[ \t]*\n?/i, "")
+    .replace(/\n?[ \t]*```[ \t]*$/i, "")
+    .replace(/^[ \t]*```[ \t]*$/gm, "")
+    .trim();
 
-      if (!trimmed) {
-        return <div key={i} className="spaceLine" />;
+  const lines = cleaned.split("\n");
+  const output = [];
+  let listItems = [];
+  let listType = "";
+
+  function flushList() {
+    if (!listItems.length) return;
+
+    if (listType === "ordered") {
+      output.push(<ol key={`list-${output.length}`}>{listItems}</ol>);
+    } else {
+      output.push(<ul key={`list-${output.length}`}>{listItems}</ul>);
+    }
+
+    listItems = [];
+    listType = "";
+  }
+
+  lines.forEach((line, i) => {
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      flushList();
+      output.push(<div key={`space-${i}`} className="spaceLine" />);
+      return;
+    }
+
+    const heading = trimmed.match(/^(#{1,6})\s+(.*)$/);
+
+    if (heading) {
+      flushList();
+
+      const Tag =
+        heading[1].length === 1
+          ? "h1"
+          : heading[1].length === 2
+            ? "h2"
+            : "h3";
+
+      output.push(
+        <Tag key={i}>{renderInline(heading[2])}</Tag>
+      );
+      return;
+    }
+
+    const numbered = trimmed.match(/^\d+[.)]\s+(.*)$/);
+
+    if (numbered) {
+      if (listType !== "ordered") {
+        flushList();
+        listType = "ordered";
       }
 
-      const heading = trimmed.match(/^(#{1,6})\s+(.*)$/);
+      listItems.push(
+        <li key={i}>{renderInline(numbered[1])}</li>
+      );
+      return;
+    }
 
-      if (heading) {
-        const Tag =
-          heading[1].length === 1
-            ? "h1"
-            : heading[1].length === 2
-              ? "h2"
-              : "h3";
+    const bullet = trimmed.match(/^[-*•]\s+(.*)$/);
 
-        return <Tag key={i}>{renderInline(heading[2])}</Tag>;
+    if (bullet) {
+      if (listType !== "unordered") {
+        flushList();
+        listType = "unordered";
       }
 
-      const bullet = trimmed.match(/^[-*•]\s+(.*)$/);
+      listItems.push(
+        <li key={i}>{renderInline(bullet[1])}</li>
+      );
+      return;
+    }
 
-      if (bullet) {
-        return (
-          <div className="textBullet" key={i}>
-            <span>•</span>
-            <span>{renderInline(bullet[1])}</span>
-          </div>
-        );
-      }
+    flushList();
+    output.push(<p key={i}>{renderInline(trimmed)}</p>);
+  });
 
-      return <p key={i}>{renderInline(line)}</p>;
-    });
+  flushList();
+  return output;
 }
 
 const suggestions = [
@@ -92,7 +139,7 @@ const suggestions = [
     icon: "◷",
     title: "Study plan",
     prompt: "Mere liye ek daily study plan banao."
-  },
+  }
 ];
 
 export default function Home() {
@@ -172,7 +219,12 @@ export default function Home() {
 
       const reply = String(
         data?.reply || "Maaf kijiye 🙏 Abhi response nahi mila."
-      );
+      )
+        .replace(/\r\n/g, "\n")
+        .replace(/^\s*```(?:markdown|md|text|plaintext)?[ \t]*\n?/i, "")
+        .replace(/\n?[ \t]*```[ \t]*$/i, "")
+        .replace(/^[ \t]*```[ \t]*$/gm, "")
+        .trim();
 
       setMessages((old) => [
         ...old,
@@ -217,10 +269,9 @@ export default function Home() {
       ]);
     } finally {
       setLoading(false);
-              }
-    
-  }
-
+    }
+}
+                            
   function handleChatScroll(event) {
     const el = event.currentTarget;
     const distanceFromBottom =
@@ -257,18 +308,23 @@ export default function Home() {
     recognition.interimResults = true;
 
     recognition.onstart = () => setListening(true);
+
     recognition.onerror = (event) => {
       setListening(false);
-      if (event?.error === "not-allowed" || event?.error === "service-not-allowed") {
+
+      if (
+        event?.error === "not-allowed" ||
+        event?.error === "service-not-allowed"
+      ) {
         alert("Mic permission allow karein, phir dobara try karein.");
       }
     };
+
     recognition.onend = () => setListening(false);
 
     recognition.onresult = (event) => {
       let transcript = "";
 
-      // Final aur live/interim dono text ko sahi tarah jodo.
       for (let i = 0; i < event.results.length; i++) {
         transcript += event.results[i][0].transcript;
       }
@@ -294,7 +350,6 @@ export default function Home() {
       return;
     }
 
-    // Agar awaaz chal rahi hai, dobara dabane par use rok do.
     if (window.speechSynthesis.speaking || speaking) {
       window.speechSynthesis.cancel();
       setSpeaking(false);
@@ -302,13 +357,16 @@ export default function Home() {
     }
 
     const cleanText = String(text)
+      .replace(/```/g, "")
       .replace(/#{1,6}\s/g, "")
       .replace(/\*\*/g, "")
       .replace(/`/g, "")
       .replace(/\n/g, " ");
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.lang = /[\u0900-\u097F]/.test(cleanText) ? "hi-IN" : "en-IN";
+    utterance.lang = /[\u0900-\u097F]/.test(cleanText)
+      ? "hi-IN"
+      : "en-IN";
     utterance.rate = 0.95;
     utterance.onstart = () => setSpeaking(true);
     utterance.onend = () => setSpeaking(false);
@@ -340,6 +398,7 @@ export default function Home() {
                     <stop offset="100%" stopColor="#e4a5ff" />
                   </linearGradient>
                 </defs>
+
                 <ellipse
                   cx="50"
                   cy="50"
@@ -350,6 +409,7 @@ export default function Home() {
                   strokeWidth="3"
                   transform="rotate(-35 50 50)"
                 />
+
                 <circle
                   cx="50"
                   cy="50"
@@ -358,6 +418,7 @@ export default function Home() {
                   stroke="url(#orionGradient)"
                   strokeWidth="2.5"
                 />
+
                 <path
                   d="M50 32 L56 44 L68 50 L56 56 L50 68 L44 56 L32 50 L44 44 Z"
                   fill="url(#orionGradient)"
@@ -369,12 +430,15 @@ export default function Home() {
               <div className="brandName">
                 ORION <span>AI</span>
               </div>
+
               <div className="brandTagline">
                 Your Intelligent Companion
               </div>
+
               <div className="brandCredit">
                 Powered by Dharm AI
               </div>
+
               <div className="online">
                 <span />
                 Online
@@ -382,7 +446,8 @@ export default function Home() {
             </div>
           </div>
         </header>
-          <main
+
+        <main
           ref={chatAreaRef}
           className="chatArea"
           onScroll={handleChatScroll}
@@ -419,28 +484,55 @@ export default function Home() {
                     {formatText(message.content)}
                   </div>
 
-                  {message.role === "assistant" &&
-                    message.content &&
-                    (
-                      <button
-                        className={speaking ? "speakButton active" : "speakButton"}
-                        onClick={() => speak(message.content)}
-                        title={speaking ? "Awaaz rokein" : "Jawab sunen"}
-                        aria-label={speaking ? "Awaaz rokein" : "Jawab sunen"}
-                      >
-                        {speaking ? (
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <rect x="7" y="5" width="3.5" height="14" rx="1.2" fill="currentColor" />
-                            <rect x="13.5" y="5" width="3.5" height="14" rx="1.2" fill="currentColor" />
-                          </svg>
-                        ) : (
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M4 9v6h4l5 4V5L8 9H4Z" fill="currentColor" />
-                            <path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                          </svg>
-                        )}
-                      </button>
-                    )}
+                  {message.role === "assistant" && message.content && (
+                    <button
+                      className={
+                        speaking
+                          ? "speakButton active"
+                          : "speakButton"
+                      }
+                      onClick={() => speak(message.content)}
+                      title={speaking ? "Awaaz rokein" : "Jawab sunen"}
+                      aria-label={
+                        speaking ? "Awaaz rokein" : "Jawab sunen"
+                      }
+                    >
+                      {speaking ? (
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <rect
+                            x="7"
+                            y="5"
+                            width="3.5"
+                            height="14"
+                            rx="1.2"
+                            fill="currentColor"
+                          />
+                          <rect
+                            x="13.5"
+                            y="5"
+                            width="3.5"
+                            height="14"
+                            rx="1.2"
+                            fill="currentColor"
+                          />
+                        </svg>
+                      ) : (
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path
+                            d="M4 9v6h4l5 4V5L8 9H4Z"
+                            fill="currentColor"
+                          />
+                          <path
+                            d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -477,14 +569,26 @@ export default function Home() {
             )}
           </div>
         </main>
-    
+
         <footer className="bottomArea">
           {listening && (
-            <div className="voiceStatus" role="status" aria-live="polite">
+            <div
+              className="voiceStatus"
+              role="status"
+              aria-live="polite"
+            >
               <span className="voiceStatusDot" />
-              <span className="voiceWaves"><i /><i /><i /><i /><i /></span>
+              <span className="voiceWaves">
+                <i />
+                <i />
+                <i />
+                <i />
+                <i />
+              </span>
               <span>Sun raha hoon... boliye</span>
-              <span className="voiceStopHint">Rokne ke liye mic dabayein</span>
+              <span className="voiceStopHint">
+                Rokne ke liye mic dabayein
+              </span>
             </div>
           )}
 
@@ -508,21 +612,41 @@ export default function Home() {
             />
 
             <button
-              className={
-                listening ? "voiceButton active" : "voiceButton"
-              }
+              className={listening ? "voiceButton active" : "voiceButton"}
               onClick={startVoice}
               title={listening ? "Sunna band karein" : "Bolkar poochhein"}
-              aria-label={listening ? "Sunna band karein" : "Bolkar poochhein"}
+              aria-label={
+                listening ? "Sunna band karein" : "Bolkar poochhein"
+              }
             >
               {listening ? (
                 <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" />
+                  <rect
+                    x="7"
+                    y="7"
+                    width="10"
+                    height="10"
+                    rx="2"
+                    fill="currentColor"
+                  />
                 </svg>
               ) : (
                 <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <rect x="9" y="3" width="6" height="12" rx="3" fill="currentColor" />
-                  <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  <rect
+                    x="9"
+                    y="3"
+                    width="6"
+                    height="12"
+                    rx="3"
+                    fill="currentColor"
+                  />
+                  <path
+                    d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
                 </svg>
               )}
             </button>
@@ -545,9 +669,21 @@ export default function Home() {
       </div>
 
       <style jsx global>{`
+            
         * { box-sizing: border-box; }
-        html, body { width: 100%; height: 100%; margin: 0; padding: 0; }
-        body { overflow: hidden; background: #ffffff; }
+
+        html, body {
+          width: 100%;
+          height: 100%;
+          margin: 0;
+          padding: 0;
+        }
+
+        body {
+          overflow: hidden;
+          background: #ffffff;
+        }
+
         button, textarea { font: inherit; }
         button { -webkit-tap-highlight-color: transparent; }
 
@@ -576,8 +712,17 @@ export default function Home() {
           animation: orionGlow 6s ease-in-out infinite alternate;
         }
 
-        .glowOne { left: -110px; top: -110px; background: #9c8bff; }
-        .glowTwo { right: -120px; bottom: -120px; background: #76baff; }
+        .glowOne {
+          left: -110px;
+          top: -110px;
+          background: #9c8bff;
+        }
+
+        .glowTwo {
+          right: -120px;
+          bottom: -120px;
+          background: #76baff;
+        }
 
         .app {
           position: absolute;
@@ -602,7 +747,11 @@ export default function Home() {
           box-shadow: 0 4px 22px rgba(125,101,235,0.10);
         }
 
-        .brand { display: flex; align-items: center; gap: 10px; }
+        .brand {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
 
         .logo {
           width: 42px;
@@ -613,27 +762,46 @@ export default function Home() {
           border: 1px solid #c8bcff;
           border-radius: 13px;
           background: linear-gradient(145deg,#ffffff,#eeebff);
-          box-shadow: 0 0 8px rgba(132,103,255,0.35), 0 0 22px rgba(132,103,255,0.18), inset 0 0 12px rgba(132,103,255,0.12);
+          box-shadow:
+            0 0 8px rgba(132,103,255,0.35),
+            0 0 22px rgba(132,103,255,0.18),
+            inset 0 0 12px rgba(132,103,255,0.12);
           animation: logoPulse 3.2s ease-in-out infinite;
         }
 
-        .logo svg { width: 34px; height: 34px; }
+        .logo svg {
+          width: 34px;
+          height: 34px;
+        }
 
         .brandName {
           color: #282044;
           font-size: 19px;
           font-weight: 900;
           letter-spacing: 1.1px;
-          text-shadow: 0 0 8px rgba(133,105,255,0.28), 0 0 18px rgba(133,105,255,0.12);
+          text-shadow:
+            0 0 8px rgba(133,105,255,0.28),
+            0 0 18px rgba(133,105,255,0.12);
         }
 
         .brandName span {
           color: #8064f4;
-          text-shadow: 0 0 7px rgba(128,100,244,0.65), 0 0 17px rgba(128,100,244,0.32);
+          text-shadow:
+            0 0 7px rgba(128,100,244,0.65),
+            0 0 17px rgba(128,100,244,0.32);
         }
 
-        .brandTagline { margin-top: 3px; color: #62677c; font-size: 10px; }
-        .brandCredit { margin-top: 2px; color: #8379b2; font-size: 9px; }
+        .brandTagline {
+          margin-top: 3px;
+          color: #62677c;
+          font-size: 10px;
+        }
+
+        .brandCredit {
+          margin-top: 2px;
+          color: #8379b2;
+          font-size: 9px;
+        }
 
         .online {
           display: flex;
@@ -664,8 +832,22 @@ export default function Home() {
           scrollbar-color: #d7dbea transparent;
         }
 
-        .chat { width: 100%; max-width: 850px; margin: 0 auto; padding: 12px 10px 16px; }
-        .message { display: flex; align-items: flex-start; gap: 8px; width: 100%; margin-bottom: 11px; animation: messageEnter 0.2s ease-out both; }
+        .chat {
+          width: 100%;
+          max-width: 850px;
+          margin: 0 auto;
+          padding: 12px 10px 16px;
+        }
+
+        .message {
+          display: flex;
+          align-items: flex-start;
+          gap: 8px;
+          width: 100%;
+          margin-bottom: 11px;
+          animation: messageEnter 0.2s ease-out both;
+        }
+
         .assistantMessage { justify-content: flex-start; }
         .userMessage { justify-content: flex-end; }
 
@@ -679,35 +861,123 @@ export default function Home() {
           border-radius: 11px;
           background: linear-gradient(145deg,#ffffff,#f0edff);
           color: #8064f4;
-          box-shadow: 0 0 10px rgba(128,100,244,0.22), inset 0 0 8px rgba(128,100,244,0.10);
+          box-shadow:
+            0 0 10px rgba(128,100,244,0.22),
+            inset 0 0 8px rgba(128,100,244,0.10);
         }
 
-        .bubble { min-width: 0; max-width: min(90%,720px); padding: 11px 13px; border-radius: 17px; overflow-wrap: anywhere; }
+        .bubble {
+          min-width: 0;
+          max-width: min(90%,720px);
+          padding: 11px 13px;
+          border-radius: 17px;
+          overflow-wrap: anywhere;
+        }
 
         .assistantBubble {
           border: 1px solid rgba(177,164,255,0.34);
-          background: linear-gradient(145deg,rgba(255,255,255,0.98),rgba(248,247,255,0.97));
-          box-shadow: 0 4px 16px rgba(70,60,130,0.05), 0 0 13px rgba(145,122,255,0.10);
+          background: linear-gradient(
+            145deg,
+            rgba(255,255,255,0.98),
+            rgba(248,247,255,0.97)
+          );
+          box-shadow:
+            0 4px 16px rgba(70,60,130,0.05),
+            0 0 13px rgba(145,122,255,0.10);
         }
 
         .userBubble {
           border: 1px solid rgba(160,139,255,0.48);
           background: linear-gradient(135deg,#f1efff,#e9e5ff);
-          box-shadow: 0 0 13px rgba(130,103,255,0.13), inset 0 0 10px rgba(255,255,255,0.6);
+          box-shadow:
+            0 0 13px rgba(130,103,255,0.13),
+            inset 0 0 10px rgba(255,255,255,0.6);
         }
 
-        .assistantTitle { display: flex; align-items: center; gap: 6px; margin-bottom: 7px; color: #6d60b6; font-size: 12px; text-shadow: 0 0 9px rgba(118,101,217,0.24); }
-        .assistantTitle span { color: #8064f4; font-size: 15px; text-shadow: 0 0 8px rgba(128,100,244,0.65); }
-        .messageContent { color: #25283a; font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; }
-        .messageContent p { margin: 0 0 8px; }
-        .messageContent p:last-child { margin-bottom: 0; }
-        .messageContent h1,.messageContent h2,.messageContent h3 { margin: 0 0 8px; color: #202238; line-height: 1.35; }
+        .assistantTitle {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-bottom: 7px;
+          color: #6d60b6;
+          font-size: 12px;
+          text-shadow: 0 0 9px rgba(118,101,217,0.24);
+        }
+
+        .assistantTitle span {
+          color: #8064f4;
+          font-size: 15px;
+          text-shadow: 0 0 8px rgba(128,100,244,0.65);
+        }
+
+        .messageContent {
+          color: #25283a;
+          font-size: 14px;
+          line-height: 1.55;
+          overflow-wrap: anywhere;
+        }
+
+        .messageContent p {
+          margin: 0 0 8px;
+        }
+
+        .messageContent p:last-child {
+          margin-bottom: 0;
+        }
+
+        .messageContent h1,
+        .messageContent h2,
+        .messageContent h3 {
+          margin: 0 0 8px;
+          color: #202238;
+          line-height: 1.35;
+        }
+
         .messageContent h1 { font-size: 20px; }
         .messageContent h2 { font-size: 18px; }
         .messageContent h3 { font-size: 16px; }
+
+        .messageContent ul,
+        .messageContent ol {
+          margin: 5px 0 10px;
+          padding-left: 22px;
+        }
+
+        .messageContent li {
+          margin: 4px 0;
+          padding-left: 2px;
+        }
+
+        .messageContent strong {
+          color: #4d408f;
+          font-weight: 750;
+        }
+
+        .messageContent em {
+          color: #4c4b65;
+        }
+
+        .messageContent code {
+          padding: 2px 5px;
+          border: 1px solid rgba(160,139,255,0.22);
+          border-radius: 5px;
+          background: #efecff;
+          color: #5d4ab5;
+          font-size: 0.92em;
+          overflow-wrap: anywhere;
+        }
+
         .spaceLine { height: 5px; }
-        .textBullet { display: flex; gap: 7px; margin: 5px 0; }
-        .textBullet span:first-child { color: #7665d9; }
+
+        .textBullet {
+          display: flex;
+          gap: 7px;
+          margin: 5px 0;
+        }
+
+        .textBullet span:first-child {
+          color: #7665d9;
+        }
 
         .speakButton {
           width: 34px;
@@ -721,16 +991,44 @@ export default function Home() {
           color: #7061c7;
           box-shadow: 0 0 10px rgba(128,100,244,0.14);
           cursor: pointer;
-          transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+          transition:
+            transform .18s ease,
+            box-shadow .18s ease,
+            background .18s ease;
         }
 
-        .speakButton svg { width: 20px; height: 20px; }
-        .speakButton.active { color: #ffffff; background: linear-gradient(135deg,#9b83ff,#6751d5); box-shadow: 0 0 12px rgba(118,101,217,0.45); }
+        .speakButton svg {
+          width: 20px;
+          height: 20px;
+        }
+
+        .speakButton.active {
+          color: #ffffff;
+          background: linear-gradient(135deg,#9b83ff,#6751d5);
+          box-shadow: 0 0 12px rgba(118,101,217,0.45);
+        }
+
         .speakButton:active { transform: scale(.94); }
 
-        .suggestions { margin: 1px 0 18px 40px; max-width: 680px; }
-        .suggestionHeading { margin: 5px 0 10px; color: #777e95; font-size: 9px; font-weight: 700; letter-spacing: 1px; text-align: center; }
-        .suggestionGrid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
+        .suggestions {
+          margin: 1px 0 18px 40px;
+          max-width: 680px;
+        }
+
+        .suggestionHeading {
+          margin: 5px 0 10px;
+          color: #777e95;
+          font-size: 9px;
+          font-weight: 700;
+          letter-spacing: 1px;
+          text-align: center;
+        }
+
+        .suggestionGrid {
+          display: grid;
+          grid-template-columns: repeat(2,minmax(0,1fr));
+          gap: 7px;
+        }
 
         .suggestionChip {
           min-width: 0;
@@ -749,13 +1047,37 @@ export default function Home() {
           transition: box-shadow .2s ease, transform .2s ease;
         }
 
-        .suggestionChip:hover { box-shadow: 0 0 16px rgba(128,100,244,0.18); transform: translateY(-1px); }
-        .suggestionIcon { color: #8064f4; font-size: 15px; text-shadow: 0 0 7px rgba(128,100,244,0.45); }
+        .suggestionChip:hover {
+          box-shadow: 0 0 16px rgba(128,100,244,0.18);
+          transform: translateY(-1px);
+        }
+
+        .suggestionIcon {
+          color: #8064f4;
+          font-size: 15px;
+          text-shadow: 0 0 7px rgba(128,100,244,0.45);
+        }
+
         .suggestionText { flex: 1; min-width: 0; }
         .suggestionArrow { color: #8278bd; }
 
-        .loadingNote { display: flex; align-items: center; gap: 8px; margin: 10px 0 12px 40px; color: #7665d9; font-size: 12px; }
-        .loadingDot { width: 7px; height: 7px; border-radius: 50%; background: #8875ff; box-shadow: 0 0 8px rgba(136,117,255,0.3); animation: typing 1s infinite alternate; }
+        .loadingNote {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin: 10px 0 12px 40px;
+          color: #7665d9;
+          font-size: 12px;
+        }
+
+        .loadingDot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: #8875ff;
+          box-shadow: 0 0 8px rgba(136,117,255,0.3);
+          animation: typing 1s infinite alternate;
+        }
 
         .bottomArea {
           position: relative;
@@ -779,10 +1101,17 @@ export default function Home() {
           border: 1px solid rgba(160,139,255,0.42);
           border-radius: 17px;
           background: linear-gradient(145deg,#ffffff,#f8f7ff);
-          box-shadow: 0 0 12px rgba(128,100,244,0.10), inset 0 0 8px rgba(128,100,244,0.04);
+          box-shadow:
+            0 0 12px rgba(128,100,244,0.10),
+            inset 0 0 8px rgba(128,100,244,0.04);
         }
 
-        .inputBox:focus-within { border-color: #9b83ff; box-shadow: 0 0 0 2px rgba(157,127,255,0.13), 0 0 18px rgba(128,100,244,0.24); }
+        .inputBox:focus-within {
+          border-color: #9b83ff;
+          box-shadow:
+            0 0 0 2px rgba(157,127,255,0.13),
+            0 0 18px rgba(128,100,244,0.24);
+        }
 
         .inputBox textarea {
           flex: 1 1 auto;
@@ -802,7 +1131,8 @@ export default function Home() {
 
         .inputBox textarea::placeholder { color: #9298ab; }
 
-        .voiceButton,.sendButton {
+        .voiceButton,
+        .sendButton {
           width: 38px;
           height: 40px;
           flex: 0 0 38px;
@@ -817,15 +1147,23 @@ export default function Home() {
           background: linear-gradient(145deg,#ffffff,#eeeaff);
           color: #6c5fc4;
           box-shadow: 0 0 10px rgba(128,100,244,0.16);
-          transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+          transition:
+            transform .18s ease,
+            box-shadow .18s ease,
+            background .18s ease;
         }
 
-        .voiceButton svg { width: 22px; height: 22px; }
+        .voiceButton svg {
+          width: 22px;
+          height: 22px;
+        }
 
         .voiceButton.active {
           background: linear-gradient(135deg,#ff718d,#d92f68);
           color: #ffffff;
-          box-shadow: 0 0 0 4px rgba(240,65,112,0.12), 0 0 20px rgba(240,65,112,0.48);
+          box-shadow:
+            0 0 0 4px rgba(240,65,112,0.12),
+            0 0 20px rgba(240,65,112,0.48);
           animation: micPulse 1.1s infinite;
         }
 
@@ -839,7 +1177,11 @@ export default function Home() {
           padding: 7px 10px;
           border: 1px solid rgba(230,75,120,0.22);
           border-radius: 12px;
-          background: linear-gradient(100deg,rgba(255,240,245,0.98),rgba(247,243,255,0.98));
+          background: linear-gradient(
+            100deg,
+            rgba(255,240,245,0.98),
+            rgba(247,243,255,0.98)
+          );
           color: #b72d60;
           font-size: 12px;
           box-shadow: 0 0 15px rgba(226,71,124,0.10);
@@ -855,27 +1197,71 @@ export default function Home() {
           animation: typing .75s infinite alternate;
         }
 
-        .voiceWaves { display: inline-flex; align-items: center; gap: 2px; height: 18px; }
-        .voiceWaves i { display: block; width: 3px; height: 6px; border-radius: 4px; background: #e74a7b; animation: voiceWave .7s ease-in-out infinite alternate; }
+        .voiceWaves {
+          display: inline-flex;
+          align-items: center;
+          gap: 2px;
+          height: 18px;
+        }
+
+        .voiceWaves i {
+          display: block;
+          width: 3px;
+          height: 6px;
+          border-radius: 4px;
+          background: #e74a7b;
+          animation: voiceWave .7s ease-in-out infinite alternate;
+        }
+
         .voiceWaves i:nth-child(2) { animation-delay: .12s; height: 12px; }
         .voiceWaves i:nth-child(3) { animation-delay: .24s; height: 17px; }
         .voiceWaves i:nth-child(4) { animation-delay: .36s; height: 10px; }
         .voiceWaves i:nth-child(5) { animation-delay: .48s; }
-        .voiceStopHint { margin-left: auto; color: #8b7180; font-size: 9px; }
-        .listeningBox { border-color: rgba(232,70,119,0.58); box-shadow: 0 0 0 2px rgba(232,70,119,0.08), 0 0 20px rgba(232,70,119,0.18); }
+
+        .voiceStopHint {
+          margin-left: auto;
+          color: #8b7180;
+          font-size: 9px;
+        }
+
+        .listeningBox {
+          border-color: rgba(232,70,119,0.58);
+          box-shadow:
+            0 0 0 2px rgba(232,70,119,0.08),
+            0 0 20px rgba(232,70,119,0.18);
+        }
+
         .voiceButton:active { transform: scale(.94); }
 
         .sendButton {
           background: linear-gradient(135deg,#9b83ff,#6751d5);
           color: #ffffff;
           font-size: 21px;
-          box-shadow: 0 0 10px rgba(118,101,217,0.45), 0 0 22px rgba(118,101,217,0.20);
+          box-shadow:
+            0 0 10px rgba(118,101,217,0.45),
+            0 0 22px rgba(118,101,217,0.20);
           transition: box-shadow .2s ease, transform .2s ease;
         }
 
-        .sendButton:disabled { opacity: 0.48; cursor: default; box-shadow: none; }
-        .sendButton:not(:disabled):active { transform: scale(0.96); box-shadow: 0 0 16px rgba(118,101,217,0.55); }
-        .footerCredit { padding-top: 6px; color: #8580a5; text-align: center; font-size: 9px; letter-spacing: 0.25px; text-shadow: 0 0 8px rgba(128,100,244,0.18); }
+        .sendButton:disabled {
+          opacity: 0.48;
+          cursor: default;
+          box-shadow: none;
+        }
+
+        .sendButton:not(:disabled):active {
+          transform: scale(0.96);
+          box-shadow: 0 0 16px rgba(118,101,217,0.55);
+        }
+
+        .footerCredit {
+          padding-top: 6px;
+          color: #8580a5;
+          text-align: center;
+          font-size: 9px;
+          letter-spacing: 0.25px;
+          text-shadow: 0 0 8px rgba(128,100,244,0.18);
+        }
 
         @keyframes messageEnter {
           from { opacity: 0; transform: translateY(4px); }
@@ -888,8 +1274,18 @@ export default function Home() {
         }
 
         @keyframes logoPulse {
-          0%,100% { box-shadow: 0 0 8px rgba(132,103,255,0.30), 0 0 18px rgba(132,103,255,0.14), inset 0 0 12px rgba(132,103,255,0.10); }
-          50% { box-shadow: 0 0 12px rgba(132,103,255,0.48), 0 0 27px rgba(132,103,255,0.25), inset 0 0 14px rgba(132,103,255,0.16); }
+          0%,100% {
+            box-shadow:
+              0 0 8px rgba(132,103,255,0.30),
+              0 0 18px rgba(132,103,255,0.14),
+              inset 0 0 12px rgba(132,103,255,0.10);
+          }
+          50% {
+            box-shadow:
+              0 0 12px rgba(132,103,255,0.48),
+              0 0 27px rgba(132,103,255,0.25),
+              inset 0 0 14px rgba(132,103,255,0.16);
+          }
         }
 
         @keyframes typing {
@@ -898,8 +1294,16 @@ export default function Home() {
         }
 
         @keyframes micPulse {
-          0%,100% { box-shadow: 0 0 0 3px rgba(240,65,112,0.08), 0 0 12px rgba(240,65,112,0.30); }
-          50% { box-shadow: 0 0 0 7px rgba(240,65,112,0.14), 0 0 22px rgba(240,65,112,0.52); }
+          0%,100% {
+            box-shadow:
+              0 0 0 3px rgba(240,65,112,0.08),
+              0 0 12px rgba(240,65,112,0.30);
+          }
+          50% {
+            box-shadow:
+              0 0 0 7px rgba(240,65,112,0.14),
+              0 0 22px rgba(240,65,112,0.52);
+          }
         }
 
         @keyframes voiceWave {
@@ -918,13 +1322,13 @@ export default function Home() {
           .suggestions { margin-left: 39px; }
           .suggestionGrid { gap: 6px; }
           .suggestionChip { padding: 8px 7px; font-size: 10px; }
-          .voiceButton,.sendButton { width: 35px; flex-basis: 35px; }
+          .voiceButton, .sendButton { width: 35px; flex-basis: 35px; }
           .voiceStatus { gap: 6px; font-size: 11px; }
           .voiceStopHint { font-size: 8px; }
         }
 
         @media (prefers-reduced-motion: reduce) {
-          *,*::before,*::after {
+          *, *::before, *::after {
             animation-duration: 0.01ms !important;
             animation-iteration-count: 1 !important;
             transition-duration: 0.01ms !important;
@@ -933,4 +1337,5 @@ export default function Home() {
       `}</style>
     </div>
   );
-}
+                }
+                
