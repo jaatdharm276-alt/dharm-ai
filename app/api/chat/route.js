@@ -1,4 +1,3 @@
-
 export async function POST(req) {
   try {
     const body = await req.json();
@@ -54,13 +53,13 @@ export async function POST(req) {
       });
     }
 
-    const apiKey = process.env.GROQ_API_KEY;
+    const apiKey = process.env.GROQ_API_KEY?.trim();
 
     if (!apiKey) {
       return Response.json(
         {
           error:
-            "GROQ_API_KEY missing hai. Vercel Settings > Environment Variables mein GROQ_API_KEY add karein, phir redeploy karein.",
+            "GROQ_API_KEY missing hai. Vercel Settings > Environment Variables mein key add karke Production redeploy karein.",
         },
         { status: 500 }
       );
@@ -74,27 +73,24 @@ ${currentIndiaTime}
 
 Rules:
 - Reply in the user's language, including Hindi and Hinglish.
-- Give direct, useful, clear answers.
-- For latest news, current events, government announcements,
-  sports scores, prices, weather and technology updates,
-  use web search when available.
-- Never invent live information or sources.
-- If current information cannot be verified, say so honestly.
-- Include dates for news and current events.
-- Include source links when web search provides them.
+- Give clear, direct and useful answers.
+- Use the supplied India time for date/time questions.
+- Never invent news, facts, sources or URLs.
+- Be honest when you cannot verify current information.
+- For news, distinguish known information from unverified information.
+- Format answers clearly with paragraphs and lists where helpful.
 `;
 
-    // Try web-search-capable model first, then fallback chat model.
+    // Current fallback models
     const models = [
-      "groq/compound",
       "openai/gpt-oss-20b",
+      "openai/gpt-oss-120b",
     ];
 
     let lastError = "";
+    let lastStatus = 503;
 
-    for (let index = 0; index < models.length; index++) {
-      const model = models[index];
-
+    for (const model of models) {
       try {
         const response = await fetch(
           "https://api.groq.com/openai/v1/chat/completions",
@@ -125,15 +121,44 @@ Rules:
         const data = await response.json();
 
         if (!response.ok) {
+          lastStatus = response.status;
           lastError =
             data?.error?.message ||
             `Groq API error (${response.status})`;
 
-          console.error(`${model} failed:`, lastError);
+          console.error(
+            `Groq model ${model} failed with status ${response.status}:`,
+            lastError
+          );
+
+          // Invalid API key: another model won't fix authentication.
+          if (response.status === 401) {
+            return Response.json(
+              {
+                error:
+                  "Groq API key invalid hai. Vercel mein GROQ_API_KEY ki Value ko check karein. Zaroorat ho to Groq Console se nayi key banakar existing variable ki Value replace karein, phir Production redeploy karein.",
+                code: "INVALID_API_KEY",
+              },
+              { status: 401 }
+            );
+          }
+
+          if (response.status === 403) {
+            return Response.json(
+              {
+                error:
+                  "Groq API access denied hai. Groq account, key permissions aur model access check karein.",
+                code: "ACCESS_DENIED",
+              },
+              { status: 403 }
+            );
+          }
+
+          // Try the next model for other errors.
           continue;
         }
 
-        let reply = String(
+        const reply = String(
           data?.choices?.[0]?.message?.content || ""
         ).trim();
 
@@ -142,66 +167,36 @@ Rules:
           continue;
         }
 
-        // Extract URLs included in the answer.
-        const urls = [
-          ...new Set(
-            reply.match(/https?:\/\/[^\s)\]>]+/g) || []
-          ),
-        ];
-
-        const sources = urls.map((url) => ({
-          title: url,
-          url,
-        }));
-
-        const liveKeywords = [
-          "latest news",
-          "breaking news",
-          "today's news",
-          "today news",
-          "latest update",
-          "live score",
-          "current price",
-          "today weather",
-          "latest",
-          "abhi ki news",
-          "aaj ki news",
-          "taaza khabar",
-          "ताज़ा खबर",
-          "आज की खबर",
-          "ताजा खबर",
-          "current events",
-          "recent news",
-          "news today",
-        ];
-
-        const asksLive = liveKeywords.some((word) =>
-          q.includes(word)
-        );
-
-        if (index > 0 && asksLive) {
-          reply +=
-            "\n\nNote: Live web search abhi available nahi thi, " +
-            "isliye is jawab ko latest verified news na maanein.";
-        }
-
         return Response.json({
           reply,
-          hasLiveSources: index === 0 && sources.length > 0,
-          sources: index === 0 ? sources : [],
+          hasLiveSources: false,
+          sources: [],
           model,
         });
       } catch (error) {
         lastError = error?.message || "Unknown error";
-        console.error(`${model} failed:`, lastError);
+        console.error(`Groq model ${model} failed:`, lastError);
       }
+    }
+
+    if (lastStatus === 429) {
+      return Response.json(
+        {
+          error:
+            "Groq ki rate limit ya quota filhaal khatam hai. Thodi der baad dobara try karein. Details: " +
+            lastError,
+          code: "RATE_LIMIT",
+        },
+        { status: 429 }
+      );
     }
 
     return Response.json(
       {
         error:
-          "Groq se response nahi mila. API key aur account ki rate limits check karein. Details: " +
+          "Groq se response nahi mila. Vercel logs aur Groq account check karein. Details: " +
           lastError,
+        code: "GROQ_REQUEST_FAILED",
       },
       { status: 503 }
     );
@@ -210,11 +205,9 @@ Rules:
 
     return Response.json(
       {
-        error:
-          "Request process nahi ho saki. Dobara try karein.",
+        error: "Request process nahi ho saki. Dobara try karein.",
       },
       { status: 500 }
     );
   }
 }
-  
