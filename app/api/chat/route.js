@@ -1,4 +1,3 @@
-
 const HANUMAN_CHALISA = `॥ श्री हनुमते नमः ॥
 
 ॥ दोहा ॥
@@ -185,11 +184,25 @@ function wantsFullHanumanChalisa(question) {
 
   return mentionsChalisa && asksForFull;
 }
-
 export async function POST(req) {
   try {
     const body = await req.json();
     const question = String(body?.message || "").trim();
+    const requestedTaskMode = String(body?.taskMode || "chat")
+      .trim()
+      .toLowerCase();
+
+    const allowedTaskModes = [
+      "chat",
+      "study",
+      "work",
+      "business",
+      "content",
+    ];
+
+    const taskMode = allowedTaskModes.includes(requestedTaskMode)
+      ? requestedTaskMode
+      : "chat";
 
     if (!question) {
       return Response.json(
@@ -250,11 +263,8 @@ export async function POST(req) {
       );
     }
 
-    
-const systemPrompt = `
+    const systemPrompt = `
 You are ORION AI, the official AI assistant of the ORION AI application.
-
-
 
 IDENTITY AND DEVELOPER:
 - You are ORION AI, the AI assistant presented by Dharm AI.
@@ -286,8 +296,6 @@ credit hai: ORION AI · Powered by Dharm AI."
 - Do not repeat a previous answer unless the user asks the same question.
 - For other questions, answer normally without forcing the creator credit
   into every response.
-  
-
 
 Current date/time in India: ${currentIndiaTime}.
 
@@ -305,7 +313,41 @@ LANGUAGE AND ANSWERS:
 - Do not claim web search was performed unless it actually was.
 - Do not use Markdown code fences unless code is being shown.
 `;
-    
+
+    // Task-mode instructions server par define hain.
+    // Client se aaya arbitrary prompt core instructions ko replace nahi karega.
+    const taskInstructions = {
+      study: `STUDY TASK MODE:
+- Help complete the actual study task, not just discuss it.
+- Explain in simple Hindi/Hinglish unless another language is requested.
+- Give complete, structured answers, notes, examples, and step-by-step working when useful.
+- Do not invent facts; state uncertainty when needed.`,
+
+      work: `JOB AND WORK TASK MODE:
+- Produce a ready-to-use deliverable such as a professional email, resume section, application, cover letter, work plan, or interview answer.
+- Ask only essential follow-up questions. If details are missing, use clear placeholders and still provide a useful draft.
+- Use a professional tone suited to the task.`,
+
+      business: `BUSINESS TASK MODE:
+- Give practical, actionable deliverables such as a business plan, customer offer, marketing plan, budget outline, sales message, or next-step checklist.
+- Be realistic about costs and risks. Never guarantee earnings; clearly label estimates and assumptions.`,
+
+      content: `CONTENT CREATION TASK MODE:
+- Create complete, ready-to-publish content for the requested platform and audience.
+- Include a strong opening, clear structure, and useful variations when appropriate.
+- Match the requested language, tone, length, and format.`,
+    };
+
+    const activeSystemPrompt = taskInstructions[taskMode]
+      ? `${systemPrompt}
+
+ACTIVE TASK MODE: ${taskMode.toUpperCase()}
+
+${taskInstructions[taskMode]}
+
+Complete the user's requested task as fully as possible.
+Do not merely give generic advice when a usable output can be created.`
+      : systemPrompt;
 
     const suppliedMessages = Array.isArray(body?.messages)
       ? body.messages
@@ -328,9 +370,8 @@ LANGUAGE AND ANSWERS:
     if (!history.length || history[history.length - 1].role !== "user") {
       history.push({ role: "user", content: question });
     }
-
-    // Groq streams real tokens. If the first model is unavailable,
-    // try the fallback before returning a response.
+        // Groq streams real tokens. Agar pehla model unavailable ho,
+    // to agle model par try karega.
     const models = [
       "groq/compound",
       "openai/gpt-oss-120b",
@@ -338,7 +379,7 @@ LANGUAGE AND ANSWERS:
     ];
 
     let lastError = "";
-      
+
     for (const model of models) {
       try {
         const upstream = await fetch(
@@ -352,7 +393,7 @@ LANGUAGE AND ANSWERS:
             body: JSON.stringify({
               model,
               messages: [
-                { role: "system", content: systemPrompt },
+                { role: "system", content: activeSystemPrompt },
                 ...history,
               ],
               temperature: 0.35,
@@ -364,6 +405,7 @@ LANGUAGE AND ANSWERS:
 
         if (!upstream.ok) {
           const errorData = await upstream.json().catch(() => ({}));
+
           lastError =
             errorData?.error?.message ||
             `Groq API error (${upstream.status})`;
