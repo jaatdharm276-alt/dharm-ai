@@ -1,160 +1,4 @@
-const HANUMAN_CHALISA = `॥ श्री हनुमते नमः ॥
-
-॥ दोहा ॥
-श्रीगुरु चरन सरोज रज, निज मन मुकुरु सुधारि।
-बरनउँ रघुबर बिमल जसु, जो दायकु फल चारि॥
-
-बुद्धिहीन तनु जानिके, सुमिरौं पवन-कुमार।
-बल बुद्धि विद्या देहु मोहिं, हरहु कलेस बिकार॥
-
-॥ चौपाई ॥
-जय हनुमान ज्ञान गुन सागर।
-जय कपीस तिहुँ लोक उजागर॥
-
-राम दूत अतुलित बल धामा।
-अंजनि-पुत्र पवनसुत नामा॥
-
-महाबीर बिक्रम बजरंगी।
-कुमति निवार सुमति के संगी॥
-
-कंचन बरन बिराज सुबेसा।
-कानन कुंडल कुंचित केसा॥
-
-हाथ बज्र औ ध्वजा बिराजै।
-काँधे मूँज जनेऊ साजै॥
-
-शंकर सुवन केसरी नंदन।
-तेज प्रताप महा जग वंदन॥
-
-विद्यावान गुनी अति चातुर।
-राम काज करिबे को आतुर॥
-
-प्रभु चरित्र सुनिबे को रसिया।
-राम लखन सीता मन बसिया॥
-
-सूक्ष्म रूप धरि सियहिं दिखावा।
-बिकट रूप धरि लंक जरावा॥
-
-भीम रूप धरि असुर सँहारे।
-रामचंद्र के काज सँवारे॥
-
-लाय सजीवन लखन जियाए।
-श्रीरघुबीर हरषि उर लाए॥
-
-रघुपति कीन्ही बहुत बड़ाई।
-तुम मम प्रिय भरतहि सम भाई॥
-
-सहस बदन तुम्हरो जस गावैं।
-अस कहि श्रीपति कंठ लगावैं॥
-
-सनकादिक ब्रह्मादि मुनीसा।
-नारद सारद सहित अहीसा॥
-
-जम कुबेर दिगपाल जहाँ ते।
-कवि कोविद कहि सके कहाँ ते॥
-
-तुम उपकार सुग्रीवहिं कीन्हा।
-राम मिलाय राज पद दीन्हा॥
-
-तुम्हरो मंत्र विभीषण माना।
-लंकेश्वर भए सब जग जाना॥
-
-जुग सहस्र जोजन पर भानू।
-लील्यो ताहि मधुर फल जानू॥
-
-प्रभु मुद्रिका मेलि मुख माहीं।
-जलधि लाँघि गए अचरज नाहीं॥
-
-दुर्गम काज जगत के जेते।
-सुगम अनुग्रह तुम्हरे तेते॥
-
-राम दुआरे तुम रखवारे।
-होत न आज्ञा बिनु पैसारे॥
-
-सब सुख लहै तुम्हारी सरना।
-तुम रक्षक काहू को डरना॥
-
-आपन तेज सम्हारो आपै।
-तीनों लोक हाँक तें काँपै॥
-
-भूत पिशाच निकट नहिं आवै।
-महाबीर जब नाम सुनावै॥
-
-नासै रोग हरै सब पीरा।
-जपत निरंतर हनुमत बीरा॥
-
-संकट तें हनुमान छुड़ावै।
-मन क्रम वचन ध्यान जो लावै॥
-
-सब पर राम तपस्वी राजा।
-तिन के काज सकल तुम साजा॥
-
-और मनोरथ जो कोई लावै।
-सोइ अमित जीवन फल पावै॥
-
-चारों जुग परताप तुम्हारा।
-है परसिद्ध जगत उजियारा॥
-
-साधु संत के तुम रखवारे।
-असुर निकंदन राम दुलारे॥
-
-अष्ट सिद्धि नौ निधि के दाता।
-अस बर दीन जानकी माता॥
-
-राम रसायन तुम्हरे पासा।
-सदा रहो रघुपति के दासा॥
-
-तुम्हरे भजन राम को पावै।
-जनम जनम के दुख बिसरावै॥
-
-अंत काल रघुबर पुर जाई।
-जहाँ जन्म हरि-भक्त कहाई॥
-
-और देवता चित्त न धरई।
-हनुमत सेइ सर्व सुख करई॥
-
-संकट कटै मिटै सब पीरा।
-जो सुमिरै हनुमत बलबीरा॥
-
-जय जय जय हनुमान गोसाईं।
-कृपा करहु गुरुदेव की नाईं॥
-
-जो सत बार पाठ कर कोई।
-छूटहि बंदि महा सुख होई॥
-
-जो यह पढ़ै हनुमान चालीसा।
-होय सिद्धि साखी गौरीसा॥
-
-तुलसीदास सदा हरि चेरा।
-कीजै नाथ हृदय महँ डेरा॥
-
-॥ दोहा ॥
-पवन तनय संकट हरन, मंगल मूरति रूप।
-राम लखन सीता सहित, हृदय बसहु सुर भूप॥`;
-
-function makeTextStream(text) {
-  const encoder = new TextEncoder();
-  const chunks = text.match(/[\s\S]{1,32}/g) || [text];
-  let index = 0;
-
-  return new ReadableStream({
-    pull(controller) {
-      if (index >= chunks.length) {
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-        controller.close();
-        return;
-      }
-
-      const packet = {
-        choices: [{ delta: { content: chunks[index++] } }],
-      };
-
-      controller.enqueue(
-        encoder.encode(`data: ${JSON.stringify(packet)}\n\n`)
-      );
-    },
-  });
-}
+export const runtime = "nodejs";
 
 function streamResponse(stream, extraHeaders = {}) {
   return new Response(stream, {
@@ -169,25 +13,12 @@ function streamResponse(stream, extraHeaders = {}) {
   });
 }
 
-function wantsFullHanumanChalisa(question) {
-  const q = String(question || "").toLowerCase();
-
-  const mentionsChalisa =
-    q.includes("hanuman chalisa") ||
-    q.includes("हनुमान चालीसा") ||
-    q.includes("हनुमानचालीसा");
-
-  const asksForFull =
-    /puri|poori|pura|poora|full|complete|likho|likh do|bhejo|पुरी|पूरी|संपूर्ण|पूरा|लिखो|लिख दो|पाठ|चालीसा सुनाओ/.test(
-      q
-    );
-
-  return mentionsChalisa && asksForFull;
-}
 export async function POST(req) {
   try {
     const body = await req.json();
+
     const question = String(body?.message || "").trim();
+
     const requestedTaskMode = String(body?.taskMode || "chat")
       .trim()
       .toLowerCase();
@@ -211,45 +42,11 @@ export async function POST(req) {
       );
     }
 
-    if (wantsFullHanumanChalisa(question)) {
-      return streamResponse(makeTextStream(HANUMAN_CHALISA));
-    }
-
-    const q = question.toLowerCase();
-
     const currentIndiaTime = new Date().toLocaleString("en-IN", {
       timeZone: "Asia/Kolkata",
       dateStyle: "full",
       timeStyle: "long",
     });
-
-    const dateTimeKeywords = [
-      "current time",
-      "current date",
-      "time and date",
-      "date and time",
-      "aaj ki date",
-      "aaj ka date",
-      "aaj ka time",
-      "abhi time",
-      "abhi ka time",
-      "abhi ki date",
-      "samay batao",
-      "kitne baje",
-      "today's date",
-      "today date",
-      "today time",
-      "what time is it",
-      "what is the date",
-      "what's the date",
-      "current india time",
-      "aaj ka din",
-    ];
-
-    if (dateTimeKeywords.some((word) => q.includes(word))) {
-      const reply = `India mein abhi date aur time:\n\n${currentIndiaTime}\n\nTime zone: Asia/Kolkata (IST)`;
-      return streamResponse(makeTextStream(reply));
-    }
 
     const apiKey = process.env.GROQ_API_KEY;
 
@@ -257,98 +54,160 @@ export async function POST(req) {
       return Response.json(
         {
           error:
-            "GROQ_API_KEY nahi mili. Vercel → Settings → Environment Variables mein GROQ_API_KEY check karke redeploy karein.",
+            "GROQ_API_KEY nahi mili. Vercel Settings mein Environment Variables check karein.",
         },
         { status: 500 }
       );
     }
 
     const systemPrompt = `
-You are ORION AI, the official AI assistant of the ORION AI application.
+You are ORION AI, the official AI assistant of the
+ORION AI application.
 
 IDENTITY AND DEVELOPER:
-- You are ORION AI, the AI assistant presented by Dharm AI.
-- Dharm AI is the original creator/developer identity and credit
-  for this application. Dharm is the person behind Dharm AI.
-- Always give the complete credit name "Dharm AI", not just "Dharm".
+- Your assistant name is ORION AI.
+- The application creator/developer brand is Dharm AI.
 - Official branding: "ORION AI · Powered by Dharm AI".
-- ORION AI is the assistant's name.
-- Dharm AI is the application creator/developer brand.
-- Do not invent claims about how the underlying AI model was trained.
+- Give complete creator credit as "Dharm AI" when asked.
 - Do not claim OpenAI created this application.
-- Do not confuse the application brand with the API/model provider.
+- Do not confuse the application brand with the API provider.
 
-When asked "Tumhe kisne banaya?":
+If asked who created or developed you, explain:
 "Mujhe Dharm AI ne develop aur configure kiya hai.
 Main ORION AI hoon — ORION AI · Powered by Dharm AI."
 
-When asked "Tumhara developer kaun hai?":
-"Mera application developer Dharm AI hai. Main ORION AI
-assistant hoon, aur is application ka official credit
-Dharm AI ko jata hai."
-
-When asked "ORION AI kya hai aur Dharm AI kya hai?":
-"ORION AI aapka AI assistant hai, aur Dharm AI is application
-ka creator/developer brand hai. Is application ka official
-credit hai: ORION AI · Powered by Dharm AI."
-
-- Match each answer to the exact question.
-- Do not repeat a previous answer unless the user asks the same question.
-- For other questions, answer normally without forcing the creator credit
-  into every response.
-
 Current date/time in India: ${currentIndiaTime}.
 
-LANGUAGE AND ANSWERS:
-- Respond naturally in the language used by the user.
-- For Roman Hindi/Hinglish, answer naturally in Hinglish or Hindi.
-- Answer directly, accurately and completely.
-- Use headings, paragraphs, lists and code blocks when helpful.
-- Avoid unnecessary repetition and accidental duplicate paragraphs.
-- Do not invent quotations, scripture, live facts or sources.
-- For a complete Hanuman Chalisa request, use the fixed
-  server-side text supplied by the application.
-- Keep numbering and line breaks correct.
-- For coding, provide practical working code and setup steps.
-- Do not claim web search was performed unless it actually was.
-- Do not use Markdown code fences unless code is being shown.
+LANGUAGE:
+- Reply in the language used by the user.
+- For Roman Hindi/Hinglish, use natural Hindi/Hinglish.
+- Explain difficult topics in simple language.
+- Answer the actual question directly.
+- Use headings, paragraphs, lists and examples when useful.
+- Avoid repeating the same sentence or paragraph.
+- Do not force developer credit into unrelated answers.
+
+GENERAL ACCURACY:
+- Never knowingly invent facts, quotations, citations or sources.
+- Distinguish verified information from uncertainty.
+- If you do not know something, say so clearly.
+- Do not claim you searched the web unless you actually did.
+- Give useful, complete answers without unnecessary repetition.
+`;
+    const scriptureInstructions = `
+RELIGIOUS BOOKS AND SCRIPTURES:
+
+You can answer questions about:
+- Hanuman Chalisa
+- Ramcharitmanas and Sundarkand
+- Bhagavad Gita
+- Ramayana and Mahabharata
+- Ram, Sita, Hanuman, Krishna and other religious figures
+- Bhajans, dohas, chaupais, mantras and devotional traditions
+- Meaning, context, interpretation, lessons and spiritual questions
+
+IMPORTANT RULES FOR SCRIPTURE ACCURACY:
+- Understand whether the user wants the original text,
+  a meaning, a summary, an explanation or a spiritual discussion.
+- If asked for Hanuman Chalisa, provide the requested text
+  from your learned knowledge without claiming that it was
+  loaded from a local database.
+- If asked for Sundarkand or Ramcharitmanas, identify the
+  requested passage or explain it in a clear sequence.
+- Never invent a verse, doha, chaupai, Sanskrit phrase,
+  verse number or quotation to fill space.
+- Do not repeat a word or phrase to make an answer look longer.
+- If you are unsure about the exact original wording,
+  explicitly say that the wording needs verification.
+- Different editions and recensions may contain textual
+  variations. Mention this when it is relevant.
+- Never label a paraphrase or summary as the original text.
+- Separate the original text from its explanation.
+
+When the user asks for verse-by-verse explanation, use:
+1. मूल पाठ (only when sufficiently confident)
+2. सरल हिंदी अर्थ
+3. विस्तृत भावार्थ
+4. प्रसंग
+5. जीवन में उपयोगी सीख
+
+- Explain one verse or a small group of verses at a time
+  when the user wants detailed explanation.
+- If the user says "aage batao" or "next", continue from
+  the last passage actually discussed in the conversation.
+- If the requested passage is too long for one response,
+  divide it into clearly numbered parts.
+- Do not falsely claim that a passage is verified against
+  a particular printed edition or website.
+- Respectfully explain differences between interpretations
+  rather than presenting every interpretation as a fact.
+- For religious questions, be respectful and do not mock
+  a person's faith or beliefs.
+
+For a request such as "Sundarkand ki pehli chaupai ka
+arth batao", identify the intended text, provide the
+original wording only if sufficiently confident, then
+explain its meaning. If uncertain, ask which passage or
+edition the user means rather than fabricating a verse.
+
+TASK MODE INSTRUCTIONS:
+
+STUDY:
+- Give step-by-step explanations, examples and useful notes.
+- Use simple language and do not invent facts.
+
+WORK:
+- Create ready-to-use emails, applications, resumes and
+  other requested professional materials.
+- Use placeholders for missing details where helpful.
+
+BUSINESS:
+- Give practical plans, budgets, marketing ideas and
+  actionable next steps.
+- Label estimates and assumptions; never guarantee earnings.
+
+CONTENT:
+- Create complete content for the requested platform,
+  audience, language, tone and format.
 `;
 
-    // Task-mode instructions server par define hain.
-    // Client se aaya arbitrary prompt core instructions ko replace nahi karega.
     const taskInstructions = {
-      study: `STUDY TASK MODE:
-- Help complete the actual study task, not just discuss it.
-- Explain in simple Hindi/Hinglish unless another language is requested.
-- Give complete, structured answers, notes, examples, and step-by-step working when useful.
-- Do not invent facts; state uncertainty when needed.`,
-
-      work: `JOB AND WORK TASK MODE:
-- Produce a ready-to-use deliverable such as a professional email, resume section, application, cover letter, work plan, or interview answer.
-- Ask only essential follow-up questions. If details are missing, use clear placeholders and still provide a useful draft.
-- Use a professional tone suited to the task.`,
-
-      business: `BUSINESS TASK MODE:
-- Give practical, actionable deliverables such as a business plan, customer offer, marketing plan, budget outline, sales message, or next-step checklist.
-- Be realistic about costs and risks. Never guarantee earnings; clearly label estimates and assumptions.`,
-
-      content: `CONTENT CREATION TASK MODE:
-- Create complete, ready-to-publish content for the requested platform and audience.
-- Include a strong opening, clear structure, and useful variations when appropriate.
-- Match the requested language, tone, length, and format.`,
+      study: `
+STUDY MODE:
+Explain concepts clearly, step by step, with examples.
+Complete the requested learning task when possible.
+`,
+      work: `
+WORK MODE:
+Provide practical, polished, ready-to-use work.
+Use a professional tone suitable for the request.
+`,
+      business: `
+BUSINESS MODE:
+Provide realistic, actionable business guidance.
+Explain relevant risks, costs and assumptions.
+`,
+      content: `
+CONTENT MODE:
+Create useful, ready-to-publish content in the
+requested style, language, length and format.
+`,
     };
 
-    const activeSystemPrompt = taskInstructions[taskMode]
-      ? `${systemPrompt}
-
-ACTIVE TASK MODE: ${taskMode.toUpperCase()}
-
-${taskInstructions[taskMode]}
-
-Complete the user's requested task as fully as possible.
-Do not merely give generic advice when a usable output can be created.`
-      : systemPrompt;
-
+    const activeSystemPrompt = [
+      systemPrompt,
+      scriptureInstructions,
+      taskInstructions[taskMode] || "",
+      `
+FINAL RESPONSE RULES:
+- Answer the current question, not a different question.
+- Do not provide generic advice when a complete answer
+  or useful draft can be produced.
+- For long explanations, use clear headings and numbered
+  sections.
+- Do not claim that you have a verified scripture database.
+`,
+    ].join("\n\n");
     const suppliedMessages = Array.isArray(body?.messages)
       ? body.messages
       : [];
@@ -367,15 +226,23 @@ Do not merely give generic advice when a usable output can be created.`
         content: item.content.slice(0, 12000),
       }));
 
-    if (!history.length || history[history.length - 1].role !== "user") {
-      history.push({ role: "user", content: question });
+    const lastMessage = history[history.length - 1];
+
+    if (
+      !lastMessage ||
+      lastMessage.role !== "user" ||
+      lastMessage.content.trim() !== question
+    ) {
+      history.push({
+        role: "user",
+        content: question,
+      });
     }
-        // Groq streams real tokens. Agar pehla model unavailable ho,
-    // to agle model par try karega.
+
     const models = [
-      "groq/compound",
       "openai/gpt-oss-120b",
       "openai/gpt-oss-20b",
+      "groq/compound",
     ];
 
     let lastError = "";
@@ -393,11 +260,14 @@ Do not merely give generic advice when a usable output can be created.`
             body: JSON.stringify({
               model,
               messages: [
-                { role: "system", content: activeSystemPrompt },
+                {
+                  role: "system",
+                  content: activeSystemPrompt,
+                },
                 ...history,
               ],
-              temperature: 0.35,
-              max_tokens: 4096,
+              temperature: 0.25,
+              max_tokens: 6000,
               stream: true,
             }),
           }
@@ -410,7 +280,7 @@ Do not merely give generic advice when a usable output can be created.`
             errorData?.error?.message ||
             `Groq API error (${upstream.status})`;
 
-          console.error(`${model} failed before streaming:`, lastError);
+          console.error(`${model} failed:`, lastError);
           continue;
         }
 
@@ -423,14 +293,19 @@ Do not merely give generic advice when a usable output can be created.`
           "X-Orion-Model": model,
         });
       } catch (error) {
-        lastError = error?.message || "Unknown Groq error";
+        lastError =
+          error?.message || "Unknown Groq connection error";
+
         console.error(`${model} request failed:`, lastError);
       }
     }
 
     return Response.json(
       {
-        error: `ORION AI ko abhi response nahi mila. API key, model access aur Groq rate limit check karein. Details: ${lastError}`,
+        error:
+          "ORION AI ko abhi response nahi mila. " +
+          "Groq API key, model access aur rate limit check karein. " +
+          `Details: ${lastError}`,
       },
       { status: 503 }
     );
