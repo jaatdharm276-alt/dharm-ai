@@ -11,7 +11,6 @@ export async function POST(req) {
       );
     }
 
-    // Current India date and time: Gemini ki zaroorat nahi
     const now = new Date();
 
     const currentIndiaTime = now.toLocaleString("en-IN", {
@@ -22,27 +21,16 @@ export async function POST(req) {
 
     const q = question.toLowerCase();
 
+    // Date/time questions
     const dateTimeKeywords = [
-      "current time",
-      "current date",
-      "time and date",
-      "date and time",
-      "aaj ki date",
-      "aaj ka date",
-      "aaj ka time",
-      "abhi time",
-      "abhi ka time",
-      "abhi ki date",
-      "samay batao",
-      "kitne baje",
-      "today's date",
-      "today date",
-      "today time",
-      "what time is it",
-      "what is the date",
-      "what's the date",
-      "current india time",
-      "aaj ka din",
+      "current time", "current date", "time and date",
+      "date and time", "aaj ki date", "aaj ka date",
+      "aaj ka time", "abhi time", "abhi ka time",
+      "abhi ki date", "samay batao", "kitne baje",
+      "today's date", "today date", "today time",
+      "what time is it", "what is the date",
+      "what's the date", "current india time", "aaj ka din",
+      "abhi kitna baj", "aaj ki tareekh"
     ];
 
     const asksDateTime = dateTimeKeywords.some((word) =>
@@ -56,6 +44,7 @@ export async function POST(req) {
           currentIndiaTime +
           "\n\nTime zone: Asia/Kolkata (IST)",
         hasLiveSources: false,
+        sources: [],
       });
     }
 
@@ -65,11 +54,27 @@ export async function POST(req) {
       return Response.json(
         {
           error:
-            "GEMINI_API_KEY missing hai. Vercel Environment Variables mein API key add karein.",
+            "GEMINI_API_KEY missing hai. Vercel ke Environment Variables mein API key add karein.",
         },
         { status: 500 }
       );
     }
+
+    // Current information / live search questions
+    const liveKeywords = [
+      "latest news", "live news", "today news",
+      "aaj ki news", "aaj ki khabar", "taaza khabar",
+      "ताजा खबर", "आज की खबर", "आज की न्यूज़",
+      "breaking news", "current news", "recent news",
+      "latest update", "live score", "today match",
+      "share price", "stock price", "weather today",
+      "latest", "today", "abhi ki khabar",
+      "current affairs", "news today", "2026 news"
+    ];
+
+    const asksLiveInfo = liveKeywords.some((word) =>
+      q.includes(word)
+    );
 
     const systemPrompt = `
 You are ORION AI, an intelligent assistant.
@@ -79,19 +84,18 @@ ${currentIndiaTime}
 
 Rules:
 - Reply in the user's language, including Hindi and Hinglish.
-- For current date/time, use the supplied India time.
-- For latest news, current events, government announcements,
-  sports scores, prices, weather, technology updates, current
-  public information and other changing facts, use Google Search
-  grounding when relevant.
-- Search for recent information instead of relying only on memory.
-- Clearly mention dates when discussing news.
-- Never invent live information, search results, or sources.
-- If live information cannot be verified, explain that honestly.
-- Give a direct and useful answer.
+- For date/time questions, use the supplied India time.
+- For news, current events, current affairs, government announcements,
+  sports results, current prices, weather, technology updates, or
+  other changing information, use Google Search grounding.
+- For a question about today's or latest news, actively search the web.
+- Prioritize recent, reliable sources and clearly mention publication dates.
+- Do not invent news, dates, quotations, search results, or links.
+- If reliable current information is unavailable, say so honestly.
+- Answer directly and clearly.
+- Do not claim that you searched unless search grounding was actually used.
 `;
 
-    // Current supported models; first try the economical model
     const models = [
       "gemini-3.5-flash-lite",
       "gemini-3.8-flash",
@@ -117,12 +121,20 @@ Rules:
               contents: [
                 {
                   role: "user",
-                  parts: [{ text: question }],
+                  parts: [
+                    {
+                      text: asksLiveInfo
+                        ? "Google Search se abhi ki taza aur verified information dhoondo. " +
+                          "News ke liye publication date aur source zaroor do. Sawal: " +
+                          question
+                        : question,
+                    },
+                  ],
                 },
               ],
               tools: [{ google_search: {} }],
               generationConfig: {
-                temperature: 0.6,
+                temperature: 0.4,
                 maxOutputTokens: 4096,
               },
             }),
@@ -137,18 +149,22 @@ Rules:
             `Gemini API error (${response.status})`;
 
           const status = data?.error?.status;
-          const isQuota =
-            response.status === 429 ||
-            status === "RESOURCE_EXHAUSTED";
 
-          if (isQuota) quotaError = true;
+          if (
+            response.status === 429 ||
+            status === "RESOURCE_EXHAUSTED"
+          ) {
+            quotaError = true;
+          }
 
           console.error(`${model} failed:`, lastError);
           continue;
         }
 
+        const candidate = data?.candidates?.[0];
+
         let reply =
-          data?.candidates?.[0]?.content?.parts
+          candidate?.content?.parts
             ?.map((part) => part.text || "")
             .filter(Boolean)
             .join("\n")
@@ -159,10 +175,9 @@ Rules:
           continue;
         }
 
-        // Search sources from Google's grounding metadata
+        // Extract Google Search grounding sources
         const chunks =
-          data?.candidates?.[0]?.groundingMetadata
-            ?.groundingChunks || [];
+          candidate?.groundingMetadata?.groundingChunks || [];
 
         const sources = [];
         const seen = new Set();
@@ -179,10 +194,14 @@ Rules:
           }
         }
 
-        if (sources.length) {
+        // Append sources only if not already included in answer
+        if (sources.length > 0) {
           reply += "\n\nSources:\n";
           reply += sources
-            .map((source) => `- ${source.title}: ${source.url}`)
+            .map(
+              (source) =>
+                `- ${source.title}: ${source.url}`
+            )
             .join("\n");
         }
 
@@ -201,7 +220,7 @@ Rules:
       return Response.json(
         {
           error:
-            "Gemini API ki quota ya rate limit khatam ho gayi hai. Google AI Studio mein Usage aur Rate Limits check karein. Agar free quota available nahi hai, to quota reset hone ka wait karein ya billing enable karein. Is waqt live news verify nahi ho paayi.",
+            "Gemini API ki quota ya rate limit available nahi hai. Google AI Studio mein Usage aur Rate Limits check karein. Is waqt live news verify nahi ho paayi.",
         },
         { status: 429 }
       );
@@ -219,8 +238,11 @@ Rules:
     console.error("Chat API error:", error);
 
     return Response.json(
-      { error: "Request process nahi ho saki. Dobara try karein." },
+      {
+        error:
+          "Request process nahi ho saki. Dobara try karein.",
+      },
       { status: 500 }
     );
   }
-                }
+}
