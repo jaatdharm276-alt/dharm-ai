@@ -1,213 +1,168 @@
-export async function POST(req) {
+
+import { NextResponse } from "next/server";
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
+const GROQ_URL =
+  "https://api.groq.com/openai/v1/chat/completions";
+
+const MODEL = "openai/gpt-oss-120b";
+
+export async function POST(request) {
   try {
-    const body = await req.json();
-    const question = String(body?.message || "").trim();
-
-    if (!question) {
-      return Response.json(
-        { error: "Message is required" },
-        { status: 400 }
-      );
-    }
-
-    // India date and time
-    const currentIndiaTime = new Date().toLocaleString("en-IN", {
-      timeZone: "Asia/Kolkata",
-      dateStyle: "full",
-      timeStyle: "long",
-    });
-
-    const q = question.toLowerCase();
-
-    const dateTimeKeywords = [
-      "current time",
-      "current date",
-      "time and date",
-      "date and time",
-      "aaj ki date",
-      "aaj ka date",
-      "aaj ka time",
-      "abhi time",
-      "abhi ka time",
-      "abhi ki date",
-      "samay batao",
-      "kitne baje",
-      "today's date",
-      "today date",
-      "today time",
-      "what time is it",
-      "what is the date",
-      "what's the date",
-      "current india time",
-      "aaj ka din",
-    ];
-
-    if (dateTimeKeywords.some((word) => q.includes(word))) {
-      return Response.json({
-        reply:
-          "India mein abhi date aur time:\n\n" +
-          currentIndiaTime +
-          "\n\nTime zone: Asia/Kolkata (IST)",
-        hasLiveSources: false,
-        sources: [],
-      });
-    }
-
-    const apiKey = process.env.GROQ_API_KEY?.trim();
+    const apiKey = process.env.GROQ_API_KEY;
 
     if (!apiKey) {
-      return Response.json(
-        {
-          error:
-            "GROQ_API_KEY missing hai. Vercel Settings > Environment Variables mein key add karke Production redeploy karein.",
-        },
+      return NextResponse.json(
+        { error: "GROQ_API_KEY Vercel settings mein nahi mili." },
         { status: 500 }
       );
     }
 
-    const systemPrompt = `
-You are ORION AI, a helpful intelligent assistant.
+    const body = await request.json();
 
-Current date and time in India:
-${currentIndiaTime}
+    const message =
+      body.message ||
+      body.prompt ||
+      body.input ||
+      "";
 
-Rules:
-- Reply in the user's language, including Hindi and Hinglish.
-- Give clear, direct and useful answers.
-- Use the supplied India time for date/time questions.
-- Never invent news, facts, sources or URLs.
-- Be honest when you cannot verify current information.
-- For news, distinguish known information from unverified information.
-- Format answers clearly with paragraphs and lists where helpful.
-`;
+    const history = Array.isArray(body.history)
+      ? body.history
+      : Array.isArray(body.messages)
+      ? body.messages
+      : [];
 
-    // Current fallback models
-    const models = [
-      "openai/gpt-oss-20b",
-      "openai/gpt-oss-120b",
-    ];
-
-    let lastError = "";
-    let lastStatus = 503;
-
-    for (const model of models) {
-      try {
-        const response = await fetch(
-          "https://api.groq.com/openai/v1/chat/completions",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-              model,
-              messages: [
-                {
-                  role: "system",
-                  content: systemPrompt,
-                },
-                {
-                  role: "user",
-                  content: question,
-                },
-              ],
-              temperature: 0.6,
-              max_tokens: 4096,
-            }),
-          }
-        );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          lastStatus = response.status;
-          lastError =
-            data?.error?.message ||
-            `Groq API error (${response.status})`;
-
-          console.error(
-            `Groq model ${model} failed with status ${response.status}:`,
-            lastError
-          );
-
-          // Invalid API key: another model won't fix authentication.
-          if (response.status === 401) {
-            return Response.json(
-              {
-                error:
-                  "Groq API key invalid hai. Vercel mein GROQ_API_KEY ki Value ko check karein. Zaroorat ho to Groq Console se nayi key banakar existing variable ki Value replace karein, phir Production redeploy karein.",
-                code: "INVALID_API_KEY",
-              },
-              { status: 401 }
-            );
-          }
-
-          if (response.status === 403) {
-            return Response.json(
-              {
-                error:
-                  "Groq API access denied hai. Groq account, key permissions aur model access check karein.",
-                code: "ACCESS_DENIED",
-              },
-              { status: 403 }
-            );
-          }
-
-          // Try the next model for other errors.
-          continue;
-        }
-
-        const reply = String(
-          data?.choices?.[0]?.message?.content || ""
-        ).trim();
-
-        if (!reply) {
-          lastError = "Groq se khaali response mila.";
-          continue;
-        }
-
-        return Response.json({
-          reply,
-          hasLiveSources: false,
-          sources: [],
-          model,
-        });
-      } catch (error) {
-        lastError = error?.message || "Unknown error";
-        console.error(`Groq model ${model} failed:`, lastError);
-      }
-    }
-
-    if (lastStatus === 429) {
-      return Response.json(
-        {
-          error:
-            "Groq ki rate limit ya quota filhaal khatam hai. Thodi der baad dobara try karein. Details: " +
-            lastError,
-          code: "RATE_LIMIT",
-        },
-        { status: 429 }
+    if (!message && history.length === 0) {
+      return NextResponse.json(
+        { error: "Pehle apna message likho." },
+        { status: 400 }
       );
     }
 
-    return Response.json(
+    const systemPrompt = `
+You are ORION AI, a helpful and intelligent AI assistant.
+Your original creator's app name is Dharm AI.
+Answer naturally, accurately, and helpfully.
+Reply in the same language the user uses.
+For Hindi written in Roman letters, reply in simple Hinglish.
+Use clear formatting, headings, and lists when useful.
+Never claim you searched the internet unless a search tool was used.
+`;
+
+    const messages = [
+      { role: "system", content: systemPrompt },
+      ...history
+        .filter(
+          (item) =>
+            item &&
+            ["user", "assistant"].includes(item.role) &&
+            typeof item.content === "string"
+        )
+        .slice(-20)
+        .map((item) => ({
+          role: item.role,
+          content: item.content,
+        })),
+    ];
+
+    if (message) {
+      messages.push({ role: "user", content: message });
+    }
+
+    const lowerMessage = String(message).toLowerCase();
+    
+    const needsSearch =
+      /\b(latest|today|current|live|news|weather|cricket score|stock price|breaking news|recent|aaj ki khabar|taaza khabar|mausam|abhi ka|live score)\b/i.test(
+        lowerMessage
+      );
+
+    const requestBody = {
+      model: MODEL,
+      messages,
+      temperature: 0.6,
+      max_completion_tokens: 4096,
+    };
+
+    if (needsSearch) {
+      requestBody.tools = [
+        { type: "browser_search" },
+      ];
+    }
+
+    let response = await fetch(GROQ_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    let data = await response.json();
+
+    if (!response.ok) {
+      // Agar browser search tool available na ho,
+      // to bina search ke normal answer try karo.
+      if (needsSearch && requestBody.tools) {
+        const fallbackBody = { ...requestBody };
+        delete fallbackBody.tools;
+
+        response = await fetch(GROQ_URL, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(fallbackBody),
+        });
+
+        data = await response.json();
+      }
+    }
+
+    if (!response.ok) {
+      console.error("Groq API error:", data);
+
+      return NextResponse.json(
+        {
+          error:
+            data?.error?.message ||
+            "Groq API se response nahi mila. API key aur usage limits check karo.",
+        },
+        { status: response.status || 500 }
+      );
+    }
+    
+    const reply =
+      data?.choices?.[0]?.message?.content;
+
+    if (!reply || typeof reply !== "string") {
+      return NextResponse.json(
+        {
+          error:
+            "AI ka jawab khali aaya. Dobara message bhejkar dekho.",
+        },
+        { status: 502 }
+      );
+    }
+
+    return NextResponse.json({
+      reply,
+      response: reply,
+      answer: reply,
+    });
+  } catch (error) {
+    console.error("ORION route error:", error);
+
+    return NextResponse.json(
       {
         error:
-          "Groq se response nahi mila. Vercel logs aur Groq account check karein. Details: " +
-          lastError,
-        code: "GROQ_REQUEST_FAILED",
-      },
-      { status: 503 }
-    );
-  } catch (error) {
-    console.error("Chat API error:", error);
-
-    return Response.json(
-      {
-        error: "Request process nahi ho saki. Dobara try karein.",
+          "Server mein dikkat aayi. Thodi der baad dobara try karo.",
       },
       { status: 500 }
     );
   }
 }
+  
