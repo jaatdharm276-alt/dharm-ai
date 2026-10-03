@@ -5,66 +5,46 @@ import { useEffect, useRef, useState } from "react";
 
 function renderInline(text) {
   const parts = String(text || "").split(
-    /(`[^`]+`|\*\*.*?\*\*|\*[^*]+\*)/g
+    /(\*\*.*?\*\*|\*[^*\n]+\*)/g
   );
 
-  return parts.map((part, i) => {
-    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
-      return <strong key={i}>{part.slice(2, -2)}</strong>;
+  return parts.map((part, index) => {
+    if (
+      part.startsWith("**") &&
+      part.endsWith("**") &&
+      part.length > 4
+    ) {
+      return <strong key={index}>{part.slice(2, -2)}</strong>;
     }
 
-    if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
-      return <em key={i}>{part.slice(1, -1)}</em>;
+    if (
+      part.startsWith("*") &&
+      part.endsWith("*") &&
+      part.length > 2
+    ) {
+      return <em key={index}>{part.slice(1, -1)}</em>;
     }
 
-    if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
-      return <code key={i}>{part.slice(1, -1)}</code>;
-    }
-
-    return <span key={i}>{part}</span>;
+    return part;
   });
 }
 
 function formatText(text) {
-  const cleaned = String(text || "")
+  const lines = String(text || "")
     .replace(/\r\n/g, "\n")
-    .replace(/^\s*```(?:markdown|md|text|plaintext)?\s*\n?/i, "")
-    .replace(/\n?\s*```\s*$/i, "")
-    .replace(/^\s*```\s*$/gm, "")
-    .trim();
+    .split("\n")
+    .filter((line) => !/^\s*```/.test(line));
 
-  const lines = cleaned.split("\n");
-  const output = [];
-  let listItems = [];
-  let listType = "";
-
-  function flushList() {
-    if (!listItems.length) return;
-
-    if (listType === "ordered") {
-      output.push(<ol key={`list-${output.length}`}>{listItems}</ol>);
-    } else {
-      output.push(<ul key={`list-${output.length}`}>{listItems}</ul>);
-    }
-
-    listItems = [];
-    listType = "";
-  }
-
-  lines.forEach((line, i) => {
+  return lines.map((line, index) => {
     const trimmed = line.trim();
 
     if (!trimmed) {
-      flushList();
-      output.push(<div key={`space-${i}`} className="spaceLine" />);
-      return;
+      return <div key={index} className="spaceLine" />;
     }
 
-    const heading = trimmed.match(/^(#{1,6})\s+(.*)$/);
+    const heading = trimmed.match(/^(#{1,3})\s+(.*)$/);
 
     if (heading) {
-      flushList();
-
       const Tag =
         heading[1].length === 1
           ? "h1"
@@ -72,40 +52,33 @@ function formatText(text) {
             ? "h2"
             : "h3";
 
-      output.push(<Tag key={i}>{renderInline(heading[2])}</Tag>);
-      return;
-    }
-
-    const numbered = trimmed.match(/^\d+[.)]\s+(.*)$/);
-
-    if (numbered) {
-      if (listType !== "ordered") {
-        flushList();
-        listType = "ordered";
-      }
-
-      listItems.push(<li key={i}>{renderInline(numbered[1])}</li>);
-      return;
+      return <Tag key={index}>{renderInline(heading[2])}</Tag>;
     }
 
     const bullet = trimmed.match(/^[-*•]\s+(.*)$/);
 
     if (bullet) {
-      if (listType !== "unordered") {
-        flushList();
-        listType = "unordered";
-      }
-
-      listItems.push(<li key={i}>{renderInline(bullet[1])}</li>);
-      return;
+      return (
+        <div className="textBullet" key={index}>
+          <span>•</span>
+          <span>{renderInline(bullet[1])}</span>
+        </div>
+      );
     }
 
-    flushList();
-    output.push(<p key={i}>{renderInline(trimmed)}</p>);
-  });
+    const numbered = trimmed.match(/^(\d+[.)])\s+(.*)$/);
 
-  flushList();
-  return output;
+    if (numbered) {
+      return (
+        <div className="numberedLine" key={index}>
+          <span className="numberLabel">{numbered[1]}</span>
+          <span>{renderInline(numbered[2])}</span>
+        </div>
+      );
+    }
+
+    return <p key={index}>{renderInline(line)}</p>;
+  });
 }
 
 const suggestions = [
@@ -133,6 +106,11 @@ const suggestions = [
     icon: "◷",
     title: "Study plan",
     prompt: "Mere liye ek daily study plan banao."
+  },
+  {
+    icon: "✦",
+    title: "Creative ideas",
+    prompt: "Mujhe kuch naye aur creative ideas do."
   }
 ];
 
@@ -141,53 +119,65 @@ export default function Home() {
     {
       role: "assistant",
       content:
-        "Namaste 🙏\n\nMain ORION AI hoon — aapka intelligent companion. Aap mujhse sawaal pooch sakte ho."
+        "Namaste 🙏\n\nMain ORION AI hoon — aapka intelligent companion. Aap mujhse kisi bhi topic par sawaal pooch sakte ho."
     }
   ]);
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
-  const [speaking, setSpeaking] = useState(false);
 
   const chatAreaRef = useRef(null);
   const shouldAutoScrollRef = useRef(true);
   const recognitionRef = useRef(null);
-  const touchStartYRef = useRef(null);
+  const sendingRef = useRef(false);
 
-  // Jab tak jawab likha ja raha hai, chat neeche follow karti rahegi.
-  // Typing scroll position se independent hai.
+  // Typing ke dauran har update par latest text neeche dikhayein.
   useEffect(() => {
-    const el = chatAreaRef.current;
-    if (!el) return;
+    const area = chatAreaRef.current;
 
-    if (loading || shouldAutoScrollRef.current) {
-      el.scrollTop = el.scrollHeight;
-    }
+    if (!area || !shouldAutoScrollRef.current) return;
+
+    const frame = requestAnimationFrame(() => {
+      const currentArea = chatAreaRef.current;
+
+      if (currentArea && shouldAutoScrollRef.current) {
+        currentArea.scrollTop = currentArea.scrollHeight;
+      }
+    });
+
+    return () => cancelAnimationFrame(frame);
   }, [messages, loading]);
 
   useEffect(() => {
     return () => {
       recognitionRef.current?.stop();
 
-      if (typeof window !== "undefined" && window.speechSynthesis) {
+      if (
+        typeof window !== "undefined" &&
+        window.speechSynthesis
+      ) {
         window.speechSynthesis.cancel();
       }
     };
   }, []);
 
   async function sendMessage(text) {
-    const message = String(text !== undefined ? text : input).trim();
+    const message = String(
+      text !== undefined ? text : input
+    ).trim();
 
-    if (!message || loading) return;
+    if (!message || sendingRef.current) return;
 
+    sendingRef.current = true;
     shouldAutoScrollRef.current = true;
     setInput("");
     setLoading(true);
 
     setMessages((old) => [
       ...old,
-      { role: "user", content: message }
+      { role: "user", content: message },
+      { role: "assistant", content: "" }
     ]);
 
     try {
@@ -209,32 +199,27 @@ export default function Home() {
 
       const reply = String(
         data?.reply || "Maaf kijiye 🙏 Abhi response nahi mila."
-      )
-        .replace(/\r\n/g, "\n")
-        .replace(/^\s*```(?:markdown|md|text|plaintext)?\s*\n?/i, "")
-        .replace(/\n?\s*```\s*$/i, "")
-        .replace(/^\s*```\s*$/gm, "")
-        .trim();
+      ).trim();
 
-      setMessages((old) => [
-        ...old,
-        { role: "assistant", content: "" }
-      ]);
+      if (!reply) {
+        throw new Error("AI se khaali response mila.");
+      }
 
-      const charactersPerStep = 3;
-      const typingDelay = 18;
+      // Ek hi assistant message ko update karte hain.
+      // Isse har chunk ke liye naya bubble nahi banta.
+      const chunkSize = 4;
+      const typingDelay = 24;
 
-      for (let i = 0; i < reply.length; i += charactersPerStep) {
-        const visibleText = reply.slice(0, i + charactersPerStep);
+      for (let i = 0; i < reply.length; i += chunkSize) {
+        const visibleText = reply.slice(0, i + chunkSize);
 
         setMessages((old) => {
           const updated = [...old];
           const lastIndex = updated.length - 1;
-          const lastMessage = updated[lastIndex];
 
-          if (lastMessage?.role === "assistant") {
+          if (updated[lastIndex]?.role === "assistant") {
             updated[lastIndex] = {
-              ...lastMessage,
+              ...updated[lastIndex],
               content: visibleText
             };
           }
@@ -242,74 +227,57 @@ export default function Home() {
           return updated;
         });
 
-        await new Promise((resolve) => setTimeout(resolve, typingDelay));
+        await new Promise((resolve) =>
+          setTimeout(resolve, typingDelay)
+        );
       }
     } catch (error) {
-      setMessages((old) => [
-        ...old,
-        {
-          role: "assistant",
-          content:
-            "Maaf kijiye 🙏\n\n" +
-            (error?.message ||
-              "Kuch technical problem aa gayi. Dobara try karein.")
-        }
-      ]);
-    } finally {
-      setLoading(false);
-    }
-    }
-        
-  function handleChatScroll(event) {
-    const el = event.currentTarget;
+      const errorText =
+        error?.message ||
+        "Kuch technical problem aa gayi. Dobara try karein.";
 
-    // Reply typing ke dauran hamesha neeche follow karo.
+      setMessages((old) => {
+        const updated = [...old];
+        const lastIndex = updated.length - 1;
+
+        if (updated[lastIndex]?.role === "assistant") {
+          updated[lastIndex] = {
+            ...updated[lastIndex],
+            content: "Maaf kijiye 🙏\n\n" + errorText
+          };
+        } else {
+          updated.push({
+            role: "assistant",
+            content: "Maaf kijiye 🙏\n\n" + errorText
+          });
+        }
+
+        return updated;
+      });
+    } finally {
+      sendingRef.current = false;
+      setLoading(false);
+      shouldAutoScrollRef.current = true;
+    }
+  }
+
+  function handleChatScroll(event) {
+    const area = event.currentTarget;
+
     if (loading) {
       shouldAutoScrollRef.current = true;
+      area.scrollTop = area.scrollHeight;
       return;
     }
 
     const distanceFromBottom =
-      el.scrollHeight - el.scrollTop - el.clientHeight;
+      area.scrollHeight - area.scrollTop - area.clientHeight;
 
-    if (distanceFromBottom <= 24) {
+    if (distanceFromBottom < 32) {
       shouldAutoScrollRef.current = true;
-    } else if (distanceFromBottom > 48) {
+    } else {
       shouldAutoScrollRef.current = false;
     }
-  }
-
-  function handleChatWheel(event) {
-    if (loading) {
-      shouldAutoScrollRef.current = true;
-      return;
-    }
-
-    if (event.deltaY < 0) {
-      shouldAutoScrollRef.current = false;
-    }
-  }
-
-  function handleChatTouchStart(event) {
-    touchStartYRef.current = event.touches?.[0]?.clientY ?? null;
-  }
-
-  function handleChatTouchMove(event) {
-    const currentY = event.touches?.[0]?.clientY;
-    const startY = touchStartYRef.current;
-
-    // Typing ke dauran finger movement typing ko nahi rokega.
-    if (loading) {
-      shouldAutoScrollRef.current = true;
-      touchStartYRef.current = currentY ?? startY;
-      return;
-    }
-
-    if (startY !== null && currentY !== undefined && currentY > startY + 6) {
-      shouldAutoScrollRef.current = false;
-    }
-
-    touchStartYRef.current = currentY ?? startY;
   }
 
   function startVoice() {
@@ -331,6 +299,7 @@ export default function Home() {
     }
 
     const recognition = new SpeechRecognition();
+
     recognition.lang = "hi-IN";
     recognition.continuous = false;
     recognition.interimResults = true;
@@ -346,7 +315,7 @@ export default function Home() {
         transcript += event.results[i][0].transcript;
       }
 
-      setInput(transcript.trimStart());
+      setInput(transcript);
     };
 
     recognitionRef.current = recognition;
@@ -363,34 +332,40 @@ export default function Home() {
       typeof window === "undefined" ||
       !window.speechSynthesis
     ) {
-      alert("Aapke browser mein read aloud support nahi hai.");
       return;
     }
 
-    if (window.speechSynthesis.speaking || speaking) {
-      window.speechSynthesis.cancel();
-      setSpeaking(false);
-      return;
-    }
+    window.speechSynthesis.cancel();
 
     const cleanText = String(text)
-      .replace(/```/g, "")
-      .replace(/#{1,6}\s/g, "")
+      .replace(/^\s*```.*$/gm, "")
+      .replace(/^#{1,3}\s+/gm, "")
       .replace(/\*\*/g, "")
-      .replace(/`/g, "")
-      .replace(/\n/g, " ");
+      .replace(/`/g, "");
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.lang = /[\u0900-\u097F]/.test(cleanText)
-      ? "hi-IN"
-      : "en-IN";
+    utterance.lang = "hi-IN";
     utterance.rate = 0.95;
-    utterance.onstart = () => setSpeaking(true);
-    utterance.onend = () => setSpeaking(false);
-    utterance.onerror = () => setSpeaking(false);
 
     window.speechSynthesis.speak(utterance);
   }
+
+  function handleInputKeyDown(event) {
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey &&
+      !event.nativeEvent.isComposing
+    ) {
+      event.preventDefault();
+      sendMessage();
+    }
+  }
+
+  const lastMessage = messages[messages.length - 1];
+  const showTyping =
+    loading &&
+    lastMessage?.role === "assistant" &&
+    !lastMessage.content;
 
   return (
     <div className="page">
@@ -431,7 +406,7 @@ export default function Home() {
                   cx="50"
                   cy="50"
                   r="25"
-                  fill="#14132d"
+                  fill="#ffffff"
                   stroke="url(#orionGradient)"
                   strokeWidth="2.5"
                 />
@@ -447,12 +422,15 @@ export default function Home() {
               <div className="brandName">
                 ORION <span>AI</span>
               </div>
+
               <div className="brandTagline">
                 Your Intelligent Companion
               </div>
+
               <div className="brandCredit">
                 Powered by Dharm AI
               </div>
+
               <div className="online">
                 <span />
                 Online
@@ -465,9 +443,6 @@ export default function Home() {
           ref={chatAreaRef}
           className="chatArea"
           onScroll={handleChatScroll}
-          onWheel={handleChatWheel}
-          onTouchStart={handleChatTouchStart}
-          onTouchMove={handleChatTouchMove}
         >
           <div className="chat">
             {messages.map((message, index) => (
@@ -480,14 +455,36 @@ export default function Home() {
                 }
               >
                 {message.role === "assistant" && (
-                  <div className="avatar">✦</div>
+                  <div className="avatar">
+                    <svg viewBox="0 0 100 100" aria-hidden="true">
+                      <path
+                        d="M50 17 L62 39 L83 50 L62 61 L50 83 L38 61 L17 50 L38 39 Z"
+                        fill="url(#avatarGradient)"
+                      />
+                      <defs>
+                        <linearGradient
+                          id="avatarGradient"
+                          x1="0%"
+                          y1="0%"
+                          x2="100%"
+                          y2="100%"
+                        >
+                          <stop offset="0%" stopColor="#70eaff" />
+                          <stop offset="55%" stopColor="#b3a1ff" />
+                          <stop offset="100%" stopColor="#e4a5ff" />
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                  </div>
                 )}
 
                 <div
                   className={
                     message.role === "user"
                       ? "bubble userBubble"
-                      : "bubble assistantBubble"
+                      : index === 0
+                        ? "bubble assistantBubble welcomeBubble"
+                        : "bubble assistantBubble"
                   }
                 >
                   {message.role === "assistant" && (
@@ -497,72 +494,43 @@ export default function Home() {
                     </div>
                   )}
 
-                  <div className="messageContent">
-                    {formatText(message.content)}
-                  </div>
-
-                  {message.role === "assistant" && message.content && (
-                    <button
-                      className={
-                        speaking ? "speakButton active" : "speakButton"
-                      }
-                      onClick={() => speak(message.content)}
-                      title={speaking ? "Awaaz rokein" : "Jawab sunen"}
-                      aria-label={
-                        speaking ? "Awaaz rokein" : "Jawab sunen"
-                      }
-                    >
-                      {speaking ? (
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                          <rect
-                            x="7"
-                            y="5"
-                            width="3.5"
-                            height="14"
-                            rx="1.2"
-                            fill="currentColor"
-                          />
-                          <rect
-                            x="13.5"
-                            y="5"
-                            width="3.5"
-                            height="14"
-                            rx="1.2"
-                            fill="currentColor"
-                          />
-                        </svg>
-                      ) : (
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                          <path
-                            d="M4 9v6h4l5 4V5L8 9H4Z"
-                            fill="currentColor"
-                          />
-                          <path
-                            d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            strokeLinecap="round"
-                          />
-                        </svg>
-                      )}
-                    </button>
+                  {message.role === "assistant" &&
+                  !message.content &&
+                  loading &&
+                  index === messages.length - 1 ? (
+                    <div className="typing">
+                      <span />
+                      <span />
+                      <span />
+                    </div>
+                  ) : (
+                    <div className="messageContent">
+                      {formatText(message.content)}
+                    </div>
                   )}
+
+                  {message.role === "assistant" &&
+                    message.content && (
+                      <button
+                        className="speakButton"
+                        onClick={() => speak(message.content)}
+                        aria-label="Jawab sunen"
+                        title="Jawab sunen"
+                        type="button"
+                      >
+                        🔊
+                      </button>
+                    )}
                 </div>
               </div>
             ))}
 
-            {loading && (
-              <div className="loadingNote">
-                <span className="loadingDot" />
-                ORION AI jawab taiyar kar raha hai...
-              </div>
-            )}
-
             {messages.length === 1 && !loading && (
               <div className="suggestions">
                 <div className="suggestionHeading">
-                  AAP KYA JAANNA CHAHTE HAIN?
+                  <span className="headingLine" />
+                  <span>AAP KYA JAANNA CHAHTE HAIN?</span>
+                  <span className="headingLine" />
                 </div>
 
                 <div className="suggestionGrid">
@@ -571,11 +539,17 @@ export default function Home() {
                       key={item.title}
                       className="suggestionChip"
                       onClick={() => sendMessage(item.prompt)}
+                      disabled={loading}
+                      type="button"
                     >
                       <span className="suggestionIcon">
                         {item.icon}
                       </span>
-                      <span>{item.title}</span>
+
+                      <span className="suggestionText">
+                        {item.title}
+                      </span>
+
                       <span className="suggestionArrow">↗</span>
                     </button>
                   ))}
@@ -586,88 +560,39 @@ export default function Home() {
         </main>
 
         <footer className="bottomArea">
-          {listening && (
-            <div className="voiceStatus" role="status" aria-live="polite">
-              <span className="voiceStatusDot" />
-              <span className="voiceWaves">
-                <i />
-                <i />
-                <i />
-                <i />
-                <i />
-              </span>
-              <span>Sun raha hoon... boliye</span>
-              <span className="voiceStopHint">
-                Rokne ke liye mic dabayein
-              </span>
-            </div>
-          )}
-
-          <div className={listening ? "inputBox listeningBox" : "inputBox"}>
+          <div className="inputBox">
             <textarea
               value={input}
               onChange={(event) => setInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (
-                  event.key === "Enter" &&
-                  !event.shiftKey &&
-                  !event.nativeEvent.isComposing
-                ) {
-                  event.preventDefault();
-                  sendMessage();
-                }
-              }}
+              onKeyDown={handleInputKeyDown}
               placeholder="ORION AI se kuch poochiye..."
               rows={1}
-              aria-label="Message likhein"
+              aria-label="Apna message likhein"
+              disabled={loading}
             />
 
             <button
-              className={listening ? "voiceButton active" : "voiceButton"}
-              onClick={startVoice}
-              title={listening ? "Sunna band karein" : "Bolkar poochhein"}
-              aria-label={
-                listening ? "Sunna band karein" : "Bolkar poochhein"
+              className={
+                listening
+                  ? "voiceButton active"
+                  : "voiceButton"
               }
+              onClick={startVoice}
+              aria-label="Voice input"
+              title="Voice input"
+              type="button"
+              disabled={loading}
             >
-              {listening ? (
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <rect
-                    x="7"
-                    y="7"
-                    width="10"
-                    height="10"
-                    rx="2"
-                    fill="currentColor"
-                  />
-                </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <rect
-                    x="9"
-                    y="3"
-                    width="6"
-                    height="12"
-                    rx="3"
-                    fill="currentColor"
-                  />
-                  <path
-                    d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              )}
+              🎙️
             </button>
 
             <button
               className="sendButton"
               onClick={() => sendMessage()}
               disabled={!input.trim() || loading}
-              title="Send"
               aria-label="Message bhejein"
+              title="Send"
+              type="button"
             >
               ➤
             </button>
@@ -680,10 +605,12 @@ export default function Home() {
       </div>
 
       <style jsx global>{`
-    
-        * { box-sizing: border-box; }
+        * {
+          box-sizing: border-box;
+        }
 
-        html, body {
+        html,
+        body {
           width: 100%;
           height: 100%;
           margin: 0;
@@ -695,8 +622,14 @@ export default function Home() {
           background: #ffffff;
         }
 
-        button, textarea { font: inherit; }
-        button { -webkit-tap-highlight-color: transparent; }
+        button,
+        textarea {
+          font: inherit;
+        }
+
+        button {
+          -webkit-tap-highlight-color: transparent;
+        }
 
         .page {
           position: fixed;
@@ -705,34 +638,32 @@ export default function Home() {
           height: 100vh;
           height: 100dvh;
           overflow: hidden;
-          color: #202437;
-          background:
-            radial-gradient(ellipse at 8% 0%,rgba(155,130,255,0.12),transparent 38%),
-            radial-gradient(ellipse at 100% 100%,rgba(79,190,255,0.10),transparent 36%),
-            #ffffff;
+          color: #29263d;
+          background: #ffffff;
         }
 
         .backgroundGlow {
           position: absolute;
-          width: 220px;
-          height: 220px;
+          width: 200px;
+          height: 200px;
           border-radius: 50%;
           pointer-events: none;
           filter: blur(75px);
-          opacity: 0.14;
-          animation: orionGlow 6s ease-in-out infinite alternate;
+          opacity: 0.16;
+          animation: orionGlow 7s ease-in-out infinite alternate;
         }
 
         .glowOne {
-          left: -110px;
-          top: -110px;
-          background: #9c8bff;
+          left: -100px;
+          top: -100px;
+          background: #a895ff;
         }
 
         .glowTwo {
-          right: -120px;
-          bottom: -120px;
-          background: #76baff;
+          right: -100px;
+          bottom: -100px;
+          background: #d8aaff;
+          animation-delay: 3s;
         }
 
         .app {
@@ -742,7 +673,7 @@ export default function Home() {
           flex-direction: column;
           min-height: 0;
           overflow: hidden;
-          background: rgba(255,255,255,0.88);
+          background: rgba(255, 255, 255, 0.96);
         }
 
         .header {
@@ -753,15 +684,16 @@ export default function Home() {
           display: flex;
           align-items: center;
           padding: 8px 13px;
-          border-bottom: 1px solid rgba(153,132,255,0.25);
-          background: rgba(255,255,255,0.94);
-          box-shadow: 0 4px 22px rgba(125,101,235,0.10);
+          border-bottom: 1px solid #e5ddff;
+          background: rgba(255, 255, 255, 0.98);
+          box-shadow: 0 3px 14px rgba(128, 99, 213, 0.06);
         }
 
         .brand {
           display: flex;
           align-items: center;
           gap: 10px;
+          min-width: 0;
         }
 
         .logo {
@@ -770,44 +702,44 @@ export default function Home() {
           flex: 0 0 42px;
           display: grid;
           place-items: center;
-          border: 1px solid #c8bcff;
+          border: 1px solid #d6c8ff;
           border-radius: 13px;
-          background: linear-gradient(145deg,#ffffff,#eeebff);
-          box-shadow:
-            0 0 8px rgba(132,103,255,0.35),
-            0 0 22px rgba(132,103,255,0.18),
-            inset 0 0 12px rgba(132,103,255,0.12);
-          animation: logoPulse 3.2s ease-in-out infinite;
+          background: linear-gradient(145deg, #ffffff, #f4efff);
+          box-shadow: 0 0 13px rgba(137, 105, 255, 0.25);
         }
 
-        .logo svg { width: 34px; height: 34px; }
+        .logo svg {
+          width: 34px;
+          height: 34px;
+        }
+
+        .brandInfo {
+          min-width: 0;
+        }
 
         .brandName {
-          color: #282044;
+          color: #292044;
           font-size: 19px;
           font-weight: 900;
           letter-spacing: 1.1px;
-          text-shadow:
-            0 0 8px rgba(133,105,255,0.28),
-            0 0 18px rgba(133,105,255,0.12);
+          line-height: 1.15;
+          text-shadow: 0 0 7px rgba(140, 133, 255, 0.15);
         }
 
         .brandName span {
-          color: #8064f4;
-          text-shadow:
-            0 0 7px rgba(128,100,244,0.65),
-            0 0 17px rgba(128,100,244,0.32);
+          color: #8d72e8;
+          text-shadow: 0 0 6px rgba(146, 126, 255, 0.25);
         }
 
         .brandTagline {
           margin-top: 3px;
-          color: #62677c;
+          color: #625d70;
           font-size: 10px;
         }
 
         .brandCredit {
           margin-top: 2px;
-          color: #8379b2;
+          color: #9487bc;
           font-size: 9px;
         }
 
@@ -816,7 +748,7 @@ export default function Home() {
           align-items: center;
           gap: 6px;
           margin-top: 3px;
-          color: #747b8f;
+          color: #777386;
           font-size: 11px;
         }
 
@@ -824,8 +756,8 @@ export default function Home() {
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          background: #25b978;
-          box-shadow: 0 0 7px rgba(37,185,120,0.75);
+          background: #32bd83;
+          box-shadow: 0 0 5px rgba(50, 189, 131, 0.35);
         }
 
         .chatArea {
@@ -837,7 +769,16 @@ export default function Home() {
           -webkit-overflow-scrolling: touch;
           overscroll-behavior: contain;
           scrollbar-width: thin;
-          scrollbar-color: #d7dbea transparent;
+          scrollbar-color: #d9cffb transparent;
+        }
+
+        .chatArea::-webkit-scrollbar {
+          width: 4px;
+        }
+
+        .chatArea::-webkit-scrollbar-thumb {
+          background: #d9cffb;
+          border-radius: 8px;
         }
 
         .chat {
@@ -856,8 +797,13 @@ export default function Home() {
           animation: messageEnter 0.2s ease-out both;
         }
 
-        .assistantMessage { justify-content: flex-start; }
-        .userMessage { justify-content: flex-end; }
+        .assistantMessage {
+          justify-content: flex-start;
+        }
+
+        .userMessage {
+          justify-content: flex-end;
+        }
 
         .avatar {
           width: 32px;
@@ -865,39 +811,43 @@ export default function Home() {
           flex: 0 0 32px;
           display: grid;
           place-items: center;
-          border: 1px solid #d5caff;
+          border: 1px solid #ded5ff;
           border-radius: 11px;
-          background: linear-gradient(145deg,#ffffff,#f0edff);
-          color: #8064f4;
-          box-shadow:
-            0 0 10px rgba(128,100,244,0.22),
-            inset 0 0 8px rgba(128,100,244,0.10);
+          background: #ffffff;
+          box-shadow: 0 0 8px rgba(137, 105, 255, 0.15);
         }
 
-        .avatar svg { width: 24px; height: 24px; }
+        .avatar svg {
+          width: 24px;
+          height: 24px;
+        }
 
         .bubble {
           min-width: 0;
-          max-width: min(90%,720px);
+          max-width: min(90%, 720px);
           padding: 11px 13px;
           border-radius: 17px;
           overflow-wrap: anywhere;
         }
 
         .assistantBubble {
-          border: 1px solid rgba(177,164,255,0.34);
-          background: linear-gradient(145deg,rgba(255,255,255,0.98),rgba(248,247,255,0.97));
-          box-shadow:
-            0 4px 16px rgba(70,60,130,0.05),
-            0 0 13px rgba(145,122,255,0.10);
+          border: 1px solid #e1d8ff;
+          background: linear-gradient(145deg, #ffffff, #faf8ff);
+          box-shadow: 0 5px 18px rgba(119, 91, 202, 0.08);
         }
 
         .userBubble {
-          border: 1px solid rgba(160,139,255,0.48);
-          background: linear-gradient(135deg,#f1efff,#e9e5ff);
-          box-shadow:
-            0 0 13px rgba(130,103,255,0.13),
-            inset 0 0 10px rgba(255,255,255,0.6);
+          border: 1px solid #cfc0ff;
+          background: linear-gradient(145deg, #f5f1ff, #eee8ff);
+          color: #29263d;
+        }
+
+        .welcomeBubble {
+          padding: 8px 11px;
+          border-radius: 14px;
+          background: linear-gradient(145deg, #ffffff, #faf8ff);
+          border-color: #e1d8ff;
+          box-shadow: 0 4px 12px rgba(119, 91, 202, 0.08);
         }
 
         .assistantTitle {
@@ -905,48 +855,32 @@ export default function Home() {
           align-items: center;
           gap: 6px;
           margin-bottom: 7px;
-          color: #6d60b6;
+          color: #7561b8;
           font-size: 12px;
-          text-shadow: 0 0 9px rgba(118,101,217,0.24);
         }
 
         .assistantTitle span {
-          color: #8064f4;
+          color: #8d72e8;
           font-size: 15px;
-          text-shadow: 0 0 8px rgba(128,100,244,0.65);
+          text-shadow: 0 0 5px rgba(170, 143, 255, 0.25);
         }
 
+        .welcomeBubble .assistantTitle {
+          margin-bottom: 3px;
+          font-size: 11px;
+        }
+      `}</style>
+      
         .messageContent {
-          color: #25283a;
+          color: #302d40;
           font-size: 14px;
           line-height: 1.55;
           overflow-wrap: anywhere;
         }
 
-        .messageContent p { margin: 0 0 8px; }
-        .messageContent p:last-child { margin-bottom: 0; }
-
-        .messageContent h1,
-        .messageContent h2,
-        .messageContent h3 {
-          margin: 0 0 8px;
-          color: #202238;
-          line-height: 1.35;
-        }
-
-        .messageContent h1 { font-size: 20px; }
-        .messageContent h2 { font-size: 18px; }
-        .messageContent h3 { font-size: 16px; }
-
-        .messageContent ul,
-        .messageContent ol {
-          margin: 5px 0 10px;
-          padding-left: 22px;
-        }
-
-        .messageContent li {
-          margin: 4px 0;
-          padding-left: 2px;
+        .welcomeBubble .messageContent {
+          font-size: 13px;
+          line-height: 1.45;
         }
 
         .messageContent strong {
@@ -954,70 +888,96 @@ export default function Home() {
           font-weight: 750;
         }
 
-        .messageContent em { color: #4c4b65; }
-
-        .messageContent code {
-          padding: 2px 5px;
-          border: 1px solid rgba(160,139,255,0.22);
-          border-radius: 5px;
-          background: #efecff;
-          color: #5d4ab5;
-          font-size: 0.92em;
-          overflow-wrap: anywhere;
+        .messageContent em {
+          font-style: italic;
         }
 
-        .spaceLine { height: 5px; }
+        .messageContent p {
+          margin: 0 0 8px;
+        }
 
-        .textBullet {
+        .messageContent p:last-child {
+          margin-bottom: 0;
+        }
+
+        .messageContent h1,
+        .messageContent h2,
+        .messageContent h3 {
+          margin: 0 0 8px;
+          color: #342654;
+          line-height: 1.35;
+        }
+
+        .messageContent h1 {
+          font-size: 20px;
+        }
+
+        .messageContent h2 {
+          font-size: 18px;
+        }
+
+        .messageContent h3 {
+          font-size: 16px;
+        }
+
+        .spaceLine {
+          height: 5px;
+        }
+
+        .textBullet,
+        .numberedLine {
           display: flex;
+          align-items: flex-start;
           gap: 7px;
           margin: 5px 0;
         }
 
-        .textBullet span:first-child { color: #7665d9; }
+        .textBullet span:first-child,
+        .numberLabel {
+          flex: 0 0 auto;
+          color: #8d72e8;
+        }
 
         .speakButton {
-          width: 34px;
-          height: 34px;
-          margin-top: 8px;
-          display: grid;
-          place-items: center;
-          border: 1px solid rgba(160,139,255,0.24);
-          border-radius: 11px;
-          background: linear-gradient(145deg,#ffffff,#eeeaff);
-          color: #7061c7;
-          box-shadow: 0 0 10px rgba(128,100,244,0.14);
+          width: 30px;
+          height: 30px;
+          margin-top: 7px;
+          border: 1px solid #e1d8ff;
+          border-radius: 9px;
+          background: #f6f2ff;
+          color: #7964c5;
+          font-size: 13px;
           cursor: pointer;
-          transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
         }
-
-        .speakButton svg { width: 20px; height: 20px; }
-
-        .speakButton.active {
-          color: #ffffff;
-          background: linear-gradient(135deg,#9b83ff,#6751d5);
-          box-shadow: 0 0 12px rgba(118,101,217,0.45);
-        }
-
-        .speakButton:active { transform: scale(.94); }
 
         .suggestions {
           margin: 1px 0 18px 40px;
           max-width: 680px;
+          animation: messageEnter 0.25s ease-out both;
         }
 
         .suggestionHeading {
-          margin: 5px 0 10px;
-          color: #777e95;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          margin: 4px 0 10px;
+          color: #8a819f;
           font-size: 9px;
           font-weight: 700;
           letter-spacing: 1px;
           text-align: center;
         }
 
+        .headingLine {
+          width: 18px;
+          height: 1px;
+          background: #e0d7f8;
+        }
+
         .suggestionGrid {
           display: grid;
-          grid-template-columns: repeat(2,minmax(0,1fr));
+          grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 7px;
         }
 
@@ -1027,46 +987,69 @@ export default function Home() {
           align-items: center;
           gap: 7px;
           padding: 10px 9px;
-          border: 1px solid rgba(173,159,255,0.30);
+          border: 1px solid #e3dbfa;
           border-radius: 12px;
-          background: linear-gradient(145deg,#ffffff,#f5f2ff);
-          color: #34384f;
-          box-shadow: 0 0 12px rgba(128,100,244,0.08);
+          background: linear-gradient(145deg, #ffffff, #faf8ff);
+          color: #4a4263;
           font-size: 11px;
           text-align: left;
           cursor: pointer;
-          transition: box-shadow .2s ease, transform .2s ease;
-        }
-
-        .suggestionChip:hover {
-          box-shadow: 0 0 16px rgba(128,100,244,0.18);
-          transform: translateY(-1px);
+          transition:
+            background 0.18s ease,
+            border-color 0.18s ease;
         }
 
         .suggestionIcon {
-          color: #8064f4;
+          flex: 0 0 23px;
+          width: 23px;
+          height: 23px;
+          display: grid;
+          place-items: center;
+          border: 1px solid #e0d5ff;
+          border-radius: 7px;
+          background: #f5f0ff;
+          color: #8c73dc;
           font-size: 15px;
-          text-shadow: 0 0 7px rgba(128,100,244,0.45);
         }
 
-        .suggestionArrow { color: #8278bd; }
+        .suggestionText {
+          flex: 1;
+          min-width: 0;
+          line-height: 1.35;
+        }
 
-        .loadingNote {
+        .suggestionArrow {
+          color: #8d72c5;
+          font-size: 13px;
+        }
+
+        .suggestionChip:active {
+          background: #f0eaff;
+          border-color: #c9b8ff;
+        }
+
+        .typing {
           display: flex;
           align-items: center;
-          gap: 8px;
-          margin: 10px 0 12px 40px;
-          color: #7665d9;
-          font-size: 12px;
+          gap: 5px;
+          height: 18px;
+          padding: 2px 0;
         }
 
-        .loadingDot {
-          width: 7px;
-          height: 7px;
+        .typing span {
+          width: 6px;
+          height: 6px;
           border-radius: 50%;
-          background: #8875ff;
-          box-shadow: 0 0 8px rgba(136,117,255,0.3);
-          animation: typing 1s infinite alternate;
+          background: #9b83ed;
+          animation: typing 1.2s infinite ease-in-out;
+        }
+
+        .typing span:nth-child(2) {
+          animation-delay: 0.15s;
+        }
+
+        .typing span:nth-child(3) {
+          animation-delay: 0.3s;
         }
 
         .bottomArea {
@@ -1075,28 +1058,31 @@ export default function Home() {
           flex: 0 0 auto;
           width: 100%;
           padding: 7px 9px;
-          padding-bottom: max(7px,env(safe-area-inset-bottom));
-          border-top: 1px solid rgba(153,132,255,0.20);
-          background: rgba(255,255,255,0.96);
-          box-shadow: 0 -5px 20px rgba(125,101,235,0.07);
+          padding-bottom: max(7px, env(safe-area-inset-bottom));
+          border-top: 1px solid #eee8ff;
+          background: #ffffff;
+          box-shadow: 0 -3px 14px rgba(128, 99, 213, 0.04);
         }
 
         .inputBox {
           display: flex;
           align-items: flex-end;
-          gap: 5px;
+          gap: 6px;
           width: 100%;
           min-height: 52px;
           padding: 5px;
-          border: 1px solid rgba(160,139,255,0.42);
+          border: 1px solid #d9ceff;
           border-radius: 17px;
-          background: linear-gradient(145deg,#ffffff,#f8f7ff);
-          box-shadow: 0 0 12px rgba(128,100,244,0.10), inset 0 0 8px rgba(128,100,244,0.04);
+          background: #ffffff;
+          box-shadow: 0 3px 12px rgba(128, 99, 213, 0.08);
+          transition:
+            border-color 0.2s,
+            box-shadow 0.2s;
         }
 
         .inputBox:focus-within {
-          border-color: #9b83ff;
-          box-shadow: 0 0 0 2px rgba(157,127,255,0.13), 0 0 18px rgba(128,100,244,0.24);
+          border-color: #a993f3;
+          box-shadow: 0 3px 15px rgba(128, 99, 213, 0.13);
         }
 
         .inputBox textarea {
@@ -1109,188 +1095,168 @@ export default function Home() {
           outline: none;
           border: 0;
           background: transparent;
-          color: #24283a;
+          color: #302d40;
           padding: 9px 7px;
           font-size: 14px;
           line-height: 1.4;
         }
 
-        .inputBox textarea::placeholder { color: #9298ab; }
+        .inputBox textarea::placeholder {
+          color: #9993aa;
+        }
 
-        .voiceButton, .sendButton {
-          width: 38px;
+        .voiceButton,
+        .sendButton {
+          width: 40px;
           height: 40px;
-          flex: 0 0 38px;
+          flex: 0 0 40px;
           display: grid;
           place-items: center;
           border: 0;
-          border-radius: 11px;
+          border-radius: 12px;
           cursor: pointer;
+          transition: transform 0.18s ease;
         }
 
         .voiceButton {
-          background: linear-gradient(145deg,#ffffff,#eeeaff);
-          color: #6c5fc4;
-          box-shadow: 0 0 10px rgba(128,100,244,0.16);
-          transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+          background: #f5f1ff;
+          color: #8069ca;
+          font-size: 16px;
         }
-
-        .voiceButton svg { width: 22px; height: 22px; }
 
         .voiceButton.active {
-          background: linear-gradient(135deg,#ff718d,#d92f68);
-          color: #ffffff;
-          box-shadow: 0 0 0 4px rgba(240,65,112,0.12), 0 0 20px rgba(240,65,112,0.48);
-          animation: micPulse 1.1s infinite;
+          background: #eee2ff;
+          color: #9d4dbe;
         }
-
-        .voiceStatus {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          min-height: 34px;
-          margin: 0 0 7px;
-          padding: 7px 10px;
-          border: 1px solid rgba(230,75,120,0.22);
-          border-radius: 12px;
-          background: linear-gradient(100deg,rgba(255,240,245,0.98),rgba(247,243,255,0.98));
-          color: #b72d60;
-          font-size: 12px;
-          box-shadow: 0 0 15px rgba(226,71,124,0.10);
-        }
-
-        .voiceStatusDot {
-          width: 7px;
-          height: 7px;
-          flex: 0 0 7px;
-          border-radius: 50%;
-          background: #ed477b;
-          box-shadow: 0 0 9px rgba(237,71,123,0.7);
-          animation: typing .75s infinite alternate;
-        }
-
-        .voiceWaves {
-          display: inline-flex;
-          align-items: center;
-          gap: 2px;
-          height: 18px;
-        }
-
-        .voiceWaves i {
-          display: block;
-          width: 3px;
-          height: 6px;
-          border-radius: 4px;
-          background: #e74a7b;
-          animation: voiceWave .7s ease-in-out infinite alternate;
-        }
-
-        .voiceWaves i:nth-child(2) { animation-delay: .12s; height: 12px; }
-        .voiceWaves i:nth-child(3) { animation-delay: .24s; height: 17px; }
-        .voiceWaves i:nth-child(4) { animation-delay: .36s; height: 10px; }
-        .voiceWaves i:nth-child(5) { animation-delay: .48s; }
-
-        .voiceStopHint {
-          margin-left: auto;
-          color: #8b7180;
-          font-size: 9px;
-        }
-
-        .listeningBox {
-          border-color: rgba(232,70,119,0.58);
-          box-shadow: 0 0 0 2px rgba(232,70,119,0.08), 0 0 20px rgba(232,70,119,0.18);
-        }
-
-        .voiceButton:active { transform: scale(.94); }
 
         .sendButton {
-          background: linear-gradient(135deg,#9b83ff,#6751d5);
+          background: linear-gradient(135deg, #b9a5ff, #9275e4);
           color: #ffffff;
           font-size: 21px;
-          box-shadow: 0 0 10px rgba(118,101,217,0.45), 0 0 22px rgba(118,101,217,0.20);
-          transition: box-shadow .2s ease, transform .2s ease;
+          box-shadow: 0 3px 9px rgba(142, 112, 220, 0.18);
         }
 
-        .sendButton:disabled {
-          opacity: 0.48;
+        .sendButton:not(:disabled):active,
+        .voiceButton:active,
+        .speakButton:active {
+          transform: scale(0.94);
+        }
+
+        .sendButton:disabled,
+        .voiceButton:disabled {
+          opacity: 0.55;
           cursor: default;
-          box-shadow: none;
-        }
-
-        .sendButton:not(:disabled):active {
-          transform: scale(0.96);
-          box-shadow: 0 0 16px rgba(118,101,217,0.55);
         }
 
         .footerCredit {
           padding-top: 6px;
-          color: #8580a5;
+          color: #9588b8;
           text-align: center;
           font-size: 9px;
           letter-spacing: 0.25px;
-          text-shadow: 0 0 8px rgba(128,100,244,0.18);
         }
 
         @keyframes messageEnter {
-          from { opacity: 0; transform: translateY(4px); }
-          to { opacity: 1; transform: translateY(0); }
+          from {
+            opacity: 0;
+            transform: translateY(4px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
 
         @keyframes orionGlow {
-          from { opacity: 0.08; transform: scale(0.92); }
-          to { opacity: 0.18; transform: scale(1.08); }
-        }
-
-        @keyframes logoPulse {
-          0%,100% {
-            box-shadow: 0 0 8px rgba(132,103,255,0.30), 0 0 18px rgba(132,103,255,0.14), inset 0 0 12px rgba(132,103,255,0.10);
+          from {
+            opacity: 0.10;
           }
-          50% {
-            box-shadow: 0 0 12px rgba(132,103,255,0.48), 0 0 27px rgba(132,103,255,0.25), inset 0 0 14px rgba(132,103,255,0.16);
+          to {
+            opacity: 0.20;
           }
         }
 
         @keyframes typing {
-          from { opacity: 0.35; transform: scale(0.9); }
-          to { opacity: 1; transform: scale(1.1); }
-        }
+          0%,
+          70%,
+          100% {
+            opacity: 0.4;
+            transform: translateY(0);
+          }
 
-        @keyframes micPulse {
-          0%,100% { box-shadow: 0 0 0 3px rgba(240,65,112,0.08), 0 0 12px rgba(240,65,112,0.30); }
-          50% { box-shadow: 0 0 0 7px rgba(240,65,112,0.14), 0 0 22px rgba(240,65,112,0.52); }
-        }
-
-        @keyframes voiceWave {
-          from { transform: scaleY(.45); opacity: .65; }
-          to { transform: scaleY(1.15); opacity: 1; }
+          35% {
+            opacity: 1;
+            transform: translateY(-3px);
+          }
         }
 
         @media (max-width: 380px) {
-          .header { min-height: 68px; padding: 7px 10px; }
-          .brandName { font-size: 17px; }
-          .brandTagline { font-size: 9px; }
-          .brandCredit { font-size: 8px; }
-          .logo { width: 38px; height: 38px; flex-basis: 38px; }
-          .logo svg { width: 31px; height: 31px; }
-          .messageContent { font-size: 13px; }
-          .suggestions { margin-left: 39px; }
-          .suggestionGrid { gap: 6px; }
-          .suggestionChip { padding: 8px 7px; font-size: 10px; }
-          .voiceButton, .sendButton { width: 35px; flex-basis: 35px; }
-          .voiceStatus { gap: 6px; font-size: 11px; }
-          .voiceStopHint { font-size: 8px; }
+          .header {
+            min-height: 68px;
+            padding: 7px 10px;
+          }
+
+          .brandName {
+            font-size: 17px;
+          }
+
+          .brandTagline {
+            font-size: 9px;
+          }
+
+          .brandCredit {
+            font-size: 8px;
+          }
+
+          .logo {
+            width: 38px;
+            height: 38px;
+            flex-basis: 38px;
+          }
+
+          .logo svg {
+            width: 31px;
+            height: 31px;
+          }
+
+          .messageContent {
+            font-size: 13px;
+          }
+
+          .bubble {
+            padding: 10px 11px;
+          }
+
+          .welcomeBubble {
+            padding: 8px 10px;
+          }
+
+          .suggestions {
+            margin-left: 39px;
+          }
+
+          .suggestionGrid {
+            gap: 6px;
+          }
+
+          .suggestionChip {
+            padding: 8px 7px;
+            font-size: 10px;
+          }
         }
 
         @media (prefers-reduced-motion: reduce) {
-          *, *::before, *::after {
+          *,
+          *::before,
+          *::after {
             animation-duration: 0.01ms !important;
             animation-iteration-count: 1 !important;
+            scroll-behavior: auto !important;
             transition-duration: 0.01ms !important;
           }
         }
       `}</style>
     </div>
   );
-                }
-                
+        }
+            
