@@ -28,9 +28,9 @@ function renderInline(text) {
 function formatText(text) {
   const cleaned = String(text || "")
     .replace(/\r\n/g, "\n")
-    .replace(/^\s*```(?:markdown|md|text|plaintext)?[ \t]*\n?/i, "")
-    .replace(/\n?[ \t]*```[ \t]*$/i, "")
-    .replace(/^[ \t]*```[ \t]*$/gm, "")
+    .replace(/^\s*```(?:markdown|md|text|plaintext)?\s*\n?/i, "")
+    .replace(/\n?\s*```\s*$/i, "")
+    .replace(/^\s*```\s*$/gm, "")
     .trim();
 
   const lines = cleaned.split("\n");
@@ -72,9 +72,7 @@ function formatText(text) {
             ? "h2"
             : "h3";
 
-      output.push(
-        <Tag key={i}>{renderInline(heading[2])}</Tag>
-      );
+      output.push(<Tag key={i}>{renderInline(heading[2])}</Tag>);
       return;
     }
 
@@ -86,9 +84,7 @@ function formatText(text) {
         listType = "ordered";
       }
 
-      listItems.push(
-        <li key={i}>{renderInline(numbered[1])}</li>
-      );
+      listItems.push(<li key={i}>{renderInline(numbered[1])}</li>);
       return;
     }
 
@@ -100,9 +96,7 @@ function formatText(text) {
         listType = "unordered";
       }
 
-      listItems.push(
-        <li key={i}>{renderInline(bullet[1])}</li>
-      );
+      listItems.push(<li key={i}>{renderInline(bullet[1])}</li>);
       return;
     }
 
@@ -159,19 +153,17 @@ export default function Home() {
   const chatAreaRef = useRef(null);
   const shouldAutoScrollRef = useRef(true);
   const recognitionRef = useRef(null);
+  const touchStartYRef = useRef(null);
 
+  // Jab tak jawab likha ja raha hai, chat neeche follow karti rahegi.
+  // Typing scroll position se independent hai.
   useEffect(() => {
     const el = chatAreaRef.current;
+    if (!el) return;
 
-    if (!el || !shouldAutoScrollRef.current) return;
-
-    const frame = requestAnimationFrame(() => {
-      if (shouldAutoScrollRef.current) {
-        el.scrollTop = el.scrollHeight;
-      }
-    });
-
-    return () => cancelAnimationFrame(frame);
+    if (loading || shouldAutoScrollRef.current) {
+      el.scrollTop = el.scrollHeight;
+    }
   }, [messages, loading]);
 
   useEffect(() => {
@@ -185,9 +177,7 @@ export default function Home() {
   }, []);
 
   async function sendMessage(text) {
-    const message = String(
-      text !== undefined ? text : input
-    ).trim();
+    const message = String(text !== undefined ? text : input).trim();
 
     if (!message || loading) return;
 
@@ -221,9 +211,9 @@ export default function Home() {
         data?.reply || "Maaf kijiye 🙏 Abhi response nahi mila."
       )
         .replace(/\r\n/g, "\n")
-        .replace(/^\s*```(?:markdown|md|text|plaintext)?[ \t]*\n?/i, "")
-        .replace(/\n?[ \t]*```[ \t]*$/i, "")
-        .replace(/^[ \t]*```[ \t]*$/gm, "")
+        .replace(/^\s*```(?:markdown|md|text|plaintext)?\s*\n?/i, "")
+        .replace(/\n?\s*```\s*$/i, "")
+        .replace(/^\s*```\s*$/gm, "")
         .trim();
 
       setMessages((old) => [
@@ -252,9 +242,7 @@ export default function Home() {
           return updated;
         });
 
-        await new Promise((resolve) =>
-          setTimeout(resolve, typingDelay)
-        );
+        await new Promise((resolve) => setTimeout(resolve, typingDelay));
       }
     } catch (error) {
       setMessages((old) => [
@@ -270,10 +258,17 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-}
-                            
+    }
+        
   function handleChatScroll(event) {
     const el = event.currentTarget;
+
+    // Reply typing ke dauran hamesha neeche follow karo.
+    if (loading) {
+      shouldAutoScrollRef.current = true;
+      return;
+    }
+
     const distanceFromBottom =
       el.scrollHeight - el.scrollTop - el.clientHeight;
 
@@ -282,6 +277,39 @@ export default function Home() {
     } else if (distanceFromBottom > 48) {
       shouldAutoScrollRef.current = false;
     }
+  }
+
+  function handleChatWheel(event) {
+    if (loading) {
+      shouldAutoScrollRef.current = true;
+      return;
+    }
+
+    if (event.deltaY < 0) {
+      shouldAutoScrollRef.current = false;
+    }
+  }
+
+  function handleChatTouchStart(event) {
+    touchStartYRef.current = event.touches?.[0]?.clientY ?? null;
+  }
+
+  function handleChatTouchMove(event) {
+    const currentY = event.touches?.[0]?.clientY;
+    const startY = touchStartYRef.current;
+
+    // Typing ke dauran finger movement typing ko nahi rokega.
+    if (loading) {
+      shouldAutoScrollRef.current = true;
+      touchStartYRef.current = currentY ?? startY;
+      return;
+    }
+
+    if (startY !== null && currentY !== undefined && currentY > startY + 6) {
+      shouldAutoScrollRef.current = false;
+    }
+
+    touchStartYRef.current = currentY ?? startY;
   }
 
   function startVoice() {
@@ -308,24 +336,13 @@ export default function Home() {
     recognition.interimResults = true;
 
     recognition.onstart = () => setListening(true);
-
-    recognition.onerror = (event) => {
-      setListening(false);
-
-      if (
-        event?.error === "not-allowed" ||
-        event?.error === "service-not-allowed"
-      ) {
-        alert("Mic permission allow karein, phir dobara try karein.");
-      }
-    };
-
+    recognition.onerror = () => setListening(false);
     recognition.onend = () => setListening(false);
 
     recognition.onresult = (event) => {
       let transcript = "";
 
-      for (let i = 0; i < event.results.length; i++) {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
         transcript += event.results[i][0].transcript;
       }
 
@@ -430,15 +447,12 @@ export default function Home() {
               <div className="brandName">
                 ORION <span>AI</span>
               </div>
-
               <div className="brandTagline">
                 Your Intelligent Companion
               </div>
-
               <div className="brandCredit">
                 Powered by Dharm AI
               </div>
-
               <div className="online">
                 <span />
                 Online
@@ -451,6 +465,9 @@ export default function Home() {
           ref={chatAreaRef}
           className="chatArea"
           onScroll={handleChatScroll}
+          onWheel={handleChatWheel}
+          onTouchStart={handleChatTouchStart}
+          onTouchMove={handleChatTouchMove}
         >
           <div className="chat">
             {messages.map((message, index) => (
@@ -487,9 +504,7 @@ export default function Home() {
                   {message.role === "assistant" && message.content && (
                     <button
                       className={
-                        speaking
-                          ? "speakButton active"
-                          : "speakButton"
+                        speaking ? "speakButton active" : "speakButton"
                       }
                       onClick={() => speak(message.content)}
                       title={speaking ? "Awaaz rokein" : "Jawab sunen"}
@@ -572,11 +587,7 @@ export default function Home() {
 
         <footer className="bottomArea">
           {listening && (
-            <div
-              className="voiceStatus"
-              role="status"
-              aria-live="polite"
-            >
+            <div className="voiceStatus" role="status" aria-live="polite">
               <span className="voiceStatusDot" />
               <span className="voiceWaves">
                 <i />
@@ -669,7 +680,7 @@ export default function Home() {
       </div>
 
       <style jsx global>{`
-            
+    
         * { box-sizing: border-box; }
 
         html, body {
@@ -769,10 +780,7 @@ export default function Home() {
           animation: logoPulse 3.2s ease-in-out infinite;
         }
 
-        .logo svg {
-          width: 34px;
-          height: 34px;
-        }
+        .logo svg { width: 34px; height: 34px; }
 
         .brandName {
           color: #282044;
@@ -866,6 +874,8 @@ export default function Home() {
             inset 0 0 8px rgba(128,100,244,0.10);
         }
 
+        .avatar svg { width: 24px; height: 24px; }
+
         .bubble {
           min-width: 0;
           max-width: min(90%,720px);
@@ -876,11 +886,7 @@ export default function Home() {
 
         .assistantBubble {
           border: 1px solid rgba(177,164,255,0.34);
-          background: linear-gradient(
-            145deg,
-            rgba(255,255,255,0.98),
-            rgba(248,247,255,0.97)
-          );
+          background: linear-gradient(145deg,rgba(255,255,255,0.98),rgba(248,247,255,0.97));
           box-shadow:
             0 4px 16px rgba(70,60,130,0.05),
             0 0 13px rgba(145,122,255,0.10);
@@ -917,13 +923,8 @@ export default function Home() {
           overflow-wrap: anywhere;
         }
 
-        .messageContent p {
-          margin: 0 0 8px;
-        }
-
-        .messageContent p:last-child {
-          margin-bottom: 0;
-        }
+        .messageContent p { margin: 0 0 8px; }
+        .messageContent p:last-child { margin-bottom: 0; }
 
         .messageContent h1,
         .messageContent h2,
@@ -953,9 +954,7 @@ export default function Home() {
           font-weight: 750;
         }
 
-        .messageContent em {
-          color: #4c4b65;
-        }
+        .messageContent em { color: #4c4b65; }
 
         .messageContent code {
           padding: 2px 5px;
@@ -975,9 +974,7 @@ export default function Home() {
           margin: 5px 0;
         }
 
-        .textBullet span:first-child {
-          color: #7665d9;
-        }
+        .textBullet span:first-child { color: #7665d9; }
 
         .speakButton {
           width: 34px;
@@ -991,16 +988,10 @@ export default function Home() {
           color: #7061c7;
           box-shadow: 0 0 10px rgba(128,100,244,0.14);
           cursor: pointer;
-          transition:
-            transform .18s ease,
-            box-shadow .18s ease,
-            background .18s ease;
+          transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
         }
 
-        .speakButton svg {
-          width: 20px;
-          height: 20px;
-        }
+        .speakButton svg { width: 20px; height: 20px; }
 
         .speakButton.active {
           color: #ffffff;
@@ -1058,7 +1049,6 @@ export default function Home() {
           text-shadow: 0 0 7px rgba(128,100,244,0.45);
         }
 
-        .suggestionText { flex: 1; min-width: 0; }
         .suggestionArrow { color: #8278bd; }
 
         .loadingNote {
@@ -1101,16 +1091,12 @@ export default function Home() {
           border: 1px solid rgba(160,139,255,0.42);
           border-radius: 17px;
           background: linear-gradient(145deg,#ffffff,#f8f7ff);
-          box-shadow:
-            0 0 12px rgba(128,100,244,0.10),
-            inset 0 0 8px rgba(128,100,244,0.04);
+          box-shadow: 0 0 12px rgba(128,100,244,0.10), inset 0 0 8px rgba(128,100,244,0.04);
         }
 
         .inputBox:focus-within {
           border-color: #9b83ff;
-          box-shadow:
-            0 0 0 2px rgba(157,127,255,0.13),
-            0 0 18px rgba(128,100,244,0.24);
+          box-shadow: 0 0 0 2px rgba(157,127,255,0.13), 0 0 18px rgba(128,100,244,0.24);
         }
 
         .inputBox textarea {
@@ -1131,8 +1117,7 @@ export default function Home() {
 
         .inputBox textarea::placeholder { color: #9298ab; }
 
-        .voiceButton,
-        .sendButton {
+        .voiceButton, .sendButton {
           width: 38px;
           height: 40px;
           flex: 0 0 38px;
@@ -1147,23 +1132,15 @@ export default function Home() {
           background: linear-gradient(145deg,#ffffff,#eeeaff);
           color: #6c5fc4;
           box-shadow: 0 0 10px rgba(128,100,244,0.16);
-          transition:
-            transform .18s ease,
-            box-shadow .18s ease,
-            background .18s ease;
+          transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
         }
 
-        .voiceButton svg {
-          width: 22px;
-          height: 22px;
-        }
+        .voiceButton svg { width: 22px; height: 22px; }
 
         .voiceButton.active {
           background: linear-gradient(135deg,#ff718d,#d92f68);
           color: #ffffff;
-          box-shadow:
-            0 0 0 4px rgba(240,65,112,0.12),
-            0 0 20px rgba(240,65,112,0.48);
+          box-shadow: 0 0 0 4px rgba(240,65,112,0.12), 0 0 20px rgba(240,65,112,0.48);
           animation: micPulse 1.1s infinite;
         }
 
@@ -1177,11 +1154,7 @@ export default function Home() {
           padding: 7px 10px;
           border: 1px solid rgba(230,75,120,0.22);
           border-radius: 12px;
-          background: linear-gradient(
-            100deg,
-            rgba(255,240,245,0.98),
-            rgba(247,243,255,0.98)
-          );
+          background: linear-gradient(100deg,rgba(255,240,245,0.98),rgba(247,243,255,0.98));
           color: #b72d60;
           font-size: 12px;
           box-shadow: 0 0 15px rgba(226,71,124,0.10);
@@ -1226,9 +1199,7 @@ export default function Home() {
 
         .listeningBox {
           border-color: rgba(232,70,119,0.58);
-          box-shadow:
-            0 0 0 2px rgba(232,70,119,0.08),
-            0 0 20px rgba(232,70,119,0.18);
+          box-shadow: 0 0 0 2px rgba(232,70,119,0.08), 0 0 20px rgba(232,70,119,0.18);
         }
 
         .voiceButton:active { transform: scale(.94); }
@@ -1237,9 +1208,7 @@ export default function Home() {
           background: linear-gradient(135deg,#9b83ff,#6751d5);
           color: #ffffff;
           font-size: 21px;
-          box-shadow:
-            0 0 10px rgba(118,101,217,0.45),
-            0 0 22px rgba(118,101,217,0.20);
+          box-shadow: 0 0 10px rgba(118,101,217,0.45), 0 0 22px rgba(118,101,217,0.20);
           transition: box-shadow .2s ease, transform .2s ease;
         }
 
@@ -1275,16 +1244,10 @@ export default function Home() {
 
         @keyframes logoPulse {
           0%,100% {
-            box-shadow:
-              0 0 8px rgba(132,103,255,0.30),
-              0 0 18px rgba(132,103,255,0.14),
-              inset 0 0 12px rgba(132,103,255,0.10);
+            box-shadow: 0 0 8px rgba(132,103,255,0.30), 0 0 18px rgba(132,103,255,0.14), inset 0 0 12px rgba(132,103,255,0.10);
           }
           50% {
-            box-shadow:
-              0 0 12px rgba(132,103,255,0.48),
-              0 0 27px rgba(132,103,255,0.25),
-              inset 0 0 14px rgba(132,103,255,0.16);
+            box-shadow: 0 0 12px rgba(132,103,255,0.48), 0 0 27px rgba(132,103,255,0.25), inset 0 0 14px rgba(132,103,255,0.16);
           }
         }
 
@@ -1294,16 +1257,8 @@ export default function Home() {
         }
 
         @keyframes micPulse {
-          0%,100% {
-            box-shadow:
-              0 0 0 3px rgba(240,65,112,0.08),
-              0 0 12px rgba(240,65,112,0.30);
-          }
-          50% {
-            box-shadow:
-              0 0 0 7px rgba(240,65,112,0.14),
-              0 0 22px rgba(240,65,112,0.52);
-          }
+          0%,100% { box-shadow: 0 0 0 3px rgba(240,65,112,0.08), 0 0 12px rgba(240,65,112,0.30); }
+          50% { box-shadow: 0 0 0 7px rgba(240,65,112,0.14), 0 0 22px rgba(240,65,112,0.52); }
         }
 
         @keyframes voiceWave {
