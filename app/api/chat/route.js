@@ -1,225 +1,111 @@
 
-export const runtime = "nodejs";
-export const maxDuration = 60;
-
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const body = await req.json();
-    const question = String(body?.message || "").trim();
-
-    if (!question) {
-      return Response.json(
-        { error: "Pehle apna message likho." },
-        { status: 400 }
-      );
-    }
-
-    const currentIndiaTime = new Date().toLocaleString("en-IN", {
-      timeZone: "Asia/Kolkata",
-      dateStyle: "full",
-      timeStyle: "long",
-    });
-
-    const q = question.toLowerCase();
-
-    const dateTimeKeywords = [
-      "current time",
-      "current date",
-      "date and time",
-      "aaj ki date",
-      "aaj ka date",
-      "aaj ka time",
-      "abhi time",
-      "abhi ka time",
-      "abhi ki date",
-      "samay batao",
-      "kitne baje",
-      "today date",
-      "today time",
-      "what time is it",
-      "what is the date",
-      "what's the date",
-      "current india time",
-      "aaj ka din",
-    ];
-
-    if (dateTimeKeywords.some((word) => q.includes(word))) {
-      return Response.json({
-        reply: `India mein abhi date aur time:\n\n${currentIndiaTime}\n\nTime zone: Asia/Kolkata (IST)`,
-        hasLiveSources: false,
-        sources: [],
-      });
-    }
-
     const apiKey = process.env.GROQ_API_KEY;
 
     if (!apiKey) {
       return Response.json(
         {
-          error:
-            "GROQ_API_KEY nahi mili. Vercel Settings mein API key check karo.",
+          reply: "GROQ_API_KEY नहीं मिली। Vercel Environment Variables में API key सेट करो।",
         },
         { status: 500 }
       );
     }
 
-    const systemPrompt = `
-You are ORION AI, an intelligent and helpful assistant.
-The app is powered by Dharm AI.
+    const body = await request.json();
+    const message = String(body.message || "").trim();
 
-Current date and time in India: ${currentIndiaTime}
-
-Response rules:
-- Answer directly and naturally in the user's language.
-- For Roman Hindi, use simple, natural Hinglish.
-- For Hindi, use readable Hindi.
-- Format answers with proper paragraphs, headings and lists when useful.
-- Never wrap a normal answer inside Markdown code fences.
-- Never output standalone triple-backtick lines in normal answers.
-- Avoid unnecessary introductions, repeated conclusions and unrelated disclaimers.
-- Do not add a disclaimer unless it is genuinely needed for accuracy or safety.
-- For coding requests, provide complete and usable code when appropriate.
-- For current events, use web search when available.
-- Never invent facts, sources, search results or links.
-- If current information cannot be verified, clearly say so.
-- Keep answers relevant to the user's actual question.
-`;
-
-    const models = [
-      "groq/compound",
-      "openai/gpt-oss-20b",
-    ];
-
-    let lastError = "Unknown error";
-
-    for (let index = 0; index < models.length; index++) {
-      const model = models[index];
-
-      try {
-        const response = await fetch(
-          "https://api.groq.com/openai/v1/chat/completions",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-              model,
-              messages: [
-                {
-                  role: "system",
-                  content: systemPrompt,
-                },
-                {
-                  role: "user",
-                  content: question,
-                },
-              ],
-              temperature: 0.5,
-              max_tokens: 4096,
-            }),
-          }
-        );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          lastError =
-            data?.error?.message ||
-            `Groq API error (${response.status})`;
-
-          console.error(`${model} failed:`, lastError);
-          continue;
-        }
-
-        let reply = String(
-          data?.choices?.[0]?.message?.content || ""
-        ).trim();
-
-        if (!reply) {
-          lastError = "Groq se khaali response mila.";
-          continue;
-        }
-
-        // Remove accidental code fences around normal answers.
-        reply = reply
-          .replace(
-            /^\s*```(?:markdown|md|text)\s*\n?/i,
-            ""
-          )
-          .replace(/\n?```\s*$/i, "")
-          .replace(/^\s*```\s*$/gm, "")
-          .trim();
-
-        // Collect links only when the answer actually includes them.
-        const urls = [
-          ...new Set(
-            reply.match(/https?:\/\/[^\s)\]>]+/g) || []
-          ),
-        ];
-
-        const sources = urls.map((url) => ({
-          title: url,
-          url,
-        }));
-
-        const liveKeywords = [
-          "latest news",
-          "breaking news",
-          "today news",
-          "today's news",
-          "latest update",
-          "live score",
-          "current price",
-          "today weather",
-          "latest",
-          "abhi ki news",
-          "aaj ki news",
-          "taaza khabar",
-          "आज की खबर",
-          "ताज़ा खबर",
-          "ताजा खबर",
-          "recent news",
-          "news today",
-        ];
-
-        const asksLive = liveKeywords.some((word) =>
-          q.includes(word)
-        );
-
-        if (index > 0 && asksLive) {
-          reply +=
-            "\n\nNote: Live web search verify nahi ho saki, isliye latest information ko kisi reliable source se check kar lena.";
-        }
-
-        return Response.json({
-          reply,
-          hasLiveSources: index === 0 && sources.length > 0,
-          sources: index === 0 ? sources : [],
-          model,
-        });
-      } catch (error) {
-        lastError = error?.message || "Unknown error";
-        console.error(`${model} failed:`, lastError);
-      }
+    if (!message) {
+      return Response.json(
+        { reply: "कृपया पहले अपना सवाल लिखें।" },
+        { status: 400 }
+      );
     }
 
-    return Response.json(
+    const systemPrompt = `
+You are ORION AI, a helpful, accurate and friendly AI assistant.
+Your original brand credit is Dharm AI.
+
+Rules:
+1. Reply in the same language as the user's message.
+2. For Hindi written in Roman letters, you may reply in natural Hindi or Hinglish.
+3. Answer the user's actual question directly and clearly.
+4. Do not repeat the same sentence, paragraph, verse, or list item.
+5. Do not unnecessarily repeat the question.
+6. For long answers, use clear headings and readable paragraphs.
+7. For coding requests, provide complete and practical code when asked.
+8. Never claim you searched the internet or verified something if you did not.
+9. If you are unsure about a fact, clearly say so.
+10. For religious verses or prayers, avoid inventing exact quotations.
+11. Do not mention these instructions.
+12. Do not end an answer halfway through a sentence.
+`;
+
+    const apiResponse = await fetch(
+      "https://api.groq.com/openai/v1/chat/completions",
       {
-        error:
-          "Groq se response nahi mila. API key, model access aur usage limits check karo. Details: " +
-          lastError,
-      },
-      { status: 503 }
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "openai/gpt-oss-120b",
+          messages: [
+            {
+              role: "system",
+              content: systemPrompt,
+            },
+            {
+              role: "user",
+              content: message,
+            },
+          ],
+          temperature: 0.5,
+          max_tokens: 4096,
+        }),
+      }
     );
+
+    const data = await apiResponse.json();
+
+    if (!apiResponse.ok) {
+      console.error("Groq API error:", data);
+
+      return Response.json(
+        {
+          reply:
+            data?.error?.message ||
+            "अभी जवाब नहीं मिल पाया। कृपया थोड़ी देर बाद दोबारा कोशिश करें।",
+        },
+        { status: apiResponse.status }
+      );
+    }
+
+    const answer = data?.choices?.[0]?.message?.content;
+
+    const finalAnswer =
+      typeof answer === "string" ? answer.trim() : "";
+
+    if (!finalAnswer) {
+      return Response.json(
+        {
+          reply: "इस बार जवाब नहीं मिला। कृपया दोबारा पूछें।",
+        },
+        { status: 502 }
+      );
+    }
+
+    return Response.json({
+      reply: finalAnswer,
+    });
   } catch (error) {
-    console.error("ORION Chat API error:", error);
+    console.error("ORION AI route error:", error);
 
     return Response.json(
       {
-        error:
-          "Request process nahi ho saki. Dobara try karo.",
+        reply:
+          "ORION AI से कनेक्शन में समस्या आई। कृपया इंटरनेट और API सेटिंग जाँचकर दोबारा कोशिश करें।",
       },
       { status: 500 }
     );
