@@ -328,37 +328,7 @@ export default function Home() {
       }
     }
         }
-        for (let i = 0; i < reply.length; i += chunkSize) {
-        if (controller.signal.aborted || requestId !== requestIdRef.current) break;
-
-        updateAssistant(reply.slice(0, i + chunkSize), true);
-        await new Promise((resolve) => setTimeout(resolve, delay));
-      }
-
-      updateAssistant(reply, false);
-    } catch (error) {
-      if (requestId !== requestIdRef.current) return;
-
-      if (error?.name === "AbortError") {
-        setMessages((old) => old.map((item, index) =>
-          index === old.length - 1 && item.role === "assistant"
-            ? { ...item, pending: false }
-            : item
-        ));
-      } else {
-        updateAssistant(
-          `Maaf kijiye 🙏\n\n${error?.message || "Technical problem aa gayi. Dobara try karein."}`,
-          false
-        );
-      }
-    } finally {
-      if (requestId === requestIdRef.current) {
-        loadingRef.current = false;
-        setLoading(false);
-        abortControllerRef.current = null;
-      }
-    }
-  }
+      
 
   function handleChatScroll(event) {
     const el = event.currentTarget;
