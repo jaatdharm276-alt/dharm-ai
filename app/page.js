@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -10,6 +9,20 @@ const suggestions = [
   { icon: "</>", title: "Coding help", prompt: "Mujhe coding mein step-by-step help karo." },
   { icon: "◷", title: "Study plan", prompt: "Mere liye ek daily study plan banao." },
 ];
+
+const taskModes = [
+  { id: "study", icon: "📚", title: "Padhai", description: "Notes, answers, study plan" },
+  { id: "work", icon: "💼", title: "Job / Work", description: "Resume, email, applications" },
+  { id: "business", icon: "🚀", title: "Business", description: "Ideas, planning, marketing" },
+  { id: "content", icon: "✍️", title: "Content", description: "Posts, scripts, captions" },
+];
+
+const taskInstructions = {
+  study: "You are ORION AI in STUDY TASK MODE. Help the user finish the actual study task, not just discuss it. Explain in simple Hindi/Hinglish unless the user requests another language. Give a complete, well-structured answer, notes, examples, and step-by-step working when useful. Never invent facts; mention uncertainty when needed.",
+  work: "You are ORION AI in JOB AND WORK TASK MODE. Produce a ready-to-use deliverable such as a resume section, professional email, application, cover letter, work plan, or interview answer. Ask only essential follow-up questions; if details are missing, use clear placeholders rather than blocking progress. Use a professional tone appropriate to the task.",
+  business: "You are ORION AI in BUSINESS TASK MODE. Give practical, actionable deliverables such as a business plan, customer offer, marketing plan, budget outline, sales message, or next-step checklist. Be realistic about costs and risks, avoid guaranteed earnings claims, and clearly label estimates.",
+  content: "You are ORION AI in CONTENT CREATION TASK MODE. Create complete, ready-to-publish content suited to the requested platform and audience. Include a strong opening, clear structure, and useful variations when appropriate. Match the requested language, tone, length, and format.",
+};
 
 function renderInline(text) {
   return String(text || "").split(/(\*\*.*?\*\*|\*[^*]+\*)/g).map((part, i) => {
@@ -150,6 +163,7 @@ export default function Home() {
   const [showComingSoon, setShowComingSoon] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [notice, setNotice] = useState("");
+  const [taskMode, setTaskMode] = useState("chat");
 
   const chatAreaRef = useRef(null);
   const inputRef = useRef(null);
@@ -194,6 +208,7 @@ export default function Home() {
     setLoading(false);
     setNotice("");
     setMenuOpen(false);
+    setTaskMode("chat");
     shouldAutoScrollRef.current = true;
   }, []);
 
@@ -206,6 +221,7 @@ export default function Home() {
 
     if (!message || loadingRef.current) return;
 
+    const activeTaskMode = taskMode;
     const requestId = ++requestIdRef.current;
     const controller = new AbortController();
 
@@ -216,6 +232,7 @@ export default function Home() {
     setNotice("");
     setInput("");
     setMenuOpen(false);
+    setTaskMode("chat");
     setLoading(true);
 
     setMessages((old) => [
@@ -245,7 +262,11 @@ export default function Home() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({
+          message,
+          taskMode: activeTaskMode,
+          taskInstruction: taskInstructions[activeTaskMode] || "",
+        }),
         signal: controller.signal,
       });
 
@@ -277,6 +298,37 @@ export default function Home() {
       const delay = 16;
 
       for (let i = 0; i < reply.length; i += chunkSize) {
+        if (controller.signal.aborted || requestId !== requestIdRef.current) break;
+
+        updateAssistant(reply.slice(0, i + chunkSize), true);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+
+      updateAssistant(reply, false);
+    } catch (error) {
+      if (requestId !== requestIdRef.current) return;
+
+      if (error?.name === "AbortError") {
+        setMessages((old) => old.map((item, index) =>
+          index === old.length - 1 && item.role === "assistant"
+            ? { ...item, pending: false }
+            : item
+        ));
+      } else {
+        updateAssistant(
+          `Maaf kijiye 🙏\n\n${error?.message || "Technical problem aa gayi. Dobara try karein."}`,
+          false
+        );
+      }
+    } finally {
+      if (requestId === requestIdRef.current) {
+        loadingRef.current = false;
+        setLoading(false);
+        abortControllerRef.current = null;
+      }
+    }
+        }
+        for (let i = 0; i < reply.length; i += chunkSize) {
         if (controller.signal.aborted || requestId !== requestIdRef.current) break;
 
         updateAssistant(reply.slice(0, i + chunkSize), true);
@@ -379,7 +431,6 @@ export default function Home() {
     requestAnimationFrame(() => inputRef.current?.focus());
   }
 
-        
   return (
     <div className="page">
       <div className="ambient ambientOne" />
@@ -468,6 +519,36 @@ export default function Home() {
                 </button>
               </div>
 
+              <div className="taskSection">
+                <div className="taskSectionHeading">
+                  <span className="taskSpark">✦</span>
+                  <span>ORION KAAM POORA KARO</span>
+                  <span className="taskSpark">✦</span>
+                </div>
+                <p className="taskSectionSubtitle">Kaam chuno — ORION tumhare liye ready-to-use jawab taiyar karega</p>
+                <div className="taskModeGrid">
+                  {taskModes.map((item) => (
+                    <button
+                      key={item.id}
+                      className={`taskModeCard ${taskMode === item.id ? "taskModeActive" : ""}`}
+                      onClick={() => {
+                        setTaskMode(item.id);
+                        setNotice(`${item.title} mode chalu hai. Ab apna kaam likhein.`);
+                        requestAnimationFrame(() => inputRef.current?.focus());
+                      }}
+                      type="button"
+                    >
+                      <span className="taskModeIcon">{item.icon}</span>
+                      <span className="taskModeText">
+                        <strong>{item.title}</strong>
+                        <small>{item.description}</small>
+                      </span>
+                      <span className="taskModeArrow">{taskMode === item.id ? "✓" : "↗"}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="suggestions">
                 <div className="suggestionHeading">
                   <span className="headingLine" />
@@ -546,6 +627,13 @@ export default function Home() {
             </div>
           )}
 
+          {taskMode !== "chat" && (
+            <div className="taskModeNotice">
+              <span>✦ {taskModes.find((item) => item.id === taskMode)?.title} mode</span>
+              <button type="button" onClick={() => setTaskMode("chat")} aria-label="Task mode band karein">×</button>
+            </div>
+          )}
+
           <div className="inputBox">
             <button className="plusButton" onClick={() => setMenuOpen((v) => !v)} aria-label="More options" title="More options">
               <svg viewBox="0 0 24 24" fill="none">
@@ -564,7 +652,7 @@ export default function Home() {
                   sendMessage();
                 }
               }}
-              placeholder="Ask ORION AI..."
+              placeholder={taskMode === "chat" ? "Ask ORION AI..." : `${taskModes.find((item) => item.id === taskMode)?.title} mein kya kaam karna hai?`}
               rows={1}
               aria-label="Message likhein"
             />
@@ -622,9 +710,8 @@ export default function Home() {
           </div>
         )}
       </div>
-
       <style jsx global>{`
-             
+
         * { box-sizing: border-box; }
         html, body { width:100%; height:100%; margin:0; padding:0; }
         body { overflow:hidden; background:#03091c; color:#e6f2ff; font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
@@ -670,6 +757,22 @@ export default function Home() {
         .quickIcon { width:36px; height:36px; flex:0 0 36px; display:grid; place-items:center; border:1px solid rgba(67,160,255,.53); border-radius:50%; color:#94dfff; box-shadow:0 0 7px rgba(0,138,255,.12); }
         .quickIcon svg { width:22px; height:22px; }
         .quickArrow { margin-left:auto; color:#6fa9ed; font-size:18px; }
+
+        .taskSection { width:100%; max-width:490px; margin-top:23px; padding:14px 12px 12px; border:1px solid rgba(67,145,255,.32); border-radius:18px; background:linear-gradient(145deg,rgba(7,24,61,.78),rgba(4,14,39,.88)); box-shadow:0 0 14px rgba(0,94,255,.07),inset 0 0 12px rgba(46,110,255,.025); }
+        .taskSectionHeading { display:flex; align-items:center; justify-content:center; gap:9px; color:#a6d9ff; font-size:11px; font-weight:850; letter-spacing:1.35px; text-align:center; }
+        .taskSpark { color:#83dfff; text-shadow:0 0 8px rgba(64,189,255,.45); }
+        .taskSectionSubtitle { margin:6px 0 12px; color:#91a9d0; font-size:11px; line-height:1.5; text-align:center; }
+        .taskModeGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+        .taskModeCard { min-width:0; display:flex; align-items:center; gap:8px; padding:10px 8px; border:1px solid rgba(65,122,210,.34); border-radius:13px; background:rgba(6,19,48,.86); color:#dcecff; text-align:left; cursor:pointer; transition:background .18s,border-color .18s,transform .18s; }
+        .taskModeCard:hover,.taskModeCard.taskModeActive { border-color:rgba(99,190,255,.78); background:linear-gradient(120deg,rgba(12,51,111,.92),rgba(9,26,69,.96)); box-shadow:0 0 10px rgba(0,121,255,.12); }
+        .taskModeCard:active { transform:scale(.98); }
+        .taskModeIcon { width:32px; height:32px; flex:0 0 32px; display:grid; place-items:center; border:1px solid rgba(76,153,255,.28); border-radius:10px; background:rgba(12,42,92,.72); font-size:17px; }
+        .taskModeText { display:flex; flex:1; min-width:0; flex-direction:column; gap:3px; }
+        .taskModeText strong { color:#e4f3ff; font-size:12px; font-weight:750; }
+        .taskModeText small { color:#91a9cc; font-size:9px; line-height:1.3; }
+        .taskModeArrow { flex:0 0 auto; color:#7fdcff; font-size:15px; font-weight:800; }
+        .taskModeNotice { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0 4px 7px; padding:6px 10px; border:1px solid rgba(74,151,255,.30); border-radius:10px; background:rgba(7,26,65,.88); color:#a9dfff; font-size:11px; }
+        .taskModeNotice button { border:0; background:transparent; color:#b4d9ff; font-size:18px; cursor:pointer; }
 
         .suggestions { width:100%; max-width:490px; margin-top:25px; }
         .suggestionHeading { display:flex; align-items:center; justify-content:center; gap:9px; margin:4px 0 12px; color:#82a9de; font-size:10px; font-weight:750; letter-spacing:1.2px; text-align:center; }
@@ -777,6 +880,12 @@ export default function Home() {
           .quickIcon { width:31px; height:31px; flex-basis:31px; }
           .suggestionGrid { gap:6px; }
           .suggestionChip { padding:9px 7px; font-size:11px; }
+          .taskSection { margin-top:17px; padding:11px 8px 9px; }
+          .taskModeGrid { gap:6px; }
+          .taskModeCard { gap:6px; padding:8px 6px; }
+          .taskModeIcon { width:28px; height:28px; flex-basis:28px; font-size:15px; }
+          .taskModeText strong { font-size:11px; }
+          .taskModeText small { font-size:8px; }
           .plusButton,.voiceButton,.sendButton { width:39px; height:39px; flex-basis:39px; }
           .messageInput { height:39px; font-size:14px; }
           .voiceStopHint { font-size:8px; }
@@ -793,7 +902,7 @@ export default function Home() {
         }
 
         @media (prefers-reduced-motion:reduce) {
-          *,*::before,*::after {
+    *,*::before,*::after {
             animation-duration:.01ms !important;
             animation-iteration-count:1 !important;
             transition-duration:.01ms !important;
@@ -803,5 +912,4 @@ export default function Home() {
       `}</style>
     </div>
   );
-              }
-              
+}
