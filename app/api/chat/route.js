@@ -1,8 +1,8 @@
 
 export async function POST(req) {
   try {
-    const { message } = await req.json();
-    const question = String(message || "").trim();
+    const body = await req.json();
+    const question = String(body?.message || "").trim();
 
     if (!question) {
       return Response.json(
@@ -11,9 +11,8 @@ export async function POST(req) {
       );
     }
 
-    const now = new Date();
-
-    const currentIndiaTime = now.toLocaleString("en-IN", {
+    // India date and time
+    const currentIndiaTime = new Date().toLocaleString("en-IN", {
       timeZone: "Asia/Kolkata",
       dateStyle: "full",
       timeStyle: "long",
@@ -21,23 +20,30 @@ export async function POST(req) {
 
     const q = question.toLowerCase();
 
-    // Date/time questions
     const dateTimeKeywords = [
-      "current time", "current date", "time and date",
-      "date and time", "aaj ki date", "aaj ka date",
-      "aaj ka time", "abhi time", "abhi ka time",
-      "abhi ki date", "samay batao", "kitne baje",
-      "today's date", "today date", "today time",
-      "what time is it", "what is the date",
-      "what's the date", "current india time", "aaj ka din",
-      "abhi kitna baj", "aaj ki tareekh"
+      "current time",
+      "current date",
+      "time and date",
+      "date and time",
+      "aaj ki date",
+      "aaj ka date",
+      "aaj ka time",
+      "abhi time",
+      "abhi ka time",
+      "abhi ki date",
+      "samay batao",
+      "kitne baje",
+      "today's date",
+      "today date",
+      "today time",
+      "what time is it",
+      "what is the date",
+      "what's the date",
+      "current india time",
+      "aaj ka din",
     ];
 
-    const asksDateTime = dateTimeKeywords.some((word) =>
-      q.includes(word)
-    );
-
-    if (asksDateTime) {
+    if (dateTimeKeywords.some((word) => q.includes(word))) {
       return Response.json({
         reply:
           "India mein abhi date aur time:\n\n" +
@@ -48,95 +54,70 @@ export async function POST(req) {
       });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GROQ_API_KEY;
 
     if (!apiKey) {
       return Response.json(
         {
           error:
-            "GEMINI_API_KEY missing hai. Vercel ke Environment Variables mein API key add karein.",
+            "GROQ_API_KEY missing hai. Vercel Settings > Environment Variables mein GROQ_API_KEY add karein, phir redeploy karein.",
         },
         { status: 500 }
       );
     }
 
-    // Current information / live search questions
-    const liveKeywords = [
-      "latest news", "live news", "today news",
-      "aaj ki news", "aaj ki khabar", "taaza khabar",
-      "ताजा खबर", "आज की खबर", "आज की न्यूज़",
-      "breaking news", "current news", "recent news",
-      "latest update", "live score", "today match",
-      "share price", "stock price", "weather today",
-      "latest", "today", "abhi ki khabar",
-      "current affairs", "news today", "2026 news"
-    ];
-
-    const asksLiveInfo = liveKeywords.some((word) =>
-      q.includes(word)
-    );
-
     const systemPrompt = `
-You are ORION AI, an intelligent assistant.
+You are ORION AI, a helpful intelligent assistant.
 
 Current date and time in India:
 ${currentIndiaTime}
 
 Rules:
 - Reply in the user's language, including Hindi and Hinglish.
-- For date/time questions, use the supplied India time.
-- For news, current events, current affairs, government announcements,
-  sports results, current prices, weather, technology updates, or
-  other changing information, use Google Search grounding.
-- For a question about today's or latest news, actively search the web.
-- Prioritize recent, reliable sources and clearly mention publication dates.
-- Do not invent news, dates, quotations, search results, or links.
-- If reliable current information is unavailable, say so honestly.
-- Answer directly and clearly.
-- Do not claim that you searched unless search grounding was actually used.
+- Give direct, useful, clear answers.
+- For latest news, current events, government announcements,
+  sports scores, prices, weather and technology updates,
+  use web search when available.
+- Never invent live information or sources.
+- If current information cannot be verified, say so honestly.
+- Include dates for news and current events.
+- Include source links when web search provides them.
 `;
 
+    // Try web-search-capable model first, then fallback chat model.
     const models = [
-      "gemini-3.5-flash-lite",
-      "gemini-3.8-flash",
+      "groq/compound",
+      "openai/gpt-oss-20b",
     ];
 
     let lastError = "";
-    let quotaError = false;
 
-    for (const model of models) {
+    for (let index = 0; index < models.length; index++) {
+      const model = models[index];
+
       try {
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+          "https://api.groq.com/openai/v1/chat/completions",
           {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "x-goog-api-key": apiKey,
+              Authorization: `Bearer ${apiKey}`,
             },
             body: JSON.stringify({
-              systemInstruction: {
-                parts: [{ text: systemPrompt }],
-              },
-              contents: [
+              model,
+              messages: [
+                {
+                  role: "system",
+                  content: systemPrompt,
+                },
                 {
                   role: "user",
-                  parts: [
-                    {
-                      text: asksLiveInfo
-                        ? "Google Search se abhi ki taza aur verified information dhoondo. " +
-                          "News ke liye publication date aur source zaroor do. Sawal: " +
-                          question
-                        : question,
-                    },
-                  ],
+                  content: question,
                 },
               ],
-              tools: [{ google_search: {} }],
-              generationConfig: {
-                temperature: 0.4,
-                maxOutputTokens: 4096,
-              },
+              temperature: 0.6,
+              max_tokens: 4096,
             }),
           }
         );
@@ -146,69 +127,69 @@ Rules:
         if (!response.ok) {
           lastError =
             data?.error?.message ||
-            `Gemini API error (${response.status})`;
-
-          const status = data?.error?.status;
-
-          if (
-            response.status === 429 ||
-            status === "RESOURCE_EXHAUSTED"
-          ) {
-            quotaError = true;
-          }
+            `Groq API error (${response.status})`;
 
           console.error(`${model} failed:`, lastError);
           continue;
         }
 
-        const candidate = data?.candidates?.[0];
-
-        let reply =
-          candidate?.content?.parts
-            ?.map((part) => part.text || "")
-            .filter(Boolean)
-            .join("\n")
-            .trim() || "";
+        let reply = String(
+          data?.choices?.[0]?.message?.content || ""
+        ).trim();
 
         if (!reply) {
-          lastError = "Gemini se khaali response mila.";
+          lastError = "Groq se khaali response mila.";
           continue;
         }
 
-        // Extract Google Search grounding sources
-        const chunks =
-          candidate?.groundingMetadata?.groundingChunks || [];
+        // Extract URLs included in the answer.
+        const urls = [
+          ...new Set(
+            reply.match(/https?:\/\/[^\s)\]>]+/g) || []
+          ),
+        ];
 
-        const sources = [];
-        const seen = new Set();
+        const sources = urls.map((url) => ({
+          title: url,
+          url,
+        }));
 
-        for (const chunk of chunks) {
-          const web = chunk?.web;
+        const liveKeywords = [
+          "latest news",
+          "breaking news",
+          "today's news",
+          "today news",
+          "latest update",
+          "live score",
+          "current price",
+          "today weather",
+          "latest",
+          "abhi ki news",
+          "aaj ki news",
+          "taaza khabar",
+          "ताज़ा खबर",
+          "आज की खबर",
+          "ताजा खबर",
+          "current events",
+          "recent news",
+          "news today",
+        ];
 
-          if (web?.uri && !seen.has(web.uri)) {
-            seen.add(web.uri);
-            sources.push({
-              title: web.title || "Source",
-              url: web.uri,
-            });
-          }
-        }
+        const asksLive = liveKeywords.some((word) =>
+          q.includes(word)
+        );
 
-        // Append sources only if not already included in answer
-        if (sources.length > 0) {
-          reply += "\n\nSources:\n";
-          reply += sources
-            .map(
-              (source) =>
-                `- ${source.title}: ${source.url}`
-            )
-            .join("\n");
+        if (index > 0 && asksLive) {
+          reply +=
+            "\n\nNote: Live web search abhi available nahi thi, " +
+            "isliye is jawab ko latest verified news na maanein.";
         }
 
         return Response.json({
           reply,
-          hasLiveSources: sources.length > 0,
-          sources,
+          hasLiveSources: index === 0 && sources.length > 0,
+          sources: index === 0 ? sources : [],
+          model,
         });
       } catch (error) {
         lastError = error?.message || "Unknown error";
@@ -216,20 +197,10 @@ Rules:
       }
     }
 
-    if (quotaError) {
-      return Response.json(
-        {
-          error:
-            "Gemini API ki quota ya rate limit available nahi hai. Google AI Studio mein Usage aur Rate Limits check karein. Is waqt live news verify nahi ho paayi.",
-        },
-        { status: 429 }
-      );
-    }
-
     return Response.json(
       {
         error:
-          "Gemini se response nahi mila. API key, model access aur Vercel logs check karein. Details: " +
+          "Groq se response nahi mila. API key aur account ki rate limits check karein. Details: " +
           lastError,
       },
       { status: 503 }
@@ -246,3 +217,4 @@ Rules:
     );
   }
 }
+  
