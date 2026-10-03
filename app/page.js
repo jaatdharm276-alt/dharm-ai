@@ -869,7 +869,7 @@ export default function Home() {
           margin-bottom: 3px;
           font-size: 11px;
         }
-      `}</style>
+      
       
         .messageContent {
           color: #302d40;
