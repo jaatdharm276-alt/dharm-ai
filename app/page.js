@@ -199,13 +199,6 @@ export default function Home() {
         return updated;
       });
     };
-            const updated = [...old];
-        let index = updated.length - 1;
-        while (index >= 0 && updated[index].role !== "assistant") index -= 1;
-        if (index >= 0) updated[index] = { ...updated[index], content, partial };
-        return updated;
-      });
-    };
 
     try {
       const response = await fetch("/api/chat", {
