@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -33,57 +34,90 @@ function renderInline(text) {
 }
 
 function formatText(text) {
-  const lines = String(text || "").split("\n");
+  // HTML line breaks ko safe text newlines mein badlein.
+  const normalized = String(text || "").replace(/<br\s*\/?\s*>/gi, "\n");
+  const lines = normalized.split("\n");
   const output = [];
   let code = false;
   let codeLines = [];
+  let i = 0;
 
-  lines.forEach((line, i) => {
+  const isTableRow = (line) => /^\s*\|.*\|\s*$/.test(line);
+  const isTableDivider = (line) => /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(line);
+  const cellsFrom = (line) => line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim());
+
+  while (i < lines.length) {
+    const line = lines[i];
+
     if (/^\s*```/.test(line)) {
       if (code) output.push(<pre className="codeBlock" key={`code-${i}`}><code>{codeLines.join("\n")}</code></pre>);
       code = !code;
       codeLines = [];
-      return;
+      i += 1;
+      continue;
     }
 
     if (code) {
       codeLines.push(line);
-      return;
+      i += 1;
+      continue;
+    }
+
+    if (isTableRow(line) && i + 1 < lines.length && isTableDivider(lines[i + 1])) {
+      const headers = cellsFrom(line);
+      i += 2;
+      const rows = [];
+      while (i < lines.length && isTableRow(lines[i])) {
+        rows.push(cellsFrom(lines[i]));
+        i += 1;
+      }
+      output.push(
+        <div className="tableWrap" key={`table-${i}`}>
+          <table className="answerTable">
+            <thead><tr>{headers.map((cell, index) => <th key={index}>{renderInline(cell)}</th>)}</tr></thead>
+            <tbody>{rows.map((row, rowIndex) => <tr key={rowIndex}>{headers.map((_, cellIndex) => <td key={cellIndex}>{renderInline(row[cellIndex] || "")}</td>)}</tr>)}</tbody>
+          </table>
+        </div>
+      );
+      continue;
     }
 
     const trimmed = line.trim();
-
     if (!trimmed) {
       output.push(<div className="spaceLine" key={`space-${i}`} />);
-      return;
+      i += 1;
+      continue;
     }
 
     const heading = trimmed.match(/^(#{1,6})\s+(.*)$/);
     if (heading) {
       const Tag = heading[1].length === 1 ? "h2" : heading[1].length === 2 ? "h3" : "h4";
       output.push(<Tag key={i}>{renderInline(heading[2])}</Tag>);
-      return;
+      i += 1;
+      continue;
     }
 
     const bullet = trimmed.match(/^[-*•]\s+(.*)$/);
     if (bullet) {
       output.push(<div className="textBullet" key={i}><span>•</span><span>{renderInline(bullet[1])}</span></div>);
-      return;
+      i += 1;
+      continue;
     }
 
     const numbered = trimmed.match(/^(\d+)[.)]\s+(.*)$/);
     if (numbered) {
       output.push(<div className="numberedLine" key={i}><span>{numbered[1]}.</span><span>{renderInline(numbered[2])}</span></div>);
-      return;
+      i += 1;
+      continue;
     }
 
     output.push(<p key={i}>{renderInline(line)}</p>);
-  });
+    i += 1;
+  }
 
   if (code && codeLines.length) {
     output.push(<pre className="codeBlock" key="unfinished-code"><code>{codeLines.join("\n")}</code></pre>);
   }
-
   return output;
 }
 
@@ -106,7 +140,6 @@ function parseServerResponse(raw) {
     return { reply: "", error: "API se khaali response mila." };
   }
 
-  // Normal JSON response.
   try {
     const json = JSON.parse(trimmed);
     if (json?.error) return { reply: "", error: String(json.error) };
@@ -115,7 +148,6 @@ function parseServerResponse(raw) {
     // JSON nahi hai to SSE format check karein.
   }
 
-  // OpenAI/Groq aur Gemini SSE responses.
   if (trimmed.includes("data:")) {
     let reply = "";
     const events = trimmed.split(/\r?\n\r?\n/);
@@ -270,8 +302,6 @@ export default function Home() {
         signal: controller.signal,
       });
 
-      // response.json() ki jagah pehle text padhein.
-      // Isse JSON aur data: SSE dono handle ho sakte hain.
       const raw = await response.text();
 
       if (!response.ok) {
@@ -293,7 +323,6 @@ export default function Home() {
         throw new Error("AI se khaali response mila. API route aur key check karein.");
       }
 
-      // Valid reply ko dheere-dheere type karein.
       const chunkSize = 3;
       const delay = 16;
 
@@ -315,10 +344,7 @@ export default function Home() {
             : item
         ));
       } else {
-        updateAssistant(
-          `Maaf kijiye 🙏\n\n${error?.message || "Technical problem aa gayi. Dobara try karein."}`,
-          false
-        );
+        updateAssistant(`⚠️ ${error?.message || "Kuch galat ho gaya. Dobara try karein."}`, false);
       }
     } finally {
       if (requestId === requestIdRef.current) {
@@ -327,13 +353,16 @@ export default function Home() {
         abortControllerRef.current = null;
       }
     }
-        }
-      
+                                                                                      }
+   
+  function handleChatScroll() {
+    const el = chatAreaRef.current;
+    if (!el) return;
 
-  function handleChatScroll(event) {
-    const el = event.currentTarget;
-    shouldAutoScrollRef.current =
-      el.scrollHeight - el.scrollTop - el.clientHeight <= 85;
+    const distanceFromBottom =
+      el.scrollHeight - el.scrollTop - el.clientHeight;
+
+    shouldAutoScrollRef.current = distanceFromBottom < 140;
   }
 
   function startVoice() {
@@ -343,12 +372,13 @@ export default function Home() {
       window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      setNotice("Is browser mein voice input supported nahi hai. Chrome mein try karein.");
+      setNotice("Is browser mein voice input support nahi karta.");
       return;
     }
 
-    if (listening) {
-      recognitionRef.current?.stop();
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
       setListening(false);
       return;
     }
@@ -357,16 +387,31 @@ export default function Home() {
     recognition.lang = "hi-IN";
     recognition.continuous = false;
     recognition.interimResults = true;
-    recognition.onstart = () => setListening(true);
-    recognition.onerror = () => setListening(false);
-    recognition.onend = () => setListening(false);
+
+    recognition.onstart = () => {
+      setListening(true);
+      setNotice("");
+    };
 
     recognition.onresult = (event) => {
       let transcript = "";
+
       for (let i = event.resultIndex; i < event.results.length; i++) {
         transcript += event.results[i][0].transcript;
       }
+
       setInput(transcript);
+    };
+
+    recognition.onerror = () => {
+      setNotice("Voice input mein dikkat aayi. Dobara try karein.");
+      setListening(false);
+      recognitionRef.current = null;
+    };
+
+    recognition.onend = () => {
+      setListening(false);
+      recognitionRef.current = null;
     };
 
     recognitionRef.current = recognition;
@@ -375,511 +420,1171 @@ export default function Home() {
       recognition.start();
     } catch {
       setListening(false);
+      recognitionRef.current = null;
+      setNotice("Microphone shuru nahi ho saka.");
     }
   }
 
   function speak(text) {
-    if (typeof window === "undefined" || !window.speechSynthesis || !text) return;
+    if (typeof window === "undefined" || !window.speechSynthesis) {
+      setNotice("Text-to-speech is browser mein available nahi hai.");
+      return;
+    }
 
     window.speechSynthesis.cancel();
 
-    const cleanText = String(text)
-      .replace(/^#{1,6}\s/gm, "")
-      .replace(/\*\*/g, "")
-      .replace(/`/g, "")
-      .replace(/\n/g, " ");
-
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.lang = /[\u0900-\u097F]/.test(cleanText) ? "hi-IN" : "en-IN";
+    const utterance = new SpeechSynthesisUtterance(String(text || ""));
+    utterance.lang = "hi-IN";
     utterance.rate = 0.95;
+    utterance.pitch = 1;
+
     window.speechSynthesis.speak(utterance);
   }
 
-  function focusComposer(prefix = "") {
-    setInput(prefix);
-    setMenuOpen(false);
-    requestAnimationFrame(() => inputRef.current?.focus());
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(String(text || ""));
+      setNotice("Jawab copy ho gaya!");
+      setTimeout(() => setNotice(""), 2200);
+    } catch {
+      setNotice("Copy nahi hua. Text ko select karke copy karein.");
+    }
   }
 
-  return (
-    <div className="page">
-      <div className="ambient ambientOne" />
-      <div className="ambient ambientTwo" />
+  function focusComposer() {
+    inputRef.current?.focus();
+  }
 
-      <div className="app">
-        <header className="header">
+  function handleSubmit(event) {
+    event?.preventDefault();
+    sendMessage();
+  }
+
+  function handleKeyDown(event) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      sendMessage();
+    }
+  }
+
+  const hasMessages = messages.length > 0;
+
+  return (
+    <main className="page">
+      <div className="ambientGlow ambientGlowOne" />
+      <div className="ambientGlow ambientGlowTwo" />
+
+      <header className="header">
+        <button
+          className="brandButton"
+          onClick={newChat}
+          type="button"
+          aria-label="ORION AI home"
+        >
+          <span className="logoMark">
+            <span className="logoStar">✦</span>
+          </span>
+          <span className="brandText">
+            <span className="brandName">ORION AI</span>
+            <span className="brandSubtitle">
+              Your Intelligent Companion
+            </span>
+          </span>
+        </button>
+
+        <div className="headerActions">
           <button
             className="roundButton"
-            onClick={() => setMenuOpen((v) => !v)}
-            aria-label="Menu"
-            title="Menu"
+            type="button"
+            onClick={newChat}
+            title="New chat"
+            aria-label="New chat"
           >
-            <svg viewBox="0 0 24 24" fill="none">
-              <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" />
             </svg>
           </button>
 
-          <button className="upgradeButton" onClick={() => setNotice("Upgrade feature jald hi aayega.")}>
-            <span className="diamond">✦</span> Upgrade
-          </button>
-
-          <div className="headerSpacer" />
-
-          <button className="roundButton newChatTop" onClick={newChat} aria-label="New chat" title="New chat">
-            <svg viewBox="0 0 24 24" fill="none">
-              <path d="M12 20H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4M15 17h6M18 14v6" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="m8 9 2 2 4-4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" opacity=".0" />
+          <button
+            className="roundButton menuButton"
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+            title="Menu"
+            aria-label="Menu"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16" />
             </svg>
           </button>
-        </header>
+        </div>
+      </header>
 
-        {menuOpen && (
-          <div className="menuPanel">
-            <button onClick={newChat}><span>＋</span> New Chat</button>
-            <button onClick={() => { setShowComingSoon(true); setMenuOpen(false); }}>
-              <span>▧</span> Create an image or sticker
-            </button>
-            <div className="menuCredit">ORION AI · Powered by Dharm AI</div>
+      {menuOpen && (
+        <div className="menuPanel">
+          <button
+            type="button"
+            onClick={newChat}
+            className="menuItem"
+          >
+            <span>＋</span> New chat
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              setShowComingSoon(true);
+            }}
+            className="menuItem"
+          >
+            <span>✧</span> More features
+          </button>
+
+          <div className="menuCredit">
+            ORION AI · Powered by Dharm AI
           </div>
-        )}
+        </div>
+      )}
 
-        <main ref={chatAreaRef} className="chatArea" onScroll={handleChatScroll}>
-          {messages.length === 0 ? (
-            <div className="homeScreen">
-              <div className="heroLogo">
-                <svg viewBox="0 0 100 100" fill="none">
-                  <defs>
-                    <linearGradient id="heroGradient" x1="0" y1="0" x2="1" y2="1">
-                      <stop offset="0%" stopColor="#66f0ff" />
-                      <stop offset="55%" stopColor="#6485ff" />
-                      <stop offset="100%" stopColor="#bb86ff" />
-                    </linearGradient>
-                  </defs>
-                  <ellipse cx="50" cy="50" rx="42" ry="17" stroke="url(#heroGradient)" strokeWidth="4" transform="rotate(-35 50 50)" />
-                  <circle cx="50" cy="50" r="24" fill="#09163a" stroke="url(#heroGradient)" strokeWidth="2" />
-                  <path d="M50 32 56 44 68 50 56 56 50 68 44 56 32 50 44 44Z" fill="url(#heroGradient)" />
-                </svg>
+      <section
+        className={`chatArea ${hasMessages ? "chatAreaActive" : "chatAreaHome"}`}
+        ref={chatAreaRef}
+        onScroll={handleChatScroll}
+      >
+        {!hasMessages ? (
+          <div className="homeScreen">
+            <div className="heroLogo">
+              <span className="heroLogoCore">✦</span>
+              <span className="heroOrbit heroOrbitOne" />
+              <span className="heroOrbit heroOrbitTwo" />
+            </div>
+
+            <div className="heroEyebrow">
+              <span className="statusDot" />
+              YOUR AI COMPANION
+            </div>
+
+            <h1 className="heroTitle">
+              Hello, <span>Explorer.</span>
+            </h1>
+
+            <p className="heroDescription">
+              Main ORION AI hoon. Aapke sawalon, ideas, padhai,
+              kaam aur naye projects mein madad ke liye taiyar.
+            </p>
+
+            <div className="creditLine">
+              ORION AI <span>·</span> Powered by Dharm AI
+            </div>
+
+            <div className="taskSection">
+              <div className="sectionHeading">
+                <span>Apna task chunein</span>
+                <span className="sectionHint">OPTIONAL</span>
               </div>
 
-              <h1 className="heroTitle">ORION <span>AI</span></h1>
-              <p className="heroSubtitle">Your Intelligent Companion</p>
-              <p className="heroCredit">Powered by Dharm AI</p>
-
-              <div className="quickActions">
-                <button className="quickAction" onClick={() => setShowComingSoon(true)}>
-                  <span className="quickIcon">
-                    <svg viewBox="0 0 24 24" fill="none">
-                      <rect x="3" y="3" width="18" height="18" rx="4" stroke="currentColor" strokeWidth="1.8" />
-                      <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
-                      <path d="m4 17 5-5 3 3 3-4 5 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </span>
-                  <span>Create an image or sticker</span>
-                  <span className="quickArrow">↗</span>
-                </button>
-
-                <button className="quickAction" onClick={() => focusComposer("Mujhe likhne ya editing mein madad chahiye. ")}>
-                  <span className="quickIcon">
-                    <svg viewBox="0 0 24 24" fill="none">
-                      <path d="m14 5 5 5M3 21l4.5-1 12-12a2.1 2.1 0 0 0-3-3l-12 12L3 21Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </span>
-                  <span>Write or edit</span>
-                  <span className="quickArrow">↗</span>
-                </button>
-              </div>
-
-              <div className="taskSection">
-                <div className="taskSectionHeading">
-                  <span className="taskSpark">✦</span>
-                  <span>ORION KAAM POORA KARO</span>
-                  <span className="taskSpark">✦</span>
-                </div>
-                <p className="taskSectionSubtitle">Kaam chuno — ORION tumhare liye ready-to-use jawab taiyar karega</p>
-                <div className="taskModeGrid">
-                  {taskModes.map((item) => (
-                    <button
-                      key={item.id}
-                      className={`taskModeCard ${taskMode === item.id ? "taskModeActive" : ""}`}
-                      onClick={() => {
-                        setTaskMode(item.id);
-                        setNotice(`${item.title} mode chalu hai. Ab apna kaam likhein.`);
-                        requestAnimationFrame(() => inputRef.current?.focus());
-                      }}
-                      type="button"
-                    >
-                      <span className="taskModeIcon">{item.icon}</span>
-                      <span className="taskModeText">
-                        <strong>{item.title}</strong>
-                        <small>{item.description}</small>
+              <div className="taskGrid">
+                {taskModes.map((mode) => (
+                  <button
+                    type="button"
+                    key={mode.id}
+                    className={`taskModeCard ${
+                      taskMode === mode.id ? "taskModeSelected" : ""
+                    }`}
+                    onClick={() => {
+                      setTaskMode(mode.id);
+                      focusComposer();
+                    }}
+                  >
+                    <span className="taskIcon">{mode.icon}</span>
+                    <span className="taskText">
+                      <span className="taskTitle">{mode.title}</span>
+                      <span className="taskDescription">
+                        {mode.description}
                       </span>
-                      <span className="taskModeArrow">{taskMode === item.id ? "✓" : "↗"}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="suggestions">
-                <div className="suggestionHeading">
-                  <span className="headingLine" />
-                  <span>AAP KYA JAANNA CHAHTE HAIN?</span>
-                  <span className="headingLine" />
-                </div>
-
-                <div className="suggestionGrid">
-                  {suggestions.map((item) => (
-                    <button key={item.title} className="suggestionChip" onClick={() => sendMessage(item.prompt)}>
-                      <span className="suggestionIcon">{item.icon}</span>
-                      <span>{item.title}</span>
-                      <span className="suggestionArrow">↗</span>
-                    </button>
-                  ))}
-                </div>
+                    </span>
+                    <span className="taskArrow">↗</span>
+                  </button>
+                ))}
               </div>
             </div>
-          ) : (
-            <div className="chat">
-              {messages.map((message, index) => (
-                <div
-                  key={`${index}-${message.role}`}
-                  className={`message ${message.role === "user" ? "userMessage" : "assistantMessage"}`}
-                >
-                  {message.role === "assistant" && <div className="avatar">✦</div>}
 
-                  <div className={`bubble ${message.role === "user" ? "userBubble" : "assistantBubble"}`}>
+            <div className="suggestionSection">
+              <div className="sectionHeading">
+                <span>Shuru karne ke liye</span>
+              </div>
+
+              <div className="suggestionGrid">
+                {suggestions.map((item) => (
+                  <button
+                    key={item.title}
+                    type="button"
+                    className="suggestionCard"
+                    onClick={() => {
+                      setInput(item.prompt);
+                      focusComposer();
+                    }}
+                  >
+                    <span className="suggestionIcon">{item.icon}</span>
+                    <span>{item.title}</span>
+                    <span className="suggestionArrow">↗</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="messagesContainer">
+            {messages.map((message, index) => (
+              <article
+                key={`${index}-${message.role}`}
+                className={`messageRow ${
+                  message.role === "user" ? "userMessageRow" : "assistantMessageRow"
+                }`}
+              >
+                {message.role === "assistant" && (
+                  <div className="assistantAvatar">✦</div>
+                )}
+
+                <div className="messageMain">
+                  <div className="messageLabel">
+                    {message.role === "user" ? "You" : "ORION AI"}
                     {message.role === "assistant" && (
-                      <div className="assistantTitle"><span>✦</span><b>ORION AI</b></div>
-                    )}
-
-                    <div className="messageContent">
-                      {message.content
-                        ? formatText(message.content)
-                        : message.pending && loading
-                          ? <span className="typingDots" aria-label="ORION AI jawab likh raha hai"><i /><i /><i /></span>
-                          : null}
-
-                      {loading && index === messages.length - 1 && message.role === "assistant" && message.content && (
-                        <span className="streamCursor" />
-                      )}
-                    </div>
-
-                    {message.role === "assistant" && message.content && (
-                      <button
-                        className="speakButton"
-                        onClick={() => speak(message.content)}
-                        aria-label="Jawab sunen"
-                        title="Jawab sunen"
-                      >
-                        🔊
-                      </button>
+                      <span className="assistantBadge">AI</span>
                     )}
                   </div>
+
+                  <div
+                    className={`messageBubble ${
+                      message.role === "user" ? "userBubble" : "assistantBubble"
+                    }`}
+                  >
+                    {message.content ? (
+                      <div className="messageContent">
+                        {formatText(message.content)}
+                        {message.pending && (
+                          <span className="typingCursor" />
+                        )}
+                      </div>
+                    ) : message.pending ? (
+                      <div className="thinkingIndicator">
+                        <span />
+                        <span />
+                        <span />
+                        <small>ORION soch raha hai...</small>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {message.role === "assistant" && message.content && (
+                    <div className="messageTools">
+                      <button
+                        type="button"
+                        onClick={() => copyText(message.content)}
+                        className="toolButton"
+                      >
+                        <span>▢</span> Copy
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => speak(message.content)}
+                        className="toolButton"
+                      >
+                        <span>♫</span> Suno
+                      </button>
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
-          )}
-        </main>
+              </article>
+            ))}
 
-        <footer className="bottomArea">
-          {notice && (
-            <div className="notice" role="status">
-              {notice}
-              <button onClick={() => setNotice("")} aria-label="Notice band karein">×</button>
-            </div>
-          )}
-
-          {listening && (
-            <div className="voiceStatus">
-              <span className="voiceStatusDot" />
-              <span className="voiceWaves"><i /><i /><i /><i /><i /></span>
-              <span>Sun raha hoon... boliye</span>
-              <span className="voiceStopHint">Mic dabakar rokein</span>
-            </div>
-          )}
-
-          {taskMode !== "chat" && (
-            <div className="taskModeNotice">
-              <span>✦ {taskModes.find((item) => item.id === taskMode)?.title} mode</span>
-              <button type="button" onClick={() => setTaskMode("chat")} aria-label="Task mode band karein">×</button>
-            </div>
-          )}
-
-          <div className="inputBox">
-            <button className="plusButton" onClick={() => setMenuOpen((v) => !v)} aria-label="More options" title="More options">
-              <svg viewBox="0 0 24 24" fill="none">
-                <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-            </button>
-
-            <textarea
-              ref={inputRef}
-              className="messageInput"
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-                  event.preventDefault();
-                  sendMessage();
-                }
-              }}
-              placeholder={taskMode === "chat" ? "Ask ORION AI..." : `${taskModes.find((item) => item.id === taskMode)?.title} mein kya kaam karna hai?`}
-              rows={1}
-              aria-label="Message likhein"
-            />
-
-            <button
-              className={listening ? "voiceButton active" : "voiceButton"}
-              onClick={startVoice}
-              aria-label={listening ? "Voice input band karein" : "Voice input"}
-              title="Voice input"
-            >
-              {listening ? (
-                <span className="micStop">■</span>
-              ) : (
-                <svg viewBox="0 0 24 24" fill="none">
-                  <rect x="9" y="3" width="6" height="12" rx="3" stroke="currentColor" strokeWidth="1.8" />
-                  <path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                </svg>
-              )}
-            </button>
-
-            {loading ? (
-              <button className="sendButton stopSend" onClick={stopGeneration} aria-label="Jawaab rokein" title="Jawaab rokein">
-                <span className="stopSquare" />
-              </button>
-            ) : (
-              <button className="sendButton" onClick={() => sendMessage()} disabled={!input.trim()} aria-label="Message bhejein" title="Send">
-                <svg viewBox="0 0 24 24" fill="none">
-                  <path d="M12 19V5M6 11l6-6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
+            {loading && messages[messages.length - 1]?.role !== "assistant" && (
+              <div className="thinkingIndicator">
+                <span />
+                <span />
+                <span />
+                <small>ORION soch raha hai...</small>
+              </div>
             )}
           </div>
-
-          <div className="footerCredit">ORION AI <span>·</span> Powered by Dharm AI</div>
-        </footer>
-
-        {showComingSoon && (
-          <div className="modalOverlay" onClick={() => setShowComingSoon(false)}>
-            <div
-              className="comingSoonCard"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="comingSoonTitle"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <button className="modalClose" onClick={() => setShowComingSoon(false)} aria-label="Close">×</button>
-              <div className="comingSoonIcon">▧<span>✦</span></div>
-              <div className="modalEyebrow">ORION AI FEATURE</div>
-              <h2 id="comingSoonTitle">Coming Soon</h2>
-              <p>Create amazing images and stickers with AI.</p>
-              <div className="modalLine" />
-              <div className="modalCredit">Powered by Dharm AI</div>
-              <button className="modalDone" onClick={() => setShowComingSoon(false)}>Samajh gaya</button>
-            </div>
-          </div>
         )}
-      </div>
+      </section>
+   
+      <footer className="bottomArea">
+        {notice && (
+          <button
+            type="button"
+            className="noticeBar"
+            onClick={() => setNotice("")}
+          >
+            {notice} <span>×</span>
+          </button>
+        )}
+
+        <div className="composerOuter">
+          {taskMode !== "chat" && !hasMessages && (
+            <div className="activeTaskLabel">
+              <span>
+                {taskModes.find((item) => item.id === taskMode)?.icon}
+              </span>
+              {taskModes.find((item) => item.id === taskMode)?.title || "Task"}
+              <button type="button" onClick={() => setTaskMode("chat")}>
+                ×
+              </button>
+            </div>
+          )}
+
+          <form className="inputBox" onSubmit={handleSubmit}>
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="ORION se kuch bhi poochhein..."
+              rows={1}
+              aria-label="Message"
+            />
+
+            <div className="inputActions">
+              <div className="inputLeftActions">
+                <button
+                  type="button"
+                  className="inputIconButton"
+                  title="More features"
+                  aria-label="More features"
+                  onClick={() => setShowComingSoon(true)}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                </button>
+                <span className="inputHint">Shift + Enter for new line</span>
+              </div>
+
+              <div className="inputRightActions">
+                <button
+                  type="button"
+                  className={`voiceButton ${listening ? "voiceButtonActive" : ""}`}
+                  title={listening ? "Voice band karein" : "Voice input"}
+                  aria-label="Voice input"
+                  onClick={startVoice}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="9" y="3" width="6" height="12" rx="3" />
+                    <path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" />
+                  </svg>
+                </button>
+
+                {loading ? (
+                  <button
+                    type="button"
+                    className="sendButton stopButton"
+                    onClick={stopGeneration}
+                    title="Stop response"
+                    aria-label="Stop response"
+                  >
+                    <span className="stopSquare" />
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    className="sendButton"
+                    disabled={!input.trim()}
+                    title="Send message"
+                    aria-label="Send message"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 19V5M5 12l7-7 7 7" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <div className="footerCaption">
+          <span className="footerBrandDot">✦</span>
+          ORION AI <span className="footerSeparator">·</span> Powered by Dharm AI
+        </div>
+        <div className="disclaimer">
+          AI kabhi-kabhi galti kar sakta hai. Zaroori jaankari verify karein.
+        </div>
+      </footer>
+
+      {showComingSoon && (
+        <div
+          className="modalBackdrop"
+          onClick={() => setShowComingSoon(false)}
+          role="presentation"
+        >
+          <div
+            className="modalCard"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modalTitle"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="modalClose"
+              onClick={() => setShowComingSoon(false)}
+              aria-label="Close"
+            >
+              ×
+            </button>
+            <div className="modalIcon">✦</div>
+            <h2 id="modalTitle">More features</h2>
+            <p>
+              ORION AI ke naye features par kaam chal raha hai.
+              Filhaal aap chat, voice input, copy aur text-to-speech
+              ka istemal kar sakte hain.
+            </p>
+            <button
+              type="button"
+              className="modalPrimary"
+              onClick={() => setShowComingSoon(false)}
+            >
+              Samajh gaya
+            </button>
+          </div>
+        </div>
+      )}
+
       <style jsx global>{`
-
-        * { box-sizing: border-box; }
-        html, body { width:100%; height:100%; margin:0; padding:0; }
-        body { overflow:hidden; background:#03091c; color:#e6f2ff; font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
-        button, textarea { font:inherit; }
-        button { -webkit-tap-highlight-color:transparent; }
-
-        .page { position:fixed; inset:0; width:100%; height:100vh; height:100dvh; overflow:hidden; color:#e8f3ff; background:radial-gradient(ellipse at 12% 10%,rgba(0,75,210,.13),transparent 42%),radial-gradient(ellipse at 92% 88%,rgba(71,42,180,.12),transparent 38%),#03091c; }
-        .ambient { position:absolute; width:230px; height:230px; border-radius:50%; filter:blur(85px); opacity:.10; pointer-events:none; animation:ambientMove 9s ease-in-out infinite alternate; }
-        .ambientOne { left:-130px; top:12%; background:#0878ff; }
-        .ambientTwo { right:-140px; bottom:4%; background:#7749ff; animation-delay:-4s; }
-
-        .app { position:absolute; inset:0; display:flex; flex-direction:column; min-height:0; overflow:hidden; background:linear-gradient(180deg,rgba(3,10,31,.30),rgba(2,8,25,.18)); }
-
-        .header { position:relative; z-index:10; flex:0 0 auto; min-height:76px; display:flex; align-items:center; gap:12px; padding:10px 16px; padding-top:max(10px,env(safe-area-inset-top)); background:rgba(3,10,29,.92); border-bottom:1px solid rgba(71,133,255,.12); }
-        .roundButton { width:46px; height:46px; flex:0 0 46px; display:grid; place-items:center; padding:0; border-radius:50%; border:1px solid rgba(85,157,255,.36); color:#eaf6ff; background:linear-gradient(145deg,rgba(15,39,87,.86),rgba(3,15,44,.94)); box-shadow:0 0 9px rgba(22,105,255,.14),inset 0 0 8px rgba(31,106,255,.06); cursor:pointer; transition:border-color .2s,transform .2s; }
-        .roundButton svg { width:23px; height:23px; }
-        .roundButton:active { transform:scale(.95); }
-        .roundButton:hover { border-color:rgba(93,190,255,.70); }
-
-        .upgradeButton { display:flex; align-items:center; justify-content:center; gap:9px; min-height:44px; padding:0 17px; border:1px solid rgba(71,153,255,.40); border-radius:25px; background:linear-gradient(110deg,rgba(8,65,144,.75),rgba(15,35,91,.82)); color:#a9d9ff; font-size:17px; font-weight:750; box-shadow:0 0 10px rgba(0,98,255,.12); cursor:pointer; }
-        .diamond { color:#80eaff; font-size:20px; }
-        .headerSpacer { flex:1; }
-
-        .menuPanel { position:absolute; z-index:30; top:calc(max(76px, env(safe-area-inset-top) + 65px)); left:13px; width:min(285px,calc(100vw - 26px)); padding:9px; border:1px solid rgba(74,141,255,.45); border-radius:17px; background:rgba(5,16,43,.98); box-shadow:0 10px 35px rgba(0,0,0,.38),0 0 12px rgba(0,102,255,.12); backdrop-filter:blur(18px); }
-        .menuPanel button { width:100%; display:flex; align-items:center; gap:10px; padding:12px 10px; border:0; border-radius:10px; background:transparent; color:#dcecff; text-align:left; cursor:pointer; }
-        .menuPanel button:hover { background:rgba(41,91,175,.20); }
-        .menuPanel button span { color:#8bdfff; font-size:21px; }
-        .menuCredit { padding:10px 10px 4px; border-top:1px solid rgba(85,131,215,.16); color:#91a7cc; font-size:11px; }
-
-        .chatArea { flex:1 1 0; min-height:0; width:100%; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:rgba(68,126,218,.45) transparent; }
-
-        .homeScreen { width:100%; min-height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px 16px 26px; }
-        .heroLogo { width:68px; height:68px; display:grid; place-items:center; border:1px solid rgba(71,154,255,.48); border-radius:21px; background:linear-gradient(145deg,rgba(9,34,81,.92),rgba(5,14,42,.92)); box-shadow:0 0 12px rgba(0,99,255,.16),inset 0 0 10px rgba(0,122,255,.07); }
-        .heroLogo svg { width:57px; height:57px; filter:drop-shadow(0 0 4px rgba(41,139,255,.18)); }
-        .heroTitle { margin:12px 0 0; color:#e5f5ff; font-family:Georgia,"Times New Roman",serif; font-size:31px; font-weight:850; letter-spacing:2px; text-shadow:0 0 9px rgba(38,143,255,.20); }
-        .heroTitle span { color:#82caff; }
-        .heroSubtitle { margin:4px 0 0; color:#a4badc; font-family:Georgia,"Times New Roman",serif; font-size:15px; text-align:center; }
-        .heroCredit { margin:5px 0 0; color:#809bc4; font-family:Georgia,"Times New Roman",serif; font-size:11px; letter-spacing:.4px; }
-
-        .quickActions { display:flex; gap:10px; width:100%; max-width:490px; margin-top:25px; }
-        .quickAction { min-width:0; min-height:57px; flex:1; display:flex; align-items:center; gap:9px; padding:8px 10px; border:1px solid rgba(48,121,255,.43); border-radius:18px; background:linear-gradient(110deg,rgba(7,28,72,.80),rgba(4,17,48,.86)); color:#d8eaff; font-size:13px; font-weight:600; text-align:left; box-shadow:0 0 9px rgba(0,86,255,.08); cursor:pointer; transition:border-color .2s,background .2s; }
-        .quickAction:hover { border-color:rgba(91,174,255,.68); background:linear-gradient(110deg,rgba(10,41,97,.90),rgba(5,20,56,.94)); }
-        .quickIcon { width:36px; height:36px; flex:0 0 36px; display:grid; place-items:center; border:1px solid rgba(67,160,255,.53); border-radius:50%; color:#94dfff; box-shadow:0 0 7px rgba(0,138,255,.12); }
-        .quickIcon svg { width:22px; height:22px; }
-        .quickArrow { margin-left:auto; color:#6fa9ed; font-size:18px; }
-
-        .taskSection { width:100%; max-width:490px; margin-top:23px; padding:14px 12px 12px; border:1px solid rgba(67,145,255,.32); border-radius:18px; background:linear-gradient(145deg,rgba(7,24,61,.78),rgba(4,14,39,.88)); box-shadow:0 0 14px rgba(0,94,255,.07),inset 0 0 12px rgba(46,110,255,.025); }
-        .taskSectionHeading { display:flex; align-items:center; justify-content:center; gap:9px; color:#a6d9ff; font-size:11px; font-weight:850; letter-spacing:1.35px; text-align:center; }
-        .taskSpark { color:#83dfff; text-shadow:0 0 8px rgba(64,189,255,.45); }
-        .taskSectionSubtitle { margin:6px 0 12px; color:#91a9d0; font-size:11px; line-height:1.5; text-align:center; }
-        .taskModeGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
-        .taskModeCard { min-width:0; display:flex; align-items:center; gap:8px; padding:10px 8px; border:1px solid rgba(65,122,210,.34); border-radius:13px; background:rgba(6,19,48,.86); color:#dcecff; text-align:left; cursor:pointer; transition:background .18s,border-color .18s,transform .18s; }
-        .taskModeCard:hover,.taskModeCard.taskModeActive { border-color:rgba(99,190,255,.78); background:linear-gradient(120deg,rgba(12,51,111,.92),rgba(9,26,69,.96)); box-shadow:0 0 10px rgba(0,121,255,.12); }
-        .taskModeCard:active { transform:scale(.98); }
-        .taskModeIcon { width:32px; height:32px; flex:0 0 32px; display:grid; place-items:center; border:1px solid rgba(76,153,255,.28); border-radius:10px; background:rgba(12,42,92,.72); font-size:17px; }
-        .taskModeText { display:flex; flex:1; min-width:0; flex-direction:column; gap:3px; }
-        .taskModeText strong { color:#e4f3ff; font-size:12px; font-weight:750; }
-        .taskModeText small { color:#91a9cc; font-size:9px; line-height:1.3; }
-        .taskModeArrow { flex:0 0 auto; color:#7fdcff; font-size:15px; font-weight:800; }
-        .taskModeNotice { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0 4px 7px; padding:6px 10px; border:1px solid rgba(74,151,255,.30); border-radius:10px; background:rgba(7,26,65,.88); color:#a9dfff; font-size:11px; }
-        .taskModeNotice button { border:0; background:transparent; color:#b4d9ff; font-size:18px; cursor:pointer; }
-
-        .suggestions { width:100%; max-width:490px; margin-top:25px; }
-        .suggestionHeading { display:flex; align-items:center; justify-content:center; gap:9px; margin:4px 0 12px; color:#82a9de; font-size:10px; font-weight:750; letter-spacing:1.2px; text-align:center; }
-        .headingLine { flex:1; max-width:40px; height:1px; background:rgba(55,132,255,.7); }
-        .suggestionGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
-        .suggestionChip { min-width:0; display:flex; align-items:center; gap:8px; padding:10px 9px; border:1px solid rgba(60,111,200,.36); border-radius:13px; background:linear-gradient(145deg,rgba(8,21,52,.92),rgba(4,15,39,.94)); color:#c7d8f2; font-size:12px; text-align:left; cursor:pointer; transition:background .18s,border-color .18s; }
-        .suggestionChip:hover { border-color:rgba(84,160,255,.62); background:rgba(9,31,76,.95); }
-        .suggestionIcon { flex:0 0 auto; color:#86caff; font-size:17px; }
-        .suggestionArrow { margin-left:auto; color:#6d9bd8; }
-
-        .chat { width:100%; max-width:850px; margin:0 auto; padding:16px 11px 20px; }
-        .message { display:flex; align-items:flex-start; gap:8px; width:100%; margin-bottom:14px; animation:messageEnter .20s ease-out both; }
-        .assistantMessage { justify-content:flex-start; }
-        .userMessage { justify-content:flex-end; }
-        .avatar { width:34px; height:34px; flex:0 0 34px; display:grid; place-items:center; border:1px solid rgba(78,151,255,.48); border-radius:12px; background:#091b41; color:#94d9ff; font-size:20px; box-shadow:0 0 8px rgba(0,116,255,.12); }
-        .bubble { min-width:0; max-width:min(90%,720px); padding:12px 13px; border-radius:16px; overflow-wrap:anywhere; }
-        .assistantBubble { border:1px solid rgba(76,128,213,.28); background:linear-gradient(145deg,rgba(8,22,53,.96),rgba(5,15,39,.97)); box-shadow:0 2px 10px rgba(0,0,0,.10); }
-        .userBubble { border:1px solid rgba(69,133,255,.43); background:linear-gradient(135deg,rgba(14,46,105,.92),rgba(10,31,75,.97)); border-bottom-right-radius:7px; }
-        .assistantTitle { display:flex; align-items:center; gap:6px; margin-bottom:7px; color:#a4c9f9; font-size:12px; }
-        .assistantTitle span { color:#85dfff; text-shadow:0 0 6px rgba(0,157,255,.22); }
-
-        .messageContent { color:#e1eafa; font-size:14px; line-height:1.65; overflow-wrap:anywhere; }
-        .messageContent p { margin:0 0 8px; white-space:pre-wrap; }
-        .messageContent p:last-child { margin-bottom:0; }
-        .messageContent h2,.messageContent h3,.messageContent h4 { margin:0 0 8px; color:#eff7ff; line-height:1.4; }
-        .messageContent h2 { font-size:20px; }
-        .messageContent h3 { font-size:18px; }
-        .messageContent h4 { font-size:16px; }
-        .messageContent strong { color:#b8dfff; }
-        .spaceLine { height:5px; }
-        .textBullet,.numberedLine { display:flex; gap:8px; margin:5px 0; }
-        .textBullet span:first-child,.numberedLine span:first-child { flex:0 0 auto; color:#7fcaff; font-weight:700; }
-
-        .codeBlock { max-width:100%; overflow-x:auto; margin:9px 0; padding:12px; border:1px solid rgba(76,128,213,.35); border-radius:12px; background:#020a20; color:#c8e8ff; font-size:12px; line-height:1.55; white-space:pre; }
-        .speakButton { width:34px; height:32px; margin-top:9px; display:grid; place-items:center; border:1px solid rgba(71,145,235,.32); border-radius:10px; background:rgba(13,34,77,.85); color:#9acfff; font-size:15px; cursor:pointer; }
-        .streamCursor { display:inline-block; width:2px; height:1em; margin-left:2px; vertical-align:-2px; background:#83d8ff; box-shadow:0 0 5px rgba(57,181,255,.35); animation:cursorBlink 1s step-end infinite; }
-
-        /* Teen halki blue glow wale typing dots */
-        .typingDots { display:inline-flex; align-items:center; gap:7px; min-height:23px; padding:3px 0; }
-        .typingDots i { display:block; width:7px; height:7px; border-radius:50%; background:#76d9ff; box-shadow:0 0 7px rgba(58,190,255,.48); animation:dotPulse 1s ease-in-out infinite; }
-        .typingDots i:nth-child(2) { animation-delay:.16s; }
-        .typingDots i:nth-child(3) { animation-delay:.32s; }
-
-        .bottomArea { position:relative; z-index:8; flex:0 0 auto; width:100%; padding:9px 10px; padding-bottom:max(9px,env(safe-area-inset-bottom)); border-top:1px solid rgba(65,117,206,.14); background:rgba(3,10,29,.97); }
-        .inputBox { display:flex; align-items:flex-end; gap:5px; width:100%; min-height:56px; padding:5px; border:1px solid rgba(60,139,255,.46); border-radius:30px; background:linear-gradient(110deg,rgba(8,25,63,.98),rgba(4,14,37,.99)); box-shadow:0 0 9px rgba(0,95,255,.09),inset 0 0 8px rgba(28,100,255,.03); }
-        .inputBox:focus-within { border-color:rgba(84,173,255,.78); box-shadow:0 0 0 1px rgba(44,122,255,.10),0 0 13px rgba(0,100,255,.13); }
-        .plusButton,.voiceButton,.sendButton { width:42px; height:42px; flex:0 0 42px; display:grid; place-items:center; border-radius:50%; cursor:pointer; }
-        .plusButton { border:1px solid rgba(72,140,255,.35); background:rgba(8,27,67,.90); color:#b7d8ff; }
-        .plusButton svg { width:25px; height:25px; }
-        .messageInput { flex:1 1 auto; width:0; min-width:0; height:42px; max-height:110px; resize:none; outline:none; border:0; background:transparent; color:#eff6ff; padding:11px 6px; font-size:15px; line-height:1.4; }
-        .messageInput::placeholder { color:#8b9fbe; }
-        .voiceButton { border:1px solid rgba(70,147,244,.27); background:rgba(8,26,63,.85); color:#b1d8ff; }
-        .voiceButton svg { width:23px; height:23px; }
-        .voiceButton.active { color:#ff9cbd; border-color:rgba(255,104,150,.52); box-shadow:0 0 10px rgba(255,65,124,.17); }
-        .micStop { font-size:15px; }
-
-        .sendButton { border:1px solid rgba(82,157,255,.62); background:linear-gradient(145deg,#1265c9,#183e96); color:#f1f9ff; box-shadow:0 0 9px rgba(0,105,255,.16); }
-        .sendButton svg { width:22px; height:22px; }
-        .sendButton:disabled { opacity:.38; cursor:default; box-shadow:none; }
-        .stopSend { border-color:rgba(255,114,156,.42); background:linear-gradient(145deg,#a93266,#6d214d); }
-        .stopSquare { width:12px; height:12px; border-radius:3px; background:#fff; }
-        .footerCredit { padding-top:8px; color:#8196b9; text-align:center; font-family:Georgia,"Times New Roman",serif; font-size:10px; letter-spacing:.35px; }
-        .footerCredit span { color:#527fbf; }
-
-        .voiceStatus { display:flex; align-items:center; justify-content:center; gap:7px; min-height:34px; margin-bottom:7px; padding:7px 9px; border:1px solid rgba(255,105,155,.23); border-radius:12px; background:rgba(49,15,43,.70); color:#ffc2d6; font-size:12px; }
-        .voiceStatusDot { width:7px; height:7px; flex:0 0 7px; border-radius:50%; background:#ff759f; animation:dotPulse .7s infinite alternate; }
-        .voiceWaves { display:inline-flex; align-items:center; gap:2px; height:18px; }
-        .voiceWaves i { display:block; width:3px; height:6px; border-radius:4px; background:#ff87ae; animation:voiceWave .7s ease-in-out infinite alternate; }
-        .voiceWaves i:nth-child(2) { animation-delay:.12s; height:12px; }
-        .voiceWaves i:nth-child(3) { animation-delay:.24s; height:17px; }
-        .voiceWaves i:nth-child(4) { animation-delay:.36s; height:10px; }
-        .voiceWaves i:nth-child(5) { animation-delay:.48s; }
-        .voiceStopHint { margin-left:auto; color:#c29aaf; font-size:9px; }
-
-        .notice { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0 2px 7px; padding:8px 10px; border:1px solid rgba(75,139,235,.28); border-radius:10px; background:rgba(7,24,59,.96); color:#b7d3f5; font-size:11px; }
-        .notice button { border:0; background:transparent; color:#9fc5fa; font-size:19px; }
-
-        .modalOverlay { position:absolute; inset:0; z-index:50; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(1,5,19,.76); backdrop-filter:blur(7px); animation:fadeIn .18s ease-out; }
-        .comingSoonCard { position:relative; width:100%; max-width:390px; padding:32px 22px 24px; border:1px solid rgba(66,137,255,.60); border-radius:27px; background:linear-gradient(145deg,rgba(8,26,67,.99),rgba(3,12,36,.99)); box-shadow:0 0 18px rgba(0,95,255,.13),0 20px 65px rgba(0,0,0,.36); text-align:center; }
-        .modalClose { position:absolute; top:10px; right:13px; width:34px; height:34px; border:1px solid rgba(94,143,217,.28); border-radius:50%; background:rgba(9,26,61,.85); color:#bdd6fa; font-size:25px; line-height:1; cursor:pointer; }
-        .comingSoonIcon { position:relative; width:76px; height:76px; display:grid; place-items:center; margin:0 auto 16px; border:1px solid rgba(71,164,255,.57); border-radius:22px; background:rgba(10,36,86,.85); color:#92ddff; font-size:39px; box-shadow:0 0 12px rgba(0,112,255,.15); }
-        .comingSoonIcon span { position:absolute; top:-7px; right:-5px; color:#8fe7ff; font-size:19px; }
-        .modalEyebrow { color:#82a9de; font-size:9px; font-weight:700; letter-spacing:2px; }
-        .comingSoonCard h2 { margin:10px 0; color:#c0e8ff; font-size:29px; font-weight:800; text-shadow:0 0 10px rgba(0,132,255,.22); }
-        .comingSoonCard p { max-width:280px; margin:0 auto; color:#b1c5e5; font-size:14px; line-height:1.6; }
-        .modalLine { width:65px; height:2px; margin:21px auto 12px; border-radius:3px; background:#438dff; opacity:.75; }
-        .modalCredit { color:#819dc8; font-size:10px; }
-        .modalDone { min-height:43px; margin-top:23px; padding:0 26px; border:1px solid rgba(76,151,255,.55); border-radius:24px; background:linear-gradient(110deg,#124eaa,#183b85); color:#e6f5ff; box-shadow:0 0 9px rgba(0,105,255,.13); cursor:pointer; }
-
-        @keyframes messageEnter { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes ambientMove { from { transform:scale(.92); opacity:.07; } to { transform:scale(1.08); opacity:.13; } }
-        @keyframes dotPulse { 0%,80%,100% { opacity:.45; transform:scale(.78); } 40% { opacity:1; transform:scale(1.13); } }
-        @keyframes voiceWave { from { transform:scaleY(.45); } to { transform:scaleY(1.15); } }
-        @keyframes cursorBlink { 50% { opacity:0; } }
-        @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
-
-        @media (max-width:420px) {
-          .header { gap:8px; padding-left:12px; padding-right:12px; }
-          .roundButton { width:42px; height:42px; flex-basis:42px; }
-          .upgradeButton { min-height:41px; padding:0 13px; font-size:15px; }
-          .homeScreen { padding-left:12px; padding-right:12px; }
-          .heroTitle { font-size:28px; }
-          .quickActions { gap:7px; }
-          .quickAction { gap:6px; padding:7px; font-size:11px; border-radius:15px; }
-          .quickIcon { width:31px; height:31px; flex-basis:31px; }
-          .suggestionGrid { gap:6px; }
-          .suggestionChip { padding:9px 7px; font-size:11px; }
-          .taskSection { margin-top:17px; padding:11px 8px 9px; }
-          .taskModeGrid { gap:6px; }
-          .taskModeCard { gap:6px; padding:8px 6px; }
-          .taskModeIcon { width:28px; height:28px; flex-basis:28px; font-size:15px; }
-          .taskModeText strong { font-size:11px; }
-          .taskModeText small { font-size:8px; }
-          .plusButton,.voiceButton,.sendButton { width:39px; height:39px; flex-basis:39px; }
-          .messageInput { height:39px; font-size:14px; }
-          .voiceStopHint { font-size:8px; }
+        * {
+          box-sizing: border-box;
         }
 
-        @media (max-height:720px) {
-          .homeScreen { justify-content:flex-start; padding-top:13px; }
-          .heroLogo { width:54px; height:54px; border-radius:17px; }
-          .heroLogo svg { width:45px; height:45px; }
-          .heroTitle { margin-top:8px; font-size:26px; }
-          .quickActions { margin-top:16px; }
-          .quickAction { min-height:49px; }
-          .suggestions { margin-top:17px; }
+        html,
+        body {
+          margin: 0;
+          padding: 0;
+          min-height: 100%;
+          background: #f6f9ff;
+          color: #172c4c;
+          font-family: Inter, ui-sans-serif, system-ui, -apple-system,
+            BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
 
-        @media (prefers-reduced-motion:reduce) {
-    *,*::before,*::after {
-            animation-duration:.01ms !important;
-            animation-iteration-count:1 !important;
-            transition-duration:.01ms !important;
-            scroll-behavior:auto !important;
+        body {
+          overflow: hidden;
+        }
+
+        button,
+        textarea {
+          font: inherit;
+        }
+
+        button {
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        .page {
+          height: 100dvh;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          position: relative;
+          isolation: isolate;
+          background:
+            radial-gradient(ellipse at 50% -20%, rgba(92, 180, 255, 0.17), transparent 48%),
+            linear-gradient(145deg, #fbfdff 0%, #f3f8ff 52%, #fafdff 100%);
+          color: #172c4c;
+        }
+
+        .ambientGlow {
+          position: absolute;
+          width: 320px;
+          height: 320px;
+          border-radius: 50%;
+          filter: blur(85px);
+          pointer-events: none;
+          z-index: -1;
+          opacity: 0.28;
+        }
+
+        .ambientGlowOne {
+          background: #70baff;
+          top: 20%;
+          left: -230px;
+        }
+
+        .ambientGlowTwo {
+          background: #72e6f5;
+          right: -240px;
+          bottom: 12%;
+        }
+
+        .header {
+          height: 76px;
+          flex: 0 0 76px;
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 0 24px;
+          background: rgba(255, 255, 255, 0.88);
+          border-bottom: 1px solid #e4edf9;
+          backdrop-filter: blur(18px);
+          position: relative;
+          z-index: 10;
+          box-shadow: 0 3px 18px rgba(37, 86, 145, 0.035);
+        }
+
+        .brandButton {
+          display: flex;
+          align-items: center;
+          gap: 11px;
+          border: 0;
+          background: transparent;
+          color: inherit;
+          cursor: pointer;
+          padding: 0;
+          text-align: left;
+          min-width: 0;
+        }
+
+        .logoMark {
+          width: 43px;
+          height: 43px;
+          flex-shrink: 0;
+          display: grid;
+          place-items: center;
+          border-radius: 14px;
+          background: linear-gradient(140deg, #eff8ff, #dcecff);
+          border: 1px solid #b6d9ff;
+          color: #0876ec;
+          box-shadow: 0 0 18px rgba(43, 142, 255, 0.17),
+            inset 0 0 12px rgba(255, 255, 255, 0.9);
+        }
+
+        .logoStar {
+          font-size: 27px;
+          text-shadow: 0 0 12px rgba(20, 142, 255, 0.6);
+        }
+
+        .brandText {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+
+        .brandName {
+          color: #123b70;
+          font-size: 17px;
+          font-weight: 850;
+          letter-spacing: 1.6px;
+        }
+
+        .brandSubtitle {
+          color: #7387a4;
+          font-size: 10px;
+          letter-spacing: 0.25px;
+        }
+
+        .headerActions {
+          display: flex;
+          align-items: center;
+          gap: 9px;
+        }
+
+        .roundButton {
+          width: 40px;
+          height: 40px;
+          display: grid;
+          place-items: center;
+          border: 1px solid #dce8f7;
+          border-radius: 13px;
+          background: #fff;
+          color: #35618e;
+          cursor: pointer;
+          transition: 0.2s ease;
+        }
+
+        .roundButton:hover {
+          color: #0879ed;
+          border-color: #8dc5ff;
+          box-shadow: 0 0 16px rgba(32, 140, 255, 0.14);
+          transform: translateY(-1px);
+        }
+
+        .roundButton svg,
+        .inputIconButton svg,
+        .voiceButton svg,
+        .sendButton svg {
+          width: 20px;
+          height: 20px;
+          fill: none;
+          stroke: currentColor;
+          stroke-width: 1.8;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+        }
+
+        .menuPanel {
+          position: absolute;
+          top: 66px;
+          right: 22px;
+          z-index: 30;
+          width: 230px;
+          padding: 9px;
+          border-radius: 17px;
+          background: rgba(255, 255, 255, 0.98);
+          border: 1px solid #dce8f8;
+          box-shadow: 0 15px 45px rgba(26, 68, 120, 0.15);
+        }
+
+        .menuItem {
+          width: 100%;
+          padding: 12px;
+          border: 0;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          text-align: left;
+          background: transparent;
+          color: #294668;
+          cursor: pointer;
+        }
+
+        .menuItem:hover {
+          background: #eff7ff;
+          color: #0879ed;
+        }
+
+        .menuCredit {
+          border-top: 1px solid #e7eef8;
+          margin-top: 6px;
+          padding: 12px 7px 5px;
+          color: #8192aa;
+          font-size: 10px;
+          text-align: center;
+        }
+
+        .chatArea {
+          flex: 1 1 auto;
+          min-height: 0;
+          overflow-y: auto;
+          overflow-x: hidden;
+          overscroll-behavior: contain;
+          scrollbar-width: thin;
+          scrollbar-color: #c5d9ef transparent;
+          position: relative;
+          z-index: 1;
+          scroll-behavior: auto;
+        }
+
+        .chatArea::-webkit-scrollbar {
+          width: 6px;
+        }
+
+        .chatArea::-webkit-scrollbar-thumb {
+          background: #c5d9ef;
+          border-radius: 8px;
+        }
+      `}</style>
+    </main>
+  );
+          }
+   .homeScreen {
+          min-height: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          padding: 32px 18px;
+          gap: 20px;
+        }
+
+        .heroLogo {
+          width: 92px;
+          height: 92px;
+          border-radius: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 42px;
+          font-weight: 900;
+          color: #ffffff;
+          background: linear-gradient(135deg, #1687ff, #00d4ff);
+          box-shadow: 0 0 30px rgba(0, 174, 255, 0.38);
+          border: 1px solid rgba(255, 255, 255, 0.65);
+        }
+
+        .heroTitle {
+          margin: 0;
+          font-size: clamp(28px, 5vw, 42px);
+          font-weight: 850;
+          letter-spacing: -1px;
+          color: #102d50;
+        }
+
+        .heroSubtitle {
+          margin: 0;
+          max-width: 480px;
+          font-size: 15px;
+          line-height: 1.7;
+          color: #66809d;
+        }
+
+        .heroCredit {
+          font-size: 12px;
+          font-weight: 700;
+          letter-spacing: 1px;
+          color: #1687df;
+        }
+
+        .suggestionGrid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+          width: 100%;
+          max-width: 600px;
+          margin-top: 10px;
+        }
+
+        .suggestionCard {
+          padding: 16px;
+          border: 1px solid #dceafa;
+          border-radius: 17px;
+          background: rgba(255, 255, 255, 0.86);
+          color: #244362;
+          text-align: left;
+          cursor: pointer;
+          transition: 0.2s ease;
+          font-size: 13px;
+          line-height: 1.5;
+        }
+
+        .suggestionCard:hover {
+          border-color: #55baff;
+          box-shadow: 0 5px 22px rgba(0, 139, 255, 0.12);
+          transform: translateY(-2px);
+        }
+
+        .suggestionTitle {
+          display: block;
+          margin-bottom: 5px;
+          font-weight: 800;
+          color: #126ec2;
+        }
+
+        .messageList {
+          width: 100%;
+          max-width: 850px;
+          margin: 0 auto;
+          display: flex;
+          flex-direction: column;
+          gap: 22px;
+          padding: 22px 16px 32px;
+        }
+
+        .messageRow {
+          display: flex;
+          align-items: flex-start;
+          gap: 11px;
+          width: 100%;
+        }
+
+        .messageRow.user {
+          justify-content: flex-end;
+        }
+
+        .messageAvatar {
+          flex: 0 0 34px;
+          width: 34px;
+          height: 34px;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #ffffff;
+          font-size: 13px;
+          font-weight: 900;
+          background: linear-gradient(135deg, #167bff, #00c8ef);
+          box-shadow: 0 3px 12px rgba(0, 135, 255, 0.18);
+        }
+
+        .messageContent {
+          min-width: 0;
+          max-width: calc(100% - 48px);
+          font-size: 15px;
+          line-height: 1.8;
+          color: #263e58;
+          overflow-wrap: anywhere;
+        }
+
+        .userBubble {
+          max-width: 85%;
+          padding: 12px 16px;
+          border-radius: 18px 18px 5px 18px;
+          background: linear-gradient(135deg, #e4f2ff, #dffaff);
+          border: 1px solid #c9e7ff;
+          color: #173d63;
+          font-size: 14px;
+          line-height: 1.7;
+          white-space: pre-wrap;
+          overflow-wrap: anywhere;
+        }
+
+        .assistantBubble {
+          width: 100%;
+          min-width: 0;
+        }
+
+        .assistantBubble p {
+          margin: 0 0 13px;
+        }
+
+        .assistantBubble h1,
+        .assistantBubble h2,
+        .assistantBubble h3 {
+          color: #124f89;
+          line-height: 1.4;
+          margin: 22px 0 10px;
+          font-weight: 800;
+        }
+
+        .assistantBubble h1 {
+          font-size: 23px;
+        }
+
+        .assistantBubble h2 {
+          font-size: 20px;
+        }
+
+        .assistantBubble h3 {
+          font-size: 17px;
+        }
+
+        .assistantBubble ul,
+        .assistantBubble ol {
+          padding-left: 24px;
+          margin: 8px 0 16px;
+        }
+
+        .assistantBubble li {
+          margin: 5px 0;
+          padding-left: 3px;
+        }
+
+        .assistantBubble strong {
+          color: #124f89;
+          font-weight: 800;
+        }
+
+        .assistantBubble blockquote {
+          margin: 12px 0;
+          padding: 10px 15px;
+          border-left: 3px solid #21a8f5;
+          background: #f0f8ff;
+          border-radius: 0 10px 10px 0;
+          color: #456784;
+        }
+
+        .assistantBubble pre {
+          max-width: 100%;
+          overflow-x: auto;
+          padding: 15px;
+          border-radius: 12px;
+          background: #10243c;
+          color: #e3f4ff;
+          font-size: 13px;
+          line-height: 1.6;
+          white-space: pre;
+        }
+
+        .assistantBubble code {
+          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+          overflow-wrap: anywhere;
+        }
+
+        .assistantBubble :not(pre) > code {
+          padding: 2px 5px;
+          border-radius: 5px;
+          background: #eaf4ff;
+          color: #075caa;
+          font-size: 0.9em;
+        }
+
+        .spaceLine {
+          height: 10px;
+        }
+
+        .messageActions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-top: 12px;
+        }
+
+        .actionButton {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 6px 10px;
+          border: 1px solid #dceafa;
+          border-radius: 9px;
+          background: #ffffff;
+          color: #4d6b89;
+          font-size: 12px;
+          cursor: pointer;
+        }
+
+        .actionButton:hover {
+          border-color: #72c5ff;
+          color: #0879d5;
+        }
+
+        .typingIndicator {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 10px 0;
+        }
+
+        .typingDot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: #168de0;
+          animation: typingPulse 1.2s infinite ease-in-out;
+        }
+
+        .typingDot:nth-child(2) {
+          animation-delay: 0.15s;
+        }
+
+        .typingDot:nth-child(3) {
+          animation-delay: 0.3s;
+        }
+
+        @keyframes typingPulse {
+          0%, 60%, 100% {
+            opacity: 0.35;
+            transform: translateY(0);
+          }
+          30% {
+            opacity: 1;
+            transform: translateY(-4px);
+          }
+        }
+
+        .inputArea {
+          flex-shrink: 0;
+          padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+          background: rgba(255, 255, 255, 0.94);
+          border-top: 1px solid #e1edf8;
+          backdrop-filter: blur(16px);
+        }
+
+        .inputInner {
+          max-width: 850px;
+          margin: 0 auto;
+        }
+
+        .inputBox {
+          display: flex;
+          align-items: flex-end;
+          gap: 10px;
+          padding: 9px;
+          border: 1px solid #cfe3f7;
+          border-radius: 20px;
+          background: #ffffff;
+          box-shadow: 0 4px 20px rgba(24, 109, 185, 0.07);
+          transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .inputBox:focus-within {
+          border-color: #5cb9f7;
+          box-shadow: 0 0 0 3px rgba(65, 173, 255, 0.1);
+        }
+
+        .messageInput {
+          flex: 1;
+          min-width: 0;
+          max-height: 180px;
+          resize: none;
+          padding: 10px 8px;
+          border: 0;
+          outline: none;
+          background: transparent;
+          color: #183652;
+          font-family: inherit;
+          font-size: 15px;
+          line-height: 1.6;
+        }
+
+        .messageInput::placeholder {
+          color: #8ba2b9;
+        }
+
+        .sendButton {
+          flex: 0 0 42px;
+          width: 42px;
+          height: 42px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: none;
+          border-radius: 14px;
+          background: linear-gradient(135deg, #1685ff, #00bde8);
+          color: #ffffff;
+          font-size: 19px;
+          cursor: pointer;
+          box-shadow: 0 3px 12px rgba(0, 137, 255, 0.2);
+        }
+
+        .sendButton:disabled {
+          opacity: 0.45;
+          cursor: not-allowed;
+          box-shadow: none;
+        }
+
+        .inputDisclaimer {
+          margin: 8px 0 0;
+          text-align: center;
+          color: #91a4b8;
+          font-size: 10px;
+        }
+
+        .modalOverlay {
+          position: fixed;
+          inset: 0;
+          z-index: 100;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          background: rgba(10, 31, 54, 0.4);
+          backdrop-filter: blur(5px);
+        }
+
+        .modalCard {
+          width: 100%;
+          max-width: 420px;
+          padding: 24px;
+          border: 1px solid #dceafa;
+          border-radius: 22px;
+          background: #ffffff;
+          box-shadow: 0 20px 70px rgba(12, 53, 91, 0.2);
+        }
+
+        .modalTitle {
+          margin: 0 0 10px;
+          color: #173b5d;
+          font-size: 20px;
+          font-weight: 850;
+        }
+
+        .modalText {
+          margin: 0 0 20px;
+          color: #69819a;
+          font-size: 14px;
+          line-height: 1.7;
+        }
+
+        .modalActions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 10px;
+        }
+
+        .modalButton {
+          padding: 10px 15px;
+          border: 1px solid #d7e6f4;
+          border-radius: 11px;
+          background: #ffffff;
+          color: #355573;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        .modalButton.primary {
+          border-color: #1687ed;
+          background: linear-gradient(135deg, #1687ff, #00bde8);
+          color: #ffffff;
+        }
+
+        .errorMessage {
+          margin-top: 10px;
+          padding: 10px 12px;
+          border: 1px solid #ffd5d5;
+          border-radius: 10px;
+          background: #fff6f6;
+          color: #b52d2d;
+          font-size: 13px;
+          line-height: 1.6;
+        }
+
+        @media (max-width: 600px) {
+          .header {
+            padding: 10px 12px;
+          }
+
+          .brandTitle {
+            font-size: 16px;
+          }
+
+          .brandSubtitle {
+            font-size: 10px;
+          }
+
+          .heroLogo {
+            width: 76px;
+            height: 76px;
+            border-radius: 24px;
+            font-size: 34px;
+          }
+
+          .heroTitle {
+            font-size: 29px;
+          }
+
+          .suggestionGrid {
+            gap: 9px;
+          }
+
+          .suggestionCard {
+            padding: 12px;
+            font-size: 12px;
+          }
+
+          .messageList {
+            padding: 18px 12px 26px;
+            gap: 18px;
+          }
+
+          .messageContent {
+            font-size: 14px;
+          }
+
+          .userBubble {
+            font-size: 14px;
+          }
+
+          .inputArea {
+            padding-left: 10px;
+            padding-right: 10px;
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          *,
+          *::before,
+          *::after {
+            animation-duration: 0.01ms !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
           }
         }
       `}</style>
-    </div>
+    </main>
   );
-}
+            }       
