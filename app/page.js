@@ -1087,11 +1087,7 @@ export default function Home() {
           background: #c5d9ef;
           border-radius: 8px;
         }
-      `}</style>
-    </main>
-  );
-          }
-   .homeScreen {
+            .homeScreen {
           min-height: 100%;
           display: flex;
           flex-direction: column;
