@@ -116,7 +116,7 @@ export async function POST(req) {
         { status: 500 }
       );
     }
-
+    
     const systemPrompt = `
 You are ORION AI, an intelligent assistant in the ORION AI
 application, powered by Dharm AI.
@@ -175,17 +175,16 @@ RELIGIOUS TEXT AND SCRIPTURE ACCURACY:
   a source was actually consulted.
 
 ANSWER QUALITY:
-- Answer the user's actual question completely.
-- For "arth batao", explain the supplied or confidently known
-  original verse line by line in simple Hindi.
-- For "karm se samjhao", explain the practical lesson of the
-  actual verse, without replacing the original meaning.
-- For long answers, use clear headings and numbered sections.
-- Do not repeat paragraphs.
-- Do not fabricate sources, quotations or historical claims.
-- If the exact requested passage is uncertain, explain the
-  limitation and ask for the verse or a reliable source rather
-  than creating fake text.
+- Answer the user's actual question completely, with useful detail rather than an unnecessarily short one-line reply.
+- Match answer length to the request. For detailed explanations, provide a thorough, organized answer with relevant examples.
+- For a simple factual question, be direct; do not pad the answer with unrelated material.
+- For "arth batao", explain the supplied or confidently known original verse line by line in simple Hindi, then summarize its overall meaning.
+- For "karm se samjhao", explain the practical lesson of the actual verse or episode, without replacing the original meaning.
+- For long answers, use clear headings, short paragraphs, and numbered sections. Use Markdown tables only when they genuinely help compare information.
+- Do not repeat paragraphs, recycle the same generic answer, or add filler merely to make an answer longer.
+- Do not fabricate sources, quotations, historical claims, verse text, or references. A system prompt alone cannot verify original scripture text; when uncertain, say so plainly and explain the meaning only if it can be done reliably.
+- If the exact requested passage is uncertain, explain the limitation and ask the user to share the passage or a reliable source rather than creating fake text.
+- Keep the identity clear: the assistant is ORION AI; Dharm AI is the original app/creator credit. Do not answer only "Dharm" when asked the assistant's name.
 
 TASK MODES:
 - study: provide clear explanations, notes and worked examples.
@@ -238,94 +237,90 @@ requested language, style and format.
         role: item.role,
         content: item.content.slice(0, 10000),
       }));
+    
+    const lastMessage = history[history.length - 1];
+
+    const conversation = history.length > 0
+      ? history
+      : [{ role: "user", content: question }];
 
     if (
-      !history.length ||
-      history[history.length - 1].role !== "user" ||
-      history[history.length - 1].content.trim() !== question
+      lastMessage?.role !== "user" ||
+      lastMessage?.content.trim() !== question
     ) {
-      history.push({
+      conversation.push({
         role: "user",
         content: question,
       });
     }
 
-    const models = [
-      "openai/gpt-oss-120b",
-      "openai/gpt-oss-20b",
-    ];
-
-    let lastError = "";
-
-    for (const model of models) {
-      try {
-        const upstream = await fetch(
-          "https://api.groq.com/openai/v1/chat/completions",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${apiKey}`,
+    const response = await fetch(
+      "https://api.groq.com/openai/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "openai/gpt-oss-120b",
+          messages: [
+            {
+              role: "system",
+              content: activeSystemPrompt,
             },
-            body: JSON.stringify({
-              model,
-              messages: [
-                {
-                  role: "system",
-                  content: activeSystemPrompt,
-                },
-                ...history,
-              ],
-              temperature: 0.2,
-              max_tokens: 6000,
-              stream: true,
-            }),
-          }
-        );
-
-        if (!upstream.ok) {
-          const errorData = await upstream.json().catch(() => ({}));
-
-          lastError =
-            errorData?.error?.message ||
-            `Groq API error (${upstream.status})`;
-
-          console.error(`${model} failed:`, lastError);
-          continue;
-        }
-
-        if (!upstream.body) {
-          lastError = "Groq response stream missing.";
-          continue;
-        }
-
-        return streamResponse(upstream.body, {
-          "X-Orion-Model": model,
-        });
-      } catch (error) {
-        lastError = error?.message || "Unknown Groq error";
-        console.error(`${model} request failed:`, lastError);
+            ...conversation,
+          ],
+          temperature: 0.5,
+          max_tokens: 6000,
+          stream: true,
+        }),
       }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+
+      console.error("Groq API error:", response.status, errorText);
+
+      return Response.json(
+        {
+          error:
+            response.status === 401
+              ? "GROQ_API_KEY galat ya invalid hai."
+              : response.status === 429
+              ? "API rate limit ya quota khatam ho gaya. Thodi der baad try karein."
+              : `AI API request failed (${response.status}).`,
+        },
+        { status: response.status >= 400 ? response.status : 500 }
+      );
     }
 
-    return Response.json(
-      {
-        error:
-          "ORION AI ko response nahi mila. Groq API key, model access aur rate limit check karein. Details: " +
-          lastError,
+    if (!response.body) {
+      return Response.json(
+        { error: "AI response stream nahi mila." },
+        { status: 502 }
+      );
+    }
+
+    return new Response(response.body, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
       },
-      { status: 503 }
-    );
+    });
   } catch (error) {
     console.error("ORION AI route error:", error);
 
     return Response.json(
       {
         error:
-          "Request process nahi ho saki. Page refresh karke dobara try karein.",
+          "Server mein dikkat aa gayi. Kripya dobara try karein.",
       },
       { status: 500 }
     );
   }
-        }
-                              
+}
