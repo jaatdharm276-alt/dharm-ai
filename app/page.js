@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -34,7 +33,6 @@ function renderInline(text) {
 }
 
 function formatText(text) {
-  // HTML line breaks ko safe text newlines mein badlein.
   const normalized = String(text || "").replace(/<br\s*\/?\s*>/gi, "\n");
   const lines = normalized.split("\n");
   const output = [];
@@ -353,8 +351,8 @@ export default function Home() {
         abortControllerRef.current = null;
       }
     }
-                                                                                      }
-   
+  }
+
   function handleChatScroll() {
     const el = chatAreaRef.current;
     if (!el) return;
@@ -418,7 +416,7 @@ export default function Home() {
 
     try {
       recognition.start();
-    } catch {
+          } catch {
       setListening(false);
       recognitionRef.current = null;
       setNotice("Microphone shuru nahi ho saka.");
@@ -432,12 +430,10 @@ export default function Home() {
     }
 
     window.speechSynthesis.cancel();
-
     const utterance = new SpeechSynthesisUtterance(String(text || ""));
     utterance.lang = "hi-IN";
     utterance.rate = 0.95;
     utterance.pitch = 1;
-
     window.speechSynthesis.speak(utterance);
   }
 
@@ -486,25 +482,14 @@ export default function Home() {
           </span>
           <span className="brandText">
             <span className="brandName">ORION AI</span>
-            <span className="brandSubtitle">
-              Your Intelligent Companion
-            </span>
+            <span className="brandSubtitle">Your Intelligent Companion</span>
           </span>
         </button>
 
         <div className="headerActions">
-          <button
-            className="roundButton"
-            type="button"
-            onClick={newChat}
-            title="New chat"
-            aria-label="New chat"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
+          <button className="roundButton" type="button" onClick={newChat} title="New chat" aria-label="New chat">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
           </button>
-
           <button
             className="roundButton menuButton"
             type="button"
@@ -512,37 +497,24 @@ export default function Home() {
             title="Menu"
             aria-label="Menu"
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M4 7h16M4 12h16M4 17h16" />
-            </svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
           </button>
         </div>
       </header>
 
       {menuOpen && (
         <div className="menuPanel">
-          <button
-            type="button"
-            onClick={newChat}
-            className="menuItem"
-          >
+          <button type="button" onClick={newChat} className="menuItem">
             <span>＋</span> New chat
           </button>
-
           <button
             type="button"
-            onClick={() => {
-              setMenuOpen(false);
-              setShowComingSoon(true);
-            }}
+            onClick={() => { setMenuOpen(false); setShowComingSoon(true); }}
             className="menuItem"
           >
             <span>✧</span> More features
           </button>
-
-          <div className="menuCredit">
-            ORION AI · Powered by Dharm AI
-          </div>
+          <div className="menuCredit">Powered by Dharm AI</div>
         </div>
       )}
 
@@ -559,49 +531,30 @@ export default function Home() {
               <span className="heroOrbit heroOrbitTwo" />
             </div>
 
-            <div className="heroEyebrow">
-              <span className="statusDot" />
-              YOUR AI COMPANION
-            </div>
-
-            <h1 className="heroTitle">
-              Hello, <span>Explorer.</span>
-            </h1>
-
+            <div className="heroEyebrow"><span className="statusDot" /> YOUR AI COMPANION</div>
+            <h1 className="heroTitle">Hello, <span>Explorer.</span></h1>
             <p className="heroDescription">
               Main ORION AI hoon. Aapke sawalon, ideas, padhai,
               kaam aur naye projects mein madad ke liye taiyar.
             </p>
-
-            <div className="creditLine">
-              ORION AI <span>·</span> Powered by Dharm AI
-            </div>
+            <div className="creditLine">Powered by Dharm AI</div>
 
             <div className="taskSection">
               <div className="sectionHeading">
-                <span>Apna task chunein</span>
-                <span className="sectionHint">OPTIONAL</span>
+                <span>Apna task chunein</span><span className="sectionHint">OPTIONAL</span>
               </div>
-
               <div className="taskGrid">
                 {taskModes.map((mode) => (
                   <button
                     type="button"
                     key={mode.id}
-                    className={`taskModeCard ${
-                      taskMode === mode.id ? "taskModeSelected" : ""
-                    }`}
-                    onClick={() => {
-                      setTaskMode(mode.id);
-                      focusComposer();
-                    }}
+                    className={`taskModeCard ${taskMode === mode.id ? "taskModeSelected" : ""}`}
+                    onClick={() => { setTaskMode(mode.id); focusComposer(); }}
                   >
                     <span className="taskIcon">{mode.icon}</span>
                     <span className="taskText">
                       <span className="taskTitle">{mode.title}</span>
-                      <span className="taskDescription">
-                        {mode.description}
-                      </span>
+                      <span className="taskDescription">{mode.description}</span>
                     </span>
                     <span className="taskArrow">↗</span>
                   </button>
@@ -610,20 +563,14 @@ export default function Home() {
             </div>
 
             <div className="suggestionSection">
-              <div className="sectionHeading">
-                <span>Shuru karne ke liye</span>
-              </div>
-
+              <div className="sectionHeading"><span>Shuru karne ke liye</span></div>
               <div className="suggestionGrid">
                 {suggestions.map((item) => (
                   <button
                     key={item.title}
                     type="button"
                     className="suggestionCard"
-                    onClick={() => {
-                      setInput(item.prompt);
-                      focusComposer();
-                    }}
+                    onClick={() => { setInput(item.prompt); focusComposer(); }}
                   >
                     <span className="suggestionIcon">{item.icon}</span>
                     <span>{item.title}</span>
@@ -638,86 +585,42 @@ export default function Home() {
             {messages.map((message, index) => (
               <article
                 key={`${index}-${message.role}`}
-                className={`messageRow ${
-                  message.role === "user" ? "userMessageRow" : "assistantMessageRow"
-                }`}
+                className={`messageRow ${message.role === "user" ? "userMessageRow" : "assistantMessageRow"}`}
               >
-                {message.role === "assistant" && (
-                  <div className="assistantAvatar">✦</div>
-                )}
-
+                {message.role === "assistant" && <div className="assistantAvatar">✦</div>}
                 <div className="messageMain">
                   <div className="messageLabel">
                     {message.role === "user" ? "You" : "ORION AI"}
-                    {message.role === "assistant" && (
-                      <span className="assistantBadge">AI</span>
-                    )}
+                    {message.role === "assistant" && <span className="assistantBadge">AI</span>}
                   </div>
-
-                  <div
-                    className={`messageBubble ${
-                      message.role === "user" ? "userBubble" : "assistantBubble"
-                    }`}
-                  >
+                  <div className={`messageBubble ${message.role === "user" ? "userBubble" : "assistantBubble"}`}>
                     {message.content ? (
                       <div className="messageContent">
                         {formatText(message.content)}
-                        {message.pending && (
-                          <span className="typingCursor" />
-                        )}
+                        {message.pending && <span className="typingCursor" />}
                       </div>
                     ) : message.pending ? (
                       <div className="thinkingIndicator">
-                        <span />
-                        <span />
-                        <span />
-                        <small>ORION soch raha hai...</small>
+                        <span /><span /><span /><small>ORION soch raha hai...</small>
                       </div>
                     ) : null}
                   </div>
-
                   {message.role === "assistant" && message.content && (
                     <div className="messageTools">
-                      <button
-                        type="button"
-                        onClick={() => copyText(message.content)}
-                        className="toolButton"
-                      >
-                        <span>▢</span> Copy
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => speak(message.content)}
-                        className="toolButton"
-                      >
-                        <span>♫</span> Suno
-                      </button>
+                      <button type="button" onClick={() => copyText(message.content)} className="toolButton"><span>▢</span> Copy</button>
+                      <button type="button" onClick={() => speak(message.content)} className="toolButton"><span>♫</span> Suno</button>
                     </div>
                   )}
                 </div>
               </article>
             ))}
-
-            {loading && messages[messages.length - 1]?.role !== "assistant" && (
-              <div className="thinkingIndicator">
-                <span />
-                <span />
-                <span />
-                <small>ORION soch raha hai...</small>
-              </div>
-            )}
           </div>
         )}
       </section>
-   
+
       <footer className="bottomArea">
         {notice && (
-          <button
-            type="button"
-            className="noticeBar"
-            onClick={() => setNotice("")}
-          >
+          <button type="button" className="noticeBar" onClick={() => setNotice("")}>
             {notice} <span>×</span>
           </button>
         )}
@@ -725,17 +628,23 @@ export default function Home() {
         <div className="composerOuter">
           {taskMode !== "chat" && !hasMessages && (
             <div className="activeTaskLabel">
-              <span>
-                {taskModes.find((item) => item.id === taskMode)?.icon}
-              </span>
+              <span>{taskModes.find((item) => item.id === taskMode)?.icon}</span>
               {taskModes.find((item) => item.id === taskMode)?.title || "Task"}
-              <button type="button" onClick={() => setTaskMode("chat")}>
-                ×
-              </button>
+              <button type="button" onClick={() => setTaskMode("chat")}>×</button>
             </div>
           )}
 
           <form className="inputBox" onSubmit={handleSubmit}>
+            <button
+              type="button"
+              className="inputIconButton"
+              title="More features"
+              aria-label="More features"
+              onClick={() => setShowComingSoon(true)}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+            </button>
+
             <textarea
               ref={inputRef}
               value={input}
@@ -746,114 +655,48 @@ export default function Home() {
               aria-label="Message"
             />
 
-            <div className="inputActions">
-              <div className="inputLeftActions">
-                <button
-                  type="button"
-                  className="inputIconButton"
-                  title="More features"
-                  aria-label="More features"
-                  onClick={() => setShowComingSoon(true)}
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M12 5v14M5 12h14" />
-                  </svg>
-                </button>
-                <span className="inputHint">Shift + Enter for new line</span>
-              </div>
+            <button
+              type="button"
+              className={`voiceButton ${listening ? "voiceButtonActive" : ""}`}
+              title={listening ? "Voice band karein" : "Voice input"}
+              aria-label="Voice input"
+              onClick={startVoice}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="9" y="3" width="6" height="12" rx="3" />
+                <path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" />
+              </svg>
+            </button>
 
-              <div className="inputRightActions">
-                <button
-                  type="button"
-                  className={`voiceButton ${listening ? "voiceButtonActive" : ""}`}
-                  title={listening ? "Voice band karein" : "Voice input"}
-                  aria-label="Voice input"
-                  onClick={startVoice}
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <rect x="9" y="3" width="6" height="12" rx="3" />
-                    <path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" />
-                  </svg>
-                </button>
-
-                {loading ? (
-                  <button
-                    type="button"
-                    className="sendButton stopButton"
-                    onClick={stopGeneration}
-                    title="Stop response"
-                    aria-label="Stop response"
-                  >
-                    <span className="stopSquare" />
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    className="sendButton"
-                    disabled={!input.trim()}
-                    title="Send message"
-                    aria-label="Send message"
-                  >
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M12 19V5M5 12l7-7 7 7" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-            </div>
+            {loading ? (
+              <button type="button" className="sendButton stopButton" onClick={stopGeneration} title="Stop response" aria-label="Stop response">
+                <span className="stopSquare" />
+              </button>
+            ) : (
+              <button type="submit" className="sendButton" disabled={!input.trim()} title="Send message" aria-label="Send message">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
+              </button>
+            )}
           </form>
         </div>
 
-        <div className="footerCaption">
-          <span className="footerBrandDot">✦</span>
-          ORION AI <span className="footerSeparator">·</span> Powered by Dharm AI
-        </div>
-        <div className="disclaimer">
-          AI kabhi-kabhi galti kar sakta hai. Zaroori jaankari verify karein.
-        </div>
+        <div className="footerCaption">Powered by Dharm AI</div>
       </footer>
 
       {showComingSoon && (
-        <div
-          className="modalBackdrop"
-          onClick={() => setShowComingSoon(false)}
-          role="presentation"
-        >
-          <div
-            className="modalCard"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="modalTitle"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <button
-              type="button"
-              className="modalClose"
-              onClick={() => setShowComingSoon(false)}
-              aria-label="Close"
-            >
-              ×
-            </button>
+        <div className="modalBackdrop" onClick={() => setShowComingSoon(false)} role="presentation">
+          <div className="modalCard" role="dialog" aria-modal="true" aria-labelledby="modalTitle" onClick={(event) => event.stopPropagation()}>
+            <button type="button" className="modalClose" onClick={() => setShowComingSoon(false)} aria-label="Close">×</button>
             <div className="modalIcon">✦</div>
             <h2 id="modalTitle">More features</h2>
-            <p>
-              ORION AI ke naye features par kaam chal raha hai.
-              Filhaal aap chat, voice input, copy aur text-to-speech
-              ka istemal kar sakte hain.
-            </p>
-            <button
-              type="button"
-              className="modalPrimary"
-              onClick={() => setShowComingSoon(false)}
-            >
-              Samajh gaya
-            </button>
+            <p>ORION AI ke naye features par kaam chal raha hai. Filhaal aap chat, voice input, copy aur text-to-speech ka istemal kar sakte hain.</p>
+            <button type="button" className="modalPrimary" onClick={() => setShowComingSoon(false)}>Samajh gaya</button>
           </div>
         </div>
       )}
 
       <style jsx global>{`
-        * {
+              * {
           box-sizing: border-box;
         }
 
@@ -862,8 +705,8 @@ export default function Home() {
           margin: 0;
           padding: 0;
           min-height: 100%;
-          background: #f6f9ff;
-          color: #172c4c;
+          background: #f8fbff;
+          color: #19365b;
           font-family: Inter, ui-sans-serif, system-ui, -apple-system,
             BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
@@ -882,6 +725,7 @@ export default function Home() {
         }
 
         .page {
+          width: 100%;
           height: 100dvh;
           min-height: 0;
           display: flex;
@@ -890,180 +734,199 @@ export default function Home() {
           position: relative;
           isolation: isolate;
           background:
-            radial-gradient(ellipse at 50% -20%, rgba(92, 180, 255, 0.17), transparent 48%),
-            linear-gradient(145deg, #fbfdff 0%, #f3f8ff 52%, #fafdff 100%);
-          color: #172c4c;
+            radial-gradient(ellipse at 50% 0%, rgba(92, 180, 255, 0.12), transparent 42%),
+            linear-gradient(145deg, #ffffff 0%, #f5f9ff 55%, #ffffff 100%);
+          color: #19365b;
         }
 
         .ambientGlow {
           position: absolute;
-          width: 320px;
-          height: 320px;
+          width: 300px;
+          height: 300px;
           border-radius: 50%;
-          filter: blur(85px);
+          filter: blur(90px);
           pointer-events: none;
           z-index: -1;
-          opacity: 0.28;
+          opacity: 0.23;
         }
 
         .ambientGlowOne {
-          background: #70baff;
-          top: 20%;
+          background: #71baff;
+          top: 15%;
           left: -230px;
         }
 
         .ambientGlowTwo {
-          background: #72e6f5;
-          right: -240px;
+          background: #6be2f4;
+          right: -230px;
           bottom: 12%;
         }
 
         .header {
-          height: 76px;
-          flex: 0 0 76px;
-          width: 100%;
+          flex-shrink: 0;
+          min-height: 88px;
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 12px;
-          padding: 0 24px;
-          background: rgba(255, 255, 255, 0.88);
-          border-bottom: 1px solid #e4edf9;
-          backdrop-filter: blur(18px);
+          padding: 14px 22px;
+          border-bottom: 1px solid rgba(76, 145, 220, 0.17);
+          background: rgba(255, 255, 255, 0.91);
+          box-shadow: 0 4px 24px rgba(60, 130, 210, 0.07);
           position: relative;
-          z-index: 10;
-          box-shadow: 0 3px 18px rgba(37, 86, 145, 0.035);
+          z-index: 5;
+          backdrop-filter: blur(18px);
         }
 
         .brandButton {
+          min-width: 0;
           display: flex;
           align-items: center;
-          gap: 11px;
+          gap: 14px;
           border: 0;
           background: transparent;
           color: inherit;
-          cursor: pointer;
-          padding: 0;
           text-align: left;
-          min-width: 0;
+          padding: 0;
+          cursor: pointer;
         }
 
         .logoMark {
-          width: 43px;
-          height: 43px;
+          width: 64px;
+          height: 64px;
           flex-shrink: 0;
           display: grid;
           place-items: center;
-          border-radius: 14px;
-          background: linear-gradient(140deg, #eff8ff, #dcecff);
-          border: 1px solid #b6d9ff;
-          color: #0876ec;
-          box-shadow: 0 0 18px rgba(43, 142, 255, 0.17),
-            inset 0 0 12px rgba(255, 255, 255, 0.9);
+          border-radius: 20px;
+          border: 1px solid #b9dafa;
+          background: linear-gradient(145deg, #ffffff, #eaf5ff);
+          box-shadow: 0 0 0 1px rgba(81, 167, 255, 0.09),
+            0 0 22px rgba(65, 160, 255, 0.18),
+            inset 0 0 14px rgba(90, 172, 255, 0.09);
         }
 
         .logoStar {
-          font-size: 27px;
-          text-shadow: 0 0 12px rgba(20, 142, 255, 0.6);
+          font-size: 34px;
+          color: #087be8;
+          text-shadow: 0 0 10px rgba(30, 142, 255, 0.65);
         }
 
         .brandText {
           display: flex;
           flex-direction: column;
           gap: 3px;
+          min-width: 0;
         }
 
         .brandName {
-          color: #123b70;
-          font-size: 17px;
+          font-size: 25px;
           font-weight: 850;
-          letter-spacing: 1.6px;
+          letter-spacing: 2px;
+          color: #174777;
         }
 
         .brandSubtitle {
-          color: #7387a4;
-          font-size: 10px;
-          letter-spacing: 0.25px;
+          color: #7b8da5;
+          font-size: 14px;
+          letter-spacing: 0.3px;
         }
 
         .headerActions {
           display: flex;
           align-items: center;
-          gap: 9px;
+          gap: 12px;
+        }
+
+        .roundButton,
+        .inputIconButton,
+        .voiceButton,
+        .sendButton {
+          flex-shrink: 0;
+          display: grid;
+          place-items: center;
+          cursor: pointer;
+          color: #27649c;
+          border: 1px solid #c8dff5;
+          background: linear-gradient(145deg, #ffffff, #f1f8ff);
+          box-shadow: 0 0 0 1px rgba(65, 150, 235, 0.04),
+            0 0 14px rgba(70, 155, 240, 0.11),
+            inset 0 0 8px rgba(255, 255, 255, 0.9);
+          transition: transform 0.18s ease, box-shadow 0.18s ease,
+            border-color 0.18s ease;
+        }
+
+        .roundButton:hover,
+        .inputIconButton:hover,
+        .voiceButton:hover,
+        .sendButton:not(:disabled):hover {
+          transform: translateY(-1px);
+          border-color: #70b8ff;
+          box-shadow: 0 0 18px rgba(45, 151, 255, 0.24);
         }
 
         .roundButton {
-          width: 40px;
-          height: 40px;
-          display: grid;
-          place-items: center;
-          border: 1px solid #dce8f7;
-          border-radius: 13px;
-          background: #fff;
-          color: #35618e;
-          cursor: pointer;
-          transition: 0.2s ease;
-        }
-
-        .roundButton:hover {
-          color: #0879ed;
-          border-color: #8dc5ff;
-          box-shadow: 0 0 16px rgba(32, 140, 255, 0.14);
-          transform: translateY(-1px);
+          width: 58px;
+          height: 58px;
+          border-radius: 20px;
         }
 
         .roundButton svg,
         .inputIconButton svg,
         .voiceButton svg,
         .sendButton svg {
-          width: 20px;
-          height: 20px;
+          width: 25px;
+          height: 25px;
           fill: none;
           stroke: currentColor;
-          stroke-width: 1.8;
+          stroke-width: 1.9;
           stroke-linecap: round;
           stroke-linejoin: round;
         }
 
         .menuPanel {
           position: absolute;
-          top: 66px;
-          right: 22px;
-          z-index: 30;
-          width: 230px;
-          padding: 9px;
-          border-radius: 17px;
+          top: 78px;
+          right: 20px;
+          width: min(260px, calc(100vw - 32px));
+          padding: 10px;
+          border: 1px solid #c7e0fa;
+          border-radius: 18px;
           background: rgba(255, 255, 255, 0.98);
-          border: 1px solid #dce8f8;
-          box-shadow: 0 15px 45px rgba(26, 68, 120, 0.15);
+          box-shadow: 0 12px 35px rgba(36, 100, 165, 0.18),
+            0 0 15px rgba(70, 160, 255, 0.12);
+          z-index: 20;
         }
 
         .menuItem {
           width: 100%;
-          padding: 12px;
-          border: 0;
-          border-radius: 10px;
           display: flex;
           align-items: center;
           gap: 10px;
-          text-align: left;
+          padding: 12px;
+          border: 0;
+          border-radius: 12px;
           background: transparent;
-          color: #294668;
+          color: #24496f;
+          text-align: left;
           cursor: pointer;
         }
 
         .menuItem:hover {
-          background: #eff7ff;
-          color: #0879ed;
+          background: #edf7ff;
+        }
+
+        .menuItem span {
+          color: #087be8;
+          font-size: 20px;
         }
 
         .menuCredit {
-          border-top: 1px solid #e7eef8;
-          margin-top: 6px;
-          padding: 12px 7px 5px;
-          color: #8192aa;
-          font-size: 10px;
+          padding: 10px 8px 4px;
+          border-top: 1px solid #e3eef9;
+          margin-top: 5px;
           text-align: center;
+          color: #7a8da5;
+          font-size: 11px;
         }
 
         .chatArea {
@@ -1087,500 +950,1032 @@ export default function Home() {
           background: #c5d9ef;
           border-radius: 8px;
         }
-            .homeScreen {
+
+        .homeScreen {
+          width: min(100%, 860px);
           min-height: 100%;
+          margin: 0 auto;
+          padding: 24px 24px 20px;
           display: flex;
           flex-direction: column;
           align-items: center;
-          justify-content: center;
-          text-align: center;
-          padding: 32px 18px;
-          gap: 20px;
         }
 
         .heroLogo {
-          width: 92px;
-          height: 92px;
-          border-radius: 28px;
+          width: 70px;
+          height: 70px;
+          position: relative;
+          display: grid;
+          place-items: center;
+          border-radius: 23px;
+          border: 1px solid #b8daf9;
+          background: linear-gradient(145deg, #ffffff, #edf7ff);
+          box-shadow: 0 0 0 1px rgba(68, 157, 247, 0.08),
+            0 0 28px rgba(60, 156, 255, 0.19),
+            inset 0 0 14px rgba(70, 160, 255, 0.08);
+          margin-bottom: 12px;
+        }
+
+        .heroLogoCore {
+          color: #087be8;
+          font-size: 38px;
+          text-shadow: 0 0 14px rgba(26, 143, 255, 0.6);
+        }
+
+        .heroOrbit {
+          position: absolute;
+          border: 1px solid rgba(39, 143, 237, 0.58);
+          border-radius: 50%;
+          pointer-events: none;
+        }
+
+        .heroOrbitOne {
+          width: 52px;
+          height: 20px;
+          transform: rotate(-32deg);
+        }
+
+        .heroOrbitTwo {
+          width: 22px;
+          height: 52px;
+          transform: rotate(38deg);
+          opacity: 0.6;
+        }
+
+        .heroEyebrow {
           display: flex;
           align-items: center;
-          justify-content: center;
-          font-size: 42px;
-          font-weight: 900;
-          color: #ffffff;
-          background: linear-gradient(135deg, #1687ff, #00d4ff);
-          box-shadow: 0 0 30px rgba(0, 174, 255, 0.38);
-          border: 1px solid rgba(255, 255, 255, 0.65);
+          gap: 8px;
+          margin-top: 2px;
+          color: #6b88a9;
+          font-size: 10px;
+          font-weight: 750;
+          letter-spacing: 2px;
+        }
+
+        .statusDot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: #21b8e9;
+          box-shadow: 0 0 9px rgba(33, 184, 233, 0.65);
         }
 
         .heroTitle {
-          margin: 0;
-          font-size: clamp(28px, 5vw, 42px);
+          margin: 8px 0 0;
+          color: #183c65;
+          text-align: center;
+          font-size: clamp(30px, 5vw, 43px);
+          line-height: 1.18;
+          letter-spacing: 0.4px;
           font-weight: 850;
-          letter-spacing: -1px;
-          color: #102d50;
         }
 
-        .heroSubtitle {
-          margin: 0;
-          max-width: 480px;
-          font-size: 15px;
-          line-height: 1.7;
-          color: #66809d;
+        .heroTitle span {
+          background: linear-gradient(90deg, #1679d5, #64b8ff);
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
         }
 
-        .heroCredit {
+        .heroDescription {
+          max-width: 490px;
+          margin: 10px auto 0;
+          color: #71849c;
+          font-size: 14px;
+          line-height: 1.65;
+          text-align: center;
+        }
+
+        .creditLine {
+          margin-top: 6px;
+          color: #8a9bb0;
+          font-size: 11px;
+          letter-spacing: 0.5px;
+          text-align: center;
+        }
+
+        .taskSection,
+        .suggestionSection {
+          width: 100%;
+          margin-top: 24px;
+        }
+
+        .sectionHeading {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          margin-bottom: 11px;
+          color: #617b98;
           font-size: 12px;
-          font-weight: 700;
+          font-weight: 750;
+          letter-spacing: 0.8px;
+          text-transform: uppercase;
+        }
+
+        .sectionHint {
+          color: #9aadc2;
+          font-size: 9px;
           letter-spacing: 1px;
-          color: #1687df;
+        }
+
+        .taskGrid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+        }
+
+        .taskModeCard {
+          min-width: 0;
+          min-height: 74px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 13px 14px;
+          border-radius: 18px;
+          border: 1px solid #d4e6f8;
+          background: rgba(255, 255, 255, 0.86);
+          color: #24496f;
+          text-align: left;
+          cursor: pointer;
+          box-shadow: 0 0 0 1px rgba(61, 149, 235, 0.035),
+            0 0 15px rgba(72, 156, 234, 0.08),
+            inset 0 0 10px rgba(255, 255, 255, 0.9);
+          transition: transform 0.18s ease, border-color 0.18s ease,
+            box-shadow 0.18s ease;
+        }
+
+        .taskModeCard:hover,
+        .taskModeSelected {
+          border-color: #78bdff;
+          box-shadow: 0 0 0 1px rgba(63, 157, 250, 0.14),
+            0 0 20px rgba(56, 153, 255, 0.19);
+          transform: translateY(-1px);
+        }
+
+        .taskIcon,
+        .suggestionIcon {
+          flex-shrink: 0;
+          display: grid;
+          place-items: center;
+          color: #1684e5;
+          background: linear-gradient(145deg, #ffffff, #edf7ff);
+          border: 1px solid #c4e0fb;
+          box-shadow: 0 0 13px rgba(50, 147, 240, 0.12);
+        }
+
+        .taskIcon {
+          width: 42px;
+          height: 42px;
+          border-radius: 14px;
+          font-size: 20px;
+        }
+
+        .taskText {
+          min-width: 0;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .taskTitle {
+          color: #244b73;
+          font-size: 13px;
+          font-weight: 750;
+        }
+
+        .taskDescription {
+          color: #8497ad;
+          font-size: 10px;
+          line-height: 1.35;
+        }
+
+        .taskArrow,
+        .suggestionArrow {
+          flex-shrink: 0;
+          color: #73a8db;
+          font-size: 14px;
+        }
+
+        .suggestionSection {
+          margin-top: 22px;
         }
 
         .suggestionGrid {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 12px;
-          width: 100%;
-          max-width: 600px;
-          margin-top: 10px;
+          gap: 10px;
         }
 
         .suggestionCard {
-          padding: 16px;
-          border: 1px solid #dceafa;
-          border-radius: 17px;
-          background: rgba(255, 255, 255, 0.86);
-          color: #244362;
+          min-width: 0;
+          min-height: 55px;
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          padding: 10px 12px;
+          border: 1px solid #dce9f7;
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.82);
+          color: #365879;
+          font-size: 12px;
           text-align: left;
           cursor: pointer;
-          transition: 0.2s ease;
-          font-size: 13px;
-          line-height: 1.5;
+          box-shadow: 0 0 14px rgba(63, 145, 220, 0.07);
+          transition: transform 0.18s ease, border-color 0.18s ease,
+            box-shadow 0.18s ease;
         }
 
         .suggestionCard:hover {
-          border-color: #55baff;
-          box-shadow: 0 5px 22px rgba(0, 139, 255, 0.12);
-          transform: translateY(-2px);
+          transform: translateY(-1px);
+          border-color: #8bc8ff;
+          box-shadow: 0 0 17px rgba(63, 151, 244, 0.17);
         }
 
-        .suggestionTitle {
-          display: block;
-          margin-bottom: 5px;
-          font-weight: 800;
-          color: #126ec2;
-        }
-
-        .messageList {
-          width: 100%;
-          max-width: 850px;
+        .suggestionIcon {
+          width: 30px;
+          height: 30px;
+          border-radius: 10px;
+          font-size: 15px;
+              }
+                     .messagesContainer {
+          width: min(100%, 850px);
           margin: 0 auto;
+          padding: 24px 24px 28px;
           display: flex;
           flex-direction: column;
           gap: 22px;
-          padding: 22px 16px 32px;
         }
 
         .messageRow {
           display: flex;
           align-items: flex-start;
           gap: 11px;
-          width: 100%;
+          min-width: 0;
         }
 
-        .messageRow.user {
+        .userMessageRow {
           justify-content: flex-end;
         }
 
-        .messageAvatar {
-          flex: 0 0 34px;
+        .assistantAvatar {
           width: 34px;
           height: 34px;
+          flex-shrink: 0;
+          display: grid;
+          place-items: center;
+          color: #087be8;
+          border: 1px solid #c1def9;
           border-radius: 12px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #ffffff;
-          font-size: 13px;
-          font-weight: 900;
-          background: linear-gradient(135deg, #167bff, #00c8ef);
-          box-shadow: 0 3px 12px rgba(0, 135, 255, 0.18);
+          background: #f1f8ff;
+          box-shadow: 0 0 13px rgba(56, 153, 255, 0.15);
         }
 
-        .messageContent {
+        .messageMain {
           min-width: 0;
-          max-width: calc(100% - 48px);
-          font-size: 15px;
-          line-height: 1.8;
-          color: #263e58;
+          max-width: calc(100% - 45px);
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .userMessageRow .messageMain {
+          align-items: flex-end;
+          max-width: 88%;
+        }
+
+        .messageLabel {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          margin: 0 0 6px 4px;
+          color: #6e86a1;
+          font-size: 11px;
+          font-weight: 750;
+        }
+
+        .assistantBadge {
+          padding: 2px 5px;
+          color: #1682de;
+          border: 1px solid #d0e8ff;
+          border-radius: 5px;
+          font-size: 9px;
+        }
+
+        .messageBubble {
+          max-width: 100%;
+          min-width: 0;
+          padding: 13px 15px;
+          border-radius: 17px;
           overflow-wrap: anywhere;
+          line-height: 1.7;
+          font-size: 14px;
         }
 
         .userBubble {
-          max-width: 85%;
-          padding: 12px 16px;
-          border-radius: 18px 18px 5px 18px;
-          background: linear-gradient(135deg, #e4f2ff, #dffaff);
-          border: 1px solid #c9e7ff;
-          color: #173d63;
-          font-size: 14px;
-          line-height: 1.7;
-          white-space: pre-wrap;
-          overflow-wrap: anywhere;
+          color: #183e67;
+          background: linear-gradient(145deg, #eaf5ff, #f5faff);
+          border: 1px solid #c9e3fb;
+          border-top-right-radius: 5px;
+          box-shadow: 0 0 15px rgba(67, 153, 231, 0.08);
         }
 
         .assistantBubble {
-          width: 100%;
-          min-width: 0;
+          color: #263f5b;
+          background: rgba(255, 255, 255, 0.91);
+          border: 1px solid #e0ebf7;
+          border-top-left-radius: 5px;
+          box-shadow: 0 0 17px rgba(65, 135, 201, 0.055);
         }
 
-        .assistantBubble p {
-          margin: 0 0 13px;
+        .messageContent p {
+          margin: 0 0 10px;
+          white-space: pre-wrap;
         }
 
-        .assistantBubble h1,
-        .assistantBubble h2,
-        .assistantBubble h3 {
-          color: #124f89;
+        .messageContent p:last-child {
+          margin-bottom: 0;
+        }
+
+        .messageContent h2,
+        .messageContent h3,
+        .messageContent h4 {
+          margin: 15px 0 8px;
+          color: #174e83;
           line-height: 1.4;
-          margin: 22px 0 10px;
-          font-weight: 800;
         }
 
-        .assistantBubble h1 {
-          font-size: 23px;
+        .messageContent h2 {
+          font-size: 19px;
         }
 
-        .assistantBubble h2 {
-          font-size: 20px;
+        .messageContent h3 {
+          font-size: 16px;
         }
 
-        .assistantBubble h3 {
-          font-size: 17px;
+        .messageContent h4 {
+          font-size: 14px;
         }
 
-        .assistantBubble ul,
-        .assistantBubble ol {
-          padding-left: 24px;
-          margin: 8px 0 16px;
+        .spaceLine {
+          height: 5px;
         }
 
-        .assistantBubble li {
+        .textBullet,
+        .numberedLine {
+          display: flex;
+          align-items: flex-start;
+          gap: 8px;
           margin: 5px 0;
-          padding-left: 3px;
         }
 
-        .assistantBubble strong {
-          color: #124f89;
-          font-weight: 800;
+        .textBullet > span:first-child,
+        .numberedLine > span:first-child {
+          flex-shrink: 0;
+          color: #1686e6;
+          font-weight: 750;
         }
 
-        .assistantBubble blockquote {
-          margin: 12px 0;
-          padding: 10px 15px;
-          border-left: 3px solid #21a8f5;
-          background: #f0f8ff;
-          border-radius: 0 10px 10px 0;
-          color: #456784;
-        }
-
-        .assistantBubble pre {
+        .codeBlock {
           max-width: 100%;
+          margin: 10px 0;
+          padding: 13px;
           overflow-x: auto;
-          padding: 15px;
+          border: 1px solid #d6e7f7;
           border-radius: 12px;
-          background: #10243c;
-          color: #e3f4ff;
-          font-size: 13px;
+          background: #f4f8fd;
+          color: #244b70;
+          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+          font-size: 12px;
           line-height: 1.6;
           white-space: pre;
         }
 
-        .assistantBubble code {
-          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-          overflow-wrap: anywhere;
+        .tableWrap {
+          max-width: 100%;
+          margin: 10px 0;
+          overflow-x: auto;
+          border: 1px solid #dce9f6;
+          border-radius: 10px;
         }
 
-        .assistantBubble :not(pre) > code {
-          padding: 2px 5px;
-          border-radius: 5px;
-          background: #eaf4ff;
-          color: #075caa;
-          font-size: 0.9em;
+        .answerTable {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 12px;
         }
 
-        .spaceLine {
-          height: 10px;
+        .answerTable th,
+        .answerTable td {
+          padding: 9px 10px;
+          text-align: left;
+          border-bottom: 1px solid #e2edf7;
         }
 
-        .messageActions {
+        .answerTable th {
+          background: #eff7ff;
+          color: #1b588e;
+        }
+
+        .answerTable tr:last-child td {
+          border-bottom: 0;
+        }
+
+        .messageTools {
           display: flex;
-          flex-wrap: wrap;
           gap: 8px;
-          margin-top: 12px;
+          margin-top: 7px;
         }
 
-        .actionButton {
+        .toolButton {
           display: inline-flex;
           align-items: center;
           gap: 5px;
-          padding: 6px 10px;
-          border: 1px solid #dceafa;
+          padding: 5px 9px;
+          border: 1px solid #dfebf7;
           border-radius: 9px;
-          background: #ffffff;
-          color: #4d6b89;
-          font-size: 12px;
+          color: #6d86a0;
+          background: rgba(255, 255, 255, 0.85);
+          font-size: 11px;
           cursor: pointer;
         }
 
-        .actionButton:hover {
-          border-color: #72c5ff;
-          color: #0879d5;
+        .toolButton:hover {
+          border-color: #8fc8ff;
+          color: #137bd0;
+          box-shadow: 0 0 10px rgba(61, 150, 239, 0.12);
         }
 
-        .typingIndicator {
-          display: inline-flex;
+        .typingCursor {
+          display: inline-block;
+          width: 2px;
+          height: 15px;
+          margin-left: 3px;
+          vertical-align: middle;
+          background: #1686e6;
+          animation: cursorBlink 0.8s steps(2, start) infinite;
+        }
+
+        @keyframes cursorBlink {
+          to { visibility: hidden; }
+        }
+
+        .thinkingIndicator {
+          display: flex;
           align-items: center;
           gap: 5px;
-          padding: 10px 0;
+          padding: 10px 14px;
+          color: #6e86a1;
+          font-size: 12px;
         }
 
-        .typingDot {
-          width: 7px;
-          height: 7px;
+        .thinkingIndicator > span {
+          width: 6px;
+          height: 6px;
           border-radius: 50%;
-          background: #168de0;
-          animation: typingPulse 1.2s infinite ease-in-out;
+          background: #2796ed;
+          animation: dotPulse 1s infinite alternate;
         }
 
-        .typingDot:nth-child(2) {
-          animation-delay: 0.15s;
+        .thinkingIndicator > span:nth-child(2) {
+          animation-delay: 0.2s;
         }
 
-        .typingDot:nth-child(3) {
-          animation-delay: 0.3s;
+        .thinkingIndicator > span:nth-child(3) {
+          animation-delay: 0.4s;
         }
 
-        @keyframes typingPulse {
-          0%, 60%, 100% {
-            opacity: 0.35;
-            transform: translateY(0);
-          }
-          30% {
-            opacity: 1;
-            transform: translateY(-4px);
-          }
+        .thinkingIndicator small {
+          margin-left: 5px;
+          font-size: 11px;
         }
 
-        .inputArea {
+        @keyframes dotPulse {
+          from { opacity: 0.35; transform: translateY(0); }
+          to { opacity: 1; transform: translateY(-3px); }
+        }
+
+        .bottomArea {
           flex-shrink: 0;
-          padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
-          background: rgba(255, 255, 255, 0.94);
-          border-top: 1px solid #e1edf8;
+          width: 100%;
+          padding: 10px 22px 12px;
+          background: rgba(255, 255, 255, 0.93);
+          border-top: 1px solid rgba(103, 161, 218, 0.13);
+          position: relative;
+          z-index: 4;
           backdrop-filter: blur(16px);
         }
 
-        .inputInner {
-          max-width: 850px;
+        .composerOuter {
+          width: min(100%, 850px);
           margin: 0 auto;
         }
 
         .inputBox {
+          width: 100%;
+          min-height: 66px;
           display: flex;
-          align-items: flex-end;
+          align-items: center;
           gap: 10px;
-          padding: 9px;
-          border: 1px solid #cfe3f7;
-          border-radius: 20px;
+          padding: 9px 10px;
+          border: 1.5px solid #9acfff;
+          border-radius: 26px;
           background: #ffffff;
-          box-shadow: 0 4px 20px rgba(24, 109, 185, 0.07);
-          transition: border-color 0.2s, box-shadow 0.2s;
+          box-shadow: 0 0 0 1px rgba(68, 159, 248, 0.09),
+            0 0 18px rgba(57, 151, 244, 0.14),
+            inset 0 0 12px rgba(82, 165, 242, 0.035);
+          transition: border-color 0.18s ease, box-shadow 0.18s ease;
         }
 
         .inputBox:focus-within {
-          border-color: #5cb9f7;
-          box-shadow: 0 0 0 3px rgba(65, 173, 255, 0.1);
+          border-color: #4daaff;
+          box-shadow: 0 0 0 2px rgba(65, 158, 249, 0.11),
+            0 0 24px rgba(48, 145, 243, 0.19);
         }
 
-        .messageInput {
+        .inputIconButton,
+        .voiceButton,
+        .sendButton {
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+        }
+
+        .inputBox textarea {
           flex: 1;
+          width: 0;
           min-width: 0;
-          max-height: 180px;
+          min-height: 25px;
+          max-height: 130px;
           resize: none;
-          padding: 10px 8px;
-          border: 0;
           outline: none;
+          border: 0;
+          padding: 5px 0;
           background: transparent;
-          color: #183652;
-          font-family: inherit;
-          font-size: 15px;
-          line-height: 1.6;
+          color: #203e5e;
+          font-size: 14px;
+          line-height: 1.5;
+          overflow-y: auto;
         }
 
-        .messageInput::placeholder {
-          color: #8ba2b9;
+        .inputBox textarea::placeholder {
+          color: #8b9cb1;
+          opacity: 1;
+        }
+
+        .voiceButtonActive {
+          color: #ffffff;
+          background: linear-gradient(135deg, #268ff0, #60b9ff);
+          border-color: #65b5fa;
+          box-shadow: 0 0 18px rgba(39, 146, 246, 0.35);
+          animation: voiceGlow 1.3s ease-in-out infinite alternate;
+        }
+
+        @keyframes voiceGlow {
+          from { box-shadow: 0 0 8px rgba(39, 146, 246, 0.25); }
+          to { box-shadow: 0 0 22px rgba(39, 146, 246, 0.5); }
         }
 
         .sendButton {
-          flex: 0 0 42px;
-          width: 42px;
-          height: 42px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border: none;
-          border-radius: 14px;
-          background: linear-gradient(135deg, #1685ff, #00bde8);
           color: #ffffff;
-          font-size: 19px;
-          cursor: pointer;
-          box-shadow: 0 3px 12px rgba(0, 137, 255, 0.2);
+          background: linear-gradient(145deg, #3c9cf3, #1680df);
+          border-color: #4fa8f5;
+          box-shadow: 0 0 16px rgba(34, 137, 234, 0.28);
         }
 
         .sendButton:disabled {
-          opacity: 0.45;
-          cursor: not-allowed;
+          color: #a7cce9;
+          background: #edf6ff;
+          border-color: #d7e8f8;
           box-shadow: none;
+          cursor: not-allowed;
         }
 
-        .inputDisclaimer {
-          margin: 8px 0 0;
-          text-align: center;
-          color: #91a4b8;
-          font-size: 10px;
+        .stopButton {
+          background: linear-gradient(145deg, #f08b8b, #dc5151);
+          border-color: #ef9c9c;
         }
 
-        .modalOverlay {
-          position: fixed;
-          inset: 0;
-          z-index: 100;
+        .stopSquare {
+          width: 12px;
+          height: 12px;
+          border-radius: 3px;
+          background: #ffffff;
+        }
+
+        .activeTaskLabel {
           display: flex;
           align-items: center;
-          justify-content: center;
+          gap: 7px;
+          width: fit-content;
+          max-width: 100%;
+          margin: 0 0 8px 12px;
+          padding: 5px 10px;
+          color: #2673b7;
+          background: #eff7ff;
+          border: 1px solid #cce4fa;
+          border-radius: 10px;
+          font-size: 11px;
+        }
+
+        .activeTaskLabel button {
+          border: 0;
+          background: transparent;
+          color: #6f8ca8;
+          font-size: 17px;
+          cursor: pointer;
+        }
+
+        .noticeBar {
+          display: block;
+          max-width: min(100%, 850px);
+          margin: 0 auto 8px;
+          padding: 8px 12px;
+          border: 1px solid #cbe4fb;
+          border-radius: 12px;
+          background: #f0f8ff;
+          color: #28689e;
+          font-size: 12px;
+          cursor: pointer;
+        }
+
+        .noticeBar span {
+          margin-left: 8px;
+        }
+
+        .footerCaption {
+          margin: 8px auto 0;
+          color: #7c91a9;
+          text-align: center;
+          font-size: 11px;
+          letter-spacing: 0.35px;
+        }
+
+        .modalBackdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 50;
+          display: grid;
+          place-items: center;
           padding: 20px;
-          background: rgba(10, 31, 54, 0.4);
+          background: rgba(24, 50, 78, 0.27);
           backdrop-filter: blur(5px);
         }
 
         .modalCard {
-          width: 100%;
-          max-width: 420px;
-          padding: 24px;
-          border: 1px solid #dceafa;
+          width: min(100%, 360px);
+          padding: 25px;
+          position: relative;
+          border: 1px solid #c6e1fa;
           border-radius: 22px;
           background: #ffffff;
-          box-shadow: 0 20px 70px rgba(12, 53, 91, 0.2);
+          text-align: center;
+          box-shadow: 0 15px 50px rgba(35, 91, 147, 0.2),
+            0 0 24px rgba(57, 153, 247, 0.13);
         }
 
-        .modalTitle {
-          margin: 0 0 10px;
-          color: #173b5d;
-          font-size: 20px;
-          font-weight: 850;
-        }
-
-        .modalText {
-          margin: 0 0 20px;
-          color: #69819a;
-          font-size: 14px;
-          line-height: 1.7;
-        }
-
-        .modalActions {
-          display: flex;
-          justify-content: flex-end;
-          gap: 10px;
-        }
-
-        .modalButton {
-          padding: 10px 15px;
-          border: 1px solid #d7e6f4;
-          border-radius: 11px;
-          background: #ffffff;
-          color: #355573;
-          font-weight: 700;
+        .modalClose {
+          position: absolute;
+          top: 10px;
+          right: 12px;
+          width: 30px;
+          height: 30px;
+          border: 0;
+          border-radius: 50%;
+          background: #f1f7fd;
+          color: #58748f;
+          font-size: 21px;
           cursor: pointer;
         }
 
-        .modalButton.primary {
-          border-color: #1687ed;
-          background: linear-gradient(135deg, #1687ff, #00bde8);
-          color: #ffffff;
+        .modalIcon {
+          color: #1685e5;
+          font-size: 35px;
+          text-shadow: 0 0 15px rgba(31, 140, 242, 0.45);
         }
 
-        .errorMessage {
-          margin-top: 10px;
-          padding: 10px 12px;
-          border: 1px solid #ffd5d5;
-          border-radius: 10px;
-          background: #fff6f6;
-          color: #b52d2d;
+        .modalCard h2 {
+          margin: 10px 0;
+          color: #1e4e7b;
+          font-size: 21px;
+        }
+
+        .modalCard p {
+          color: #71849a;
           font-size: 13px;
-          line-height: 1.6;
+          line-height: 1.65;
+        }
+
+        .modalPrimary {
+          width: 100%;
+          margin-top: 10px;
+          padding: 12px;
+          border: 1px solid #4da6f7;
+          border-radius: 13px;
+          background: linear-gradient(135deg, #3298f2, #167bd6);
+          color: #ffffff;
+          box-shadow: 0 0 16px rgba(43, 144, 236, 0.22);
+          cursor: pointer;
+        }
+
+        @media (min-width: 900px) {
+          .homeScreen {
+            padding-top: 30px;
+          }
+
+          .heroDescription {
+            font-size: 15px;
+          }
+
+          .taskModeCard {
+            min-height: 78px;
+          }
         }
 
         @media (max-width: 600px) {
           .header {
-            padding: 10px 12px;
+            min-height: 78px;
+            padding: 10px 14px;
+            gap: 8px;
           }
 
-          .brandTitle {
-            font-size: 16px;
+          .logoMark {
+            width: 52px;
+            height: 52px;
+            border-radius: 17px;
+          }
+
+          .logoStar {
+            font-size: 29px;
+          }
+
+          .brandButton {
+            gap: 10px;
+          }
+
+          .brandName {
+            font-size: 20px;
+            letter-spacing: 1.5px;
           }
 
           .brandSubtitle {
-            font-size: 10px;
+            font-size: 11px;
+          }
+
+          .headerActions {
+            gap: 8px;
+          }
+
+          .roundButton {
+            width: 46px;
+            height: 46px;
+            border-radius: 16px;
+          }
+
+          .roundButton svg {
+            width: 22px;
+            height: 22px;
+          }
+
+          .homeScreen {
+            padding: 20px 16px 18px;
           }
 
           .heroLogo {
-            width: 76px;
-            height: 76px;
-            border-radius: 24px;
-            font-size: 34px;
+            width: 58px;
+            height: 58px;
+            border-radius: 19px;
+            margin-bottom: 9px;
+          }
+
+          .heroLogoCore {
+            font-size: 32px;
           }
 
           .heroTitle {
             font-size: 29px;
           }
 
-          .suggestionGrid {
+          .heroDescription {
+            max-width: 360px;
+            margin-top: 8px;
+            font-size: 12px;
+            line-height: 1.55;
+          }
+
+          .taskSection {
+            margin-top: 20px;
+          }
+
+          .taskGrid {
             gap: 9px;
           }
 
-          .suggestionCard {
-            padding: 12px;
+          .taskModeCard {
+            min-height: 68px;
+            gap: 8px;
+            padding: 10px 9px;
+            border-radius: 15px;
+          }
+
+          .taskIcon {
+            width: 36px;
+            height: 36px;
+            border-radius: 12px;
+            font-size: 17px;
+          }
+
+          .taskTitle {
             font-size: 12px;
           }
 
-          .messageList {
-            padding: 18px 12px 26px;
+          .taskDescription {
+            font-size: 9px;
+          }
+
+          .taskArrow {
+            font-size: 12px;
+          }
+
+          .suggestionSection {
+            margin-top: 18px;
+          }
+
+          .suggestionGrid {
+            gap: 8px;
+          }
+
+          .suggestionCard {
+            min-height: 49px;
+            gap: 7px;
+            padding: 8px 9px;
+            border-radius: 14px;
+            font-size: 11px;
+          }
+
+          .suggestionIcon {
+            width: 27px;
+            height: 27px;
+            border-radius: 9px;
+            font-size: 13px;
+          }
+
+          .suggestionArrow {
+            font-size: 12px;
+          }
+
+          .bottomArea {
+            padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+          }
+
+          .inputBox {
+            min-height: 58px;
+            gap: 7px;
+            padding: 6px 7px;
+            border-radius: 23px;
+          }
+
+          .inputIconButton,
+          .voiceButton,
+          .sendButton {
+            width: 40px;
+            height: 40px;
+          }
+
+          .inputIconButton svg,
+          .voiceButton svg,
+          .sendButton svg {
+            width: 21px;
+            height: 21px;
+          }
+
+          .inputBox textarea {
+            font-size: 13px;
+          }
+
+          .footerCaption {
+            margin-top: 6px;
+            font-size: 10px;
+          }
+
+          .messagesContainer {
+            padding: 18px 12px 22px;
             gap: 18px;
           }
 
-          .messageContent {
-            font-size: 14px;
+          .messageBubble {
+            padding: 11px 12px;
+            font-size: 13px;
           }
 
-          .userBubble {
-            font-size: 14px;
+          .messageContent h2 {
+            font-size: 17px;
           }
 
-          .inputArea {
-            padding-left: 10px;
-            padding-right: 10px;
+          .messageContent h3 {
+            font-size: 15px;
           }
         }
 
-        @media (prefers-reduced-motion: reduce) {
-          *,
-          *::before,
-          *::after {
-            animation-duration: 0.01ms !important;
-            transition-duration: 0.01ms !important;
-            scroll-behavior: auto !important;
+        @media (max-width: 360px) {
+          .header {
+            padding-right: 10px;
+            padding-left: 10px;
+          }
+
+          .brandName {
+            font-size: 18px;
+          }
+
+          .brandSubtitle {
+            font-size: 10px;
+          }
+
+          .roundButton {
+            width: 41px;
+            height: 41px;
+          }
+
+          .homeScreen {
+            padding-right: 11px;
+            padding-left: 11px;
+          }
+
+          .taskModeCard {
+            gap: 6px;
+            padding: 8px 7px;
+          }
+
+          .taskIcon {
+            width: 31px;
+            height: 31px;
+            font-size: 15px;
+          }
+
+          .taskTitle {
+            font-size: 11px;
+          }
+
+          .taskDescription {
+            font-size: 8px;
+          }
+
+          .inputBox {
+            gap: 5px;
+            padding: 5px;
+          }
+
+          .inputIconButton,
+          .voiceButton,
+          .sendButton {
+            width: 36px;
+            height: 36px;
+          }
+        }
+
+        @media (max-height: 720px) {
+          .homeScreen {
+            padding-top: 12px;
+            padding-bottom: 12px;
+          }
+
+          .heroLogo {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 6px;
+          }
+
+          .heroLogoCore {
+            font-size: 27px;
+          }
+
+          .heroTitle {
+            font-size: 26px;
+          }
+
+          .heroDescription {
+            margin-top: 5px;
+          }
+
+          .taskSection {
+            margin-top: 13px;
+          }
+
+          .suggestionSection {
+            margin-top: 12px;
+          }
+
+          .taskModeCard {
+            min-height: 60px;
+          }
+
+          .suggestionCard {
+            min-height: 44px;
           }
         }
       `}</style>
     </main>
   );
-            }       
+} 
