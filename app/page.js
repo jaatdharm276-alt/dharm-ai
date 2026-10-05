@@ -3441,11 +3441,12 @@ export default function Home() {  const [messages, setMessages] = useState([]);
         0 0 0 3px rgba(69, 145, 211, 0.08);
     }
 
-    .inputBox textarea {
-      flex: 1;
+        .inputBox textarea {
+      display: block;
+      width: 100%;
       min-width: 0;
+      min-height: 40px;
       max-height: 150px;
-      min-height: 38px;
       resize: none;
       border: 0;
       outline: 0;
@@ -3454,19 +3455,27 @@ export default function Home() {  const [messages, setMessages] = useState([]);
       font-family: inherit;
       font-size: 15px;
       line-height: 1.5;
-      padding: 8px 3px;
+      padding: 6px 2px 43px 2px;
+      margin: 0;
+      overflow-y: auto;
     }
 
     .inputBox textarea::placeholder {
       color: #9aafbf;
     }
 
-    .inputActions {
+        .inputActions {
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      bottom: 7px;
+      width: auto;
+      height: 38px;
       display: flex;
-      align-items: flex-end;
+      align-items: center;
       justify-content: space-between;
       gap: 6px;
-      width: 100%;
+      pointer-events: none;
     }
 
     .inputLeftActions {
@@ -3474,6 +3483,7 @@ export default function Home() {  const [messages, setMessages] = useState([]);
       align-items: center;
       gap: 5px;
       flex-shrink: 0;
+      pointer-events: auto;
     }
 
     .inputRightActions {
@@ -3481,6 +3491,7 @@ export default function Home() {  const [messages, setMessages] = useState([]);
       align-items: center;
       gap: 6px;
       flex-shrink: 0;
+      pointer-events: auto;
     }
 
     .inputIconButton,
@@ -3489,36 +3500,29 @@ export default function Home() {  const [messages, setMessages] = useState([]);
     .stopButton {
       border: 0;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .inputBox {
+      position: relative;
+      width: 100%;
+      min-height: 56px;
+      padding: 7px 8px;
+      border: 1px solid #d7e6f1;
+      border-radius: 18px;
+      background: #ffffff;
+      box-shadow:
+        0 7px 25px rgba(40, 88, 127, 0.08),
+        0 0 0 1px rgba(255, 255, 255, 0.9) inset;
+      overflow: hidden;
       transition:
-        transform 0.16s ease,
-        box-shadow 0.16s ease,
-        background 0.16s ease;
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
     }
 
-    .inputIconButton {
-      width: 34px;
-      height: 34px;
-      border-radius: 10px;
-      background: #f2f7fb;
-      color: #658198;
-      font-size: 17px;
-      border: 1px solid #e0ebf3;
-    }
-
-    .inputIconButton:hover {
-      background: #e9f4fc;
-      color: #367fb9;
-    }
-
-    .inputHint {
-      position: absolute;
-      pointer-events: none;
-      opacity: 0;
-      font-size: 1px;
-    }
+    .inputBox:focus-within {
+      border-color: #a8cdea;
+      box-shadow:
+        0 7px 25px rgba(40, 88, 127, 0.09),
+        0 0 0 3px rgba(69, 145, 211, 0.08);
+      }
 
     .voiceButton {
       width: 38px;
@@ -3925,34 +3929,45 @@ export default function Home() {  const [messages, setMessages] = useState([]);
         font-size: 10px;
       }
 
-      .inputBox {
-        min-height: 54px;
-        padding: 6px;
+           .inputBox {
+        min-height: 53px;
+        padding: 6px 7px;
         border-radius: 16px;
+        overflow: hidden;
       }
 
       .inputBox textarea {
+        min-height: 38px;
         font-size: 14px;
-        min-height: 36px;
-        padding: 7px 2px;
+        padding: 5px 2px 40px 2px;
+        margin: 0;
+      }
+
+      .inputActions {
+        left: 7px;
+        right: 7px;
+        bottom: 6px;
+        height: 35px;
       }
 
       .inputIconButton {
-        width: 32px;
-        height: 32px;
+        width: 34px;
+        height: 34px;
       }
 
       .voiceButton,
       .sendButton,
       .stopButton {
-        width: 36px;
-        height: 36px;
+        width: 35px;
+        height: 35px;
         border-radius: 11px;
       }
 
-      .voiceButton {
-        font-size: 15px;
-      }
+      .footerCredit {
+        padding-top: 5px;
+        padding-bottom: 0;
+        font-size: 9px;
+      } 
 
       .sendButton {
         font-size: 15px;
