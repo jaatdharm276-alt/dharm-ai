@@ -4041,6 +4041,193 @@ export default function Home() {  const [messages, setMessages] = useState([]);
         transition-duration: 0.01ms !important;
       }
     }
+          /* =========================
+         FINAL COMPOSER FIX
+         ========================= */
+
+      .bottomArea {
+        position: relative !important;
+        flex-shrink: 0 !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: 0 !important;
+        padding: 5px 10px 7px !important;
+        overflow: visible !important;
+      }
+
+      .composerOuter {
+        width: min(900px, 100%) !important;
+        margin: 0 auto !important;
+      }
+
+      .activeTaskLabel {
+        margin: 0 0 5px 4px !important;
+        height: auto !important;
+      }
+
+      .inputBox {
+        position: relative !important;
+        display: block !important;
+        width: 100% !important;
+        height: 58px !important;
+        min-height: 58px !important;
+        max-height: 58px !important;
+        margin: 0 !important;
+        padding: 7px 8px !important;
+        border-radius: 17px !important;
+        overflow: hidden !important;
+        box-sizing: border-box !important;
+      }
+
+      .inputBox textarea {
+        display: block !important;
+        position: absolute !important;
+        left: 9px !important;
+        right: 9px !important;
+        top: 6px !important;
+        width: calc(100% - 18px) !important;
+        height: 42px !important;
+        min-height: 42px !important;
+        max-height: 42px !important;
+        margin: 0 !important;
+        padding: 7px 2px !important;
+        resize: none !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        box-sizing: border-box !important;
+      }
+
+      .inputActions {
+        position: absolute !important;
+        left: 7px !important;
+        right: 7px !important;
+        bottom: 7px !important;
+        width: auto !important;
+        height: 36px !important;
+        min-height: 36px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        pointer-events: none !important;
+        z-index: 5 !important;
+      }
+
+      .inputLeftActions,
+      .inputRightActions {
+        display: flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        pointer-events: auto !important;
+      }
+
+      .inputIconButton {
+        width: 34px !important;
+        height: 34px !important;
+        min-width: 34px !important;
+        min-height: 34px !important;
+      }
+
+      .voiceButton,
+      .sendButton,
+      .stopButton {
+        width: 35px !important;
+        height: 35px !important;
+        min-width: 35px !important;
+        min-height: 35px !important;
+        flex-shrink: 0 !important;
+        border-radius: 11px !important;
+      }
+
+      .inputHint {
+        display: none !important;
+      }
+
+      .footerCredit {
+        position: relative !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: 18px !important;
+        margin: 0 !important;
+        padding: 5px 0 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        line-height: 1.2 !important;
+        overflow: visible !important;
+      }
+
+      @media (max-width: 760px) {
+        .bottomArea {
+          padding: 4px 8px 6px !important;
+        }
+
+        .inputBox {
+          height: 54px !important;
+          min-height: 54px !important;
+          max-height: 54px !important;
+          padding: 6px 7px !important;
+          border-radius: 16px !important;
+        }
+
+        .inputBox textarea {
+          left: 8px !important;
+          right: 8px !important;
+          top: 5px !important;
+          width: calc(100% - 16px) !important;
+          height: 39px !important;
+          min-height: 39px !important;
+          max-height: 39px !important;
+          padding: 6px 2px !important;
+          font-size: 14px !important;
+        }
+
+        .inputActions {
+          left: 7px !important;
+          right: 7px !important;
+          bottom: 5px !important;
+          height: 35px !important;
+        }
+
+        .inputIconButton,
+        .voiceButton,
+        .sendButton,
+        .stopButton {
+          width: 34px !important;
+          height: 34px !important;
+          min-width: 34px !important;
+          min-height: 34px !important;
+        }
+
+        .footerCredit {
+          padding-top: 5px !important;
+          font-size: 9px !important;
+        }
+      }
+
+      @media (max-width: 420px) {
+        .bottomArea {
+          padding: 3px 7px 5px !important;
+        }
+
+        .inputBox {
+          height: 52px !important;
+          min-height: 52px !important;
+          max-height: 52px !important;
+        }
+
+        .inputBox textarea {
+          height: 37px !important;
+          min-height: 37px !important;
+          max-height: 37px !important;
+          font-size: 13.5px !important;
+        }
+
+        .inputActions {
+          left: 6px !important;
+          right: 6px !important;
+          bottom: 5px !important;
+        }
+      }
   `}</style>
     </main>
   );
