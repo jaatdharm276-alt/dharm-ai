@@ -7,4228 +7,1189 @@ import {
   useState,
 } from "react";
 
-/* =========================
-   ORION AI SUGGESTIONS
-========================= */
-
 const suggestions = [
-  {
-    icon: "✧",
-    title: "Email likho",
-    prompt:
-      "Mere liye ek professional email likho.",
-  },
-  {
-    icon: "◇",
-    title: "Business ideas",
-    prompt:
-      "Mujhe practical business ideas batao.",
-  },
-  {
-    icon: "⌂",
-    title: "Padhai mein help",
-    prompt:
-      "Mujhe kisi topic ko aasan bhasha mein samjhao.",
-  },
-  {
-    icon: "</>",
-    title: "Coding help",
-    prompt:
-      "Mujhe coding mein step-by-step help karo.",
-  },
-  {
-    icon: "◷",
-    title: "Study plan",
-    prompt:
-      "Mere liye ek daily study plan banao.",
-  },
+  "Bhagavad Gita ka saar batao",
+  "Dharma kya hai?",
+  "Hanuman ji ka mantra batao",
+  "Aaj ka dharmik vichar batao",
 ];
-
-/* =========================
-   TASK MODES
-========================= */
 
 const taskModes = [
   {
     id: "chat",
+    label: "Chat",
     icon: "✦",
-    title: "Chat",
-    description:
-      "Normal intelligent chat",
-  },
-  {
-    id: "agent",
-    icon: "⚡",
-    title: "Agent",
-    description:
-      "Plan, reason, execute",
   },
   {
     id: "study",
+    label: "Study",
     icon: "📚",
-    title: "Padhai",
-    description:
-      "Notes, answers, study plan",
   },
   {
     id: "work",
-    icon: "💼",
-    title: "Job / Work",
-    description:
-      "Resume, email, applications",
+    label: "Work",
+    icon: "⚡",
   },
   {
     id: "business",
-    icon: "🚀",
-    title: "Business",
-    description:
-      "Ideas, planning, marketing",
+    label: "Business",
+    icon: "◈",
   },
   {
     id: "content",
-    icon: "✍️",
-    title: "Content",
-    description:
-      "Posts, scripts, captions",
+    label: "Content",
+    icon: "✎",
+  },
+  {
+    id: "agent",
+    label: "Agent",
+    icon: "◉",
   },
 ];
 
-/* =========================
-   TASK INSTRUCTIONS
-========================= */
-
 const taskInstructions = {
-  chat:
-    "You are ORION AI in normal chat mode. Understand the user's intent first and answer naturally, clearly and accurately.",
-
-  agent:
-    "You are ORION AI in AGENT MODE. Break complex requests into useful steps internally, solve as much as possible, and clearly distinguish completed actions from suggestions. Never claim to have used a website, browser, tool, API, source or external data unless it was actually used.",
-
-  study:
-    "You are ORION AI in STUDY TASK MODE. Explain in simple Hindi/Hinglish, provide structured notes, examples and step-by-step working when useful. Never invent facts.",
-
-  work:
-    "You are ORION AI in JOB AND WORK TASK MODE. Produce ready-to-use resumes, emails, applications, cover letters, plans or interview answers. Use placeholders when essential details are missing.",
-
-  business:
-    "You are ORION AI in BUSINESS TASK MODE. Give practical plans, offers, marketing ideas, budgets and next steps. Clearly label estimates, assumptions and risks.",
-
-  content:
-    "You are ORION AI in CONTENT CREATION TASK MODE. Create ready-to-publish content matching the requested platform, audience, language, tone and length.",
+  chat: "Meri baat samjho aur natural tarike se jawab do.",
+  study: "Is topic ko simple aur clearly samjhao.",
+  work: "Is kaam ko step-by-step solve karo.",
+  business: "Is problem ka practical business solution do.",
+  content: "Is topic par high-quality content tayyar karo.",
+  agent: "Task ko logically plan karke best possible result do.",
 };
 
-/* =========================
-   INLINE MARKDOWN
-========================= */
+const quickQuestions = [
+  "Bhagavad Gita ka saar batao",
+  "Dharma kya hai?",
+  "Hanuman ji ka mantra batao",
+  "Aaj ka dharmik vichar batao",
+];
+function extractText(content) {
+  if (typeof content === "string") {
+    return content;
+  }
 
-function renderInline(text) {
-  return String(text || "")
-    .split(
-      /(\*\*.*?\*\*|\*[^*]+\*)/g
-    )
-    .map((part, index) => {
-      if (
-        part.startsWith("**") &&
-        part.endsWith("**") &&
-        part.length > 4
-      ) {
-        return (
-          <strong key={index}>
-            {part.slice(2, -2)}
-          </strong>
-        );
-      }
+  if (Array.isArray(content)) {
+    return content
+      .map((item) => {
+        if (typeof item === "string") return item;
+        return item?.text || "";
+      })
+      .join("");
+  }
 
-      if (
-        part.startsWith("*") &&
-        part.endsWith("*") &&
-        part.length > 2
-      ) {
-        return (
-          <em key={index}>
-            {part.slice(1, -1)}
-          </em>
-        );
-      }
-
-      return part;
-    });
+  return content?.text || "";
 }
 
-/* =========================
-   MESSAGE FORMATTER
-========================= */
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
 
-function formatText(text) {
-  const lines = String(text || "")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .split("\n");
-
-  const output = [];
-
-  let codeMode = false;
-  let codeLines = [];
-  let index = 0;
-
-  const isTableRow = (line) =>
-    /^\s*\|.*\|\s*$/.test(line);
-
-  const isTableDivider = (line) =>
-    /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(
-      line
+function renderInline(text) {
+  return escapeHtml(text)
+    .replace(
+      /\*\*(.*?)\*\*/g,
+      "<strong>$1</strong>"
+    )
+    .replace(
+      /\*(.*?)\*/g,
+      "<em>$1</em>"
+    )
+    .replace(
+      /`([^`]+)`/g,
+      "<code>$1</code>"
     );
+}function formatText(text) {
+  const source = extractText(text);
+  if (!source.trim()) return "";
 
-  const getCells = (line) =>
-    line
-      .trim()
-      .replace(/^\|/, "")
-      .replace(/\|$/, "")
-      .split("|")
-      .map((cell) => cell.trim());
+  const lines = source.split("\n");
+  const output = [];
+  let inCode = false;
+  let codeLines = [];
 
-  while (index < lines.length) {
-    const line = lines[index];
-
-    /* Code block */
-
-    if (/^\s*```/.test(line)) {
-      if (codeMode) {
+  lines.forEach((line, index) => {
+    if (line.trim().startsWith("```")) {
+      if (inCode) {
         output.push(
-          <pre
-            className="codeBlock"
-            key={`code-${index}`}
-          >
-            <code>
-              {codeLines.join("\n")}
-            </code>
-          </pre>
+          `<pre><code>${escapeHtml(
+            codeLines.join("\n")
+          )}</code></pre>`
         );
+        codeLines = [];
       }
 
-      codeMode = !codeMode;
-      codeLines = [];
-      index++;
-      continue;
+      inCode = !inCode;
+      return;
     }
 
-    if (codeMode) {
+    if (inCode) {
       codeLines.push(line);
-      index++;
-      continue;
-    }
-
-    /* Markdown table */
-
-    if (
-      isTableRow(line) &&
-      index + 1 < lines.length &&
-      isTableDivider(lines[index + 1])
-    ) {
-      const headers = getCells(line);
-      const rows = [];
-
-      index += 2;
-
-      while (
-        index < lines.length &&
-        isTableRow(lines[index])
-      ) {
-        rows.push(
-          getCells(lines[index])
-        );
-
-        index++;
-      }
-
-      output.push(
-        <div
-          className="tableWrap"
-          key={`table-${index}`}
-        >
-          <table className="answerTable">
-            <thead>
-              <tr>
-                {headers.map(
-                  (cell, cellIndex) => (
-                    <th key={cellIndex}>
-                      {renderInline(cell)}
-                    </th>
-                  )
-                )}
-              </tr>
-            </thead>
-
-            <tbody>
-              {rows.map(
-                (row, rowIndex) => (
-                  <tr key={rowIndex}>
-                    {headers.map(
-                      (_, cellIndex) => (
-                        <td key={cellIndex}>
-                          {renderInline(
-                            row[cellIndex] || ""
-                          )}
-                        </td>
-                      )
-                    )}
-                  </tr>
-                )
-              )}
-            </tbody>
-          </table>
-        </div>
-      );
-
-      continue;
+      return;
     }
 
     const trimmed = line.trim();
 
-    /* Empty line */
-
     if (!trimmed) {
-      output.push(
-        <div
-          className="spaceLine"
-          key={`space-${index}`}
-        />
-      );
-
-      index++;
-      continue;
-    }
-
-    /* Heading */
-
-    const heading = trimmed.match(
-      /^(#{1,6})\s+(.*)$/
-    );
-
-    if (heading) {
-      const Tag =
-        heading[1].length === 1
-          ? "h2"
-          : heading[1].length === 2
-          ? "h3"
-          : "h4";
-
-      output.push(
-        <Tag key={index}>
-          {renderInline(heading[2])}
-        </Tag>
-      );
-
-      index++;
-      continue;
-    }
-
-    /* Bullet */
-
-    const bullet = trimmed.match(
-      /^[-*•]\s+(.*)$/
-    );
-
-    if (bullet) {
-      output.push(
-        <div
-          className="textBullet"
-          key={index}
-        >
-          <span>•</span>
-          <span>
-            {renderInline(bullet[1])}
-          </span>
-        </div>
-      );
-
-      index++;
-      continue;
-    }
-
-    /* Numbered list */
-
-    const numbered = trimmed.match(
-      /^(\d+)[.)]\s+(.*)$/
-    );
-
-    if (numbered) {
-      output.push(
-        <div
-          className="numberedLine"
-          key={index}
-        >
-          <span>
-            {numbered[1]}.
-          </span>
-
-          <span>
-            {renderInline(numbered[2])}
-          </span>
-        </div>
-      );
-
-      index++;
-      continue;
-    }
-
-    /* Normal paragraph */
-
-    output.push(
-      <p key={index}>
-        {renderInline(line)}
-      </p>
-    );
-
-    index++;
-  }
-
-  /* Unclosed code block */
-
-  if (codeMode && codeLines.length) {
-    output.push(
-      <pre
-        className="codeBlock"
-        key="unfinished-code"
-      >
-        <code>
-          {codeLines.join("\n")}
-        </code>
-      </pre>
-    );
-  }
-
-  return output;
-}
-
-/* =========================
-   STREAM PACKET TEXT
-========================= */
-
-function extractText(packet) {
-  if (!packet) return "";
-
-  if (typeof packet === "string") {
-    return packet;
-  }
-
-  if (
-    typeof packet.reply === "string"
-  ) {
-    return packet.reply;
-  }
-
-  if (
-    typeof packet.text === "string"
-  ) {
-    return packet.text;
-  }
-
-  if (
-    typeof packet.choices?.[0]
-      ?.delta?.content === "string"
-  ) {
-    return packet.choices[0]
-      .delta.content;
-  }
-
-  if (
-    typeof packet.choices?.[0]
-      ?.message?.content === "string"
-  ) {
-    return packet.choices[0]
-      .message.content;
-  }
-
-  const parts =
-    packet.candidates?.[0]
-      ?.content?.parts;
-
-  if (Array.isArray(parts)) {
-    return parts
-      .map(
-        (part) =>
-          part?.text || ""
-      )
-      .join("");
-  }
-
-  return "";
-}
-
-/* =========================
-   MAIN COMPONENT
-========================= */
-
-export default function Home() {  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [listening, setListening] = useState(false);
-
-  const [menuOpen, setMenuOpen] =
-    useState(false);
-
-  const [showComingSoon, setShowComingSoon] =
-    useState(false);
-
-  const [notice, setNotice] =
-    useState("");
-
-  const [taskMode, setTaskMode] =
-    useState("chat");
-
-  const [statusText, setStatusText] =
-    useState("");
-
-  const chatAreaRef = useRef(null);
-  const inputRef = useRef(null);
-
-  const recognitionRef = useRef(null);
-  const abortRef = useRef(null);
-
-  const requestIdRef = useRef(0);
-  const loadingRef = useRef(false);
-
-  /*
-   * Jab user manually upar scroll kare,
-   * ORION usko forcefully neeche nahi bhejega.
-   */
-  const shouldAutoScrollRef =
-    useRef(true);
-
-  /* =========================
-     LOADING SYNC
-  ========================= */
-
-  useEffect(() => {
-    loadingRef.current = loading;
-  }, [loading]);
-
-  /* =========================
-     SMART AUTO SCROLL
-  ========================= */
-
-  useEffect(() => {
-    const element =
-      chatAreaRef.current;
-
-    if (
-      !element ||
-      !shouldAutoScrollRef.current
-    ) {
+      output.push("<br />");
       return;
     }
 
-    const frame =
-      requestAnimationFrame(() => {
-        if (
-          shouldAutoScrollRef.current &&
-          chatAreaRef.current
-        ) {
-          chatAreaRef.current.scrollTop =
-            chatAreaRef.current
-              .scrollHeight;
-        }
+    if (trimmed.startsWith("### ")) {
+      output.push(
+        `<h4>${renderInline(
+          trimmed.slice(4)
+        )}</h4>`
+      );
+      return;
+    }
+
+    if (trimmed.startsWith("## ")) {
+      output.push(
+        `<h3>${renderInline(
+          trimmed.slice(3)
+        )}</h3>`
+      );
+      return;
+    }
+
+    if (trimmed.startsWith("# ")) {
+      output.push(
+        `<h2>${renderInline(
+          trimmed.slice(2)
+        )}</h2>`
+      );
+      return;
+    }
+
+    if (/^[-*]\s+/.test(trimmed)) {
+      output.push(
+        `<li>${renderInline(
+          trimmed.replace(/^[-*]\s+/, "")
+        )}</li>`
+      );
+      return;
+    }
+
+    if (/^\d+\.\s+/.test(trimmed)) {
+      output.push(
+        `<li>${renderInline(
+          trimmed.replace(/^\d+\.\s+/, "")
+        )}</li>`
+      );
+      return;
+    }
+
+    output.push(
+      `<p>${renderInline(trimmed)}</p>`
+    );
+  });
+
+  if (inCode && codeLines.length) {
+    output.push(
+      `<pre><code>${escapeHtml(
+        codeLines.join("\n")
+      )}</code></pre>`
+    );
+  }
+
+  return output.join("");
+          }export default function Home() {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [error, setError] = useState("");
+  const [taskMode, setTaskMode] = useState("chat");
+  const [taskLabel, setTaskLabel] = useState("Chat");
+  const [copiedText, setCopiedText] = useState("");
+
+  const messagesRef = useRef(null);
+  const composerRef = useRef(null);
+  const abortRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const shouldScrollRef = useRef(true);
+
+  const activeTask =
+    taskModes.find(
+      (mode) => mode.id === taskMode
+    ) || taskModes[0];
+
+  const hasMessages = messages.length > 0;  const updateLastAssistant = useCallback(
+    (content) => {
+      setMessages((prev) => {
+        if (!prev.length) return prev;
+
+        const next = [...prev];
+        const last = next.length - 1;
+
+        next[last] = {
+          ...next[last],
+          content,
+        };
+
+        return next;
       });
+    },
+    []
+  );
 
-    return () =>
-      cancelAnimationFrame(frame);
-  }, [messages, statusText]);
+  const stopGeneration = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setLoading(false);
+  }, []);
 
-  /* =========================
-     CLEANUP
-  ========================= */
+  const newChat = useCallback(() => {
+    stopGeneration();
+    setMessages([]);
+    setInput("");
+    setError("");
+    setCopiedText("");
+    setTaskMode("chat");
+    setTaskLabel("Chat");
+    composerRef.current?.focus();
+  }, [stopGeneration]);
+
+  const handleChatScroll = useCallback(() => {
+    const box = messagesRef.current;
+    if (!box) return;
+
+    const distance =
+      box.scrollHeight -
+      box.scrollTop -
+      box.clientHeight;
+
+    shouldScrollRef.current = distance < 120;
+  }, []);  useEffect(() => {
+    setTaskLabel(activeTask.label);
+  }, [activeTask.label]);
+
+  useEffect(() => {
+    const box = messagesRef.current;
+
+    if (!box || !shouldScrollRef.current) {
+      return;
+    }
+
+    box.scrollTo({
+      top: box.scrollHeight,
+      behavior: "smooth",
+    });
+  }, [messages]);
 
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
-
       recognitionRef.current?.stop();
 
       if (
         typeof window !== "undefined" &&
-        window.speechSynthesis
+        "speechSynthesis" in window
       ) {
         window.speechSynthesis.cancel();
       }
     };
   }, []);
 
-  /* =========================
-     NEW CHAT
-  ========================= */
-
-  const newChat = useCallback(() => {
-    abortRef.current?.abort();
-
-    requestIdRef.current += 1;
-
-    loadingRef.current = false;
-
-    setMessages([]);
-    setInput("");
-    setLoading(false);
-    setNotice("");
-    setStatusText("");
-
-    setTaskMode("chat");
-    setMenuOpen(false);
-
-    shouldAutoScrollRef.current =
-      true;
+  const focusComposer = useCallback(() => {
+    requestAnimationFrame(() => {
+      composerRef.current?.focus();
+    });
   }, []);
 
-  /* =========================
-     STOP GENERATION
-  ========================= */
+  const handleSubmit = useCallback(
+    (event) => {
+      event?.preventDefault();
 
-  const stopGeneration =
-    useCallback(() => {
-      abortRef.current?.abort();
-    }, []);
+      const text = input.trim();
 
-  /* =========================
-     UPDATE LAST ASSISTANT
-  ========================= */
+      if (!text || loading) return;
 
-  function updateLastAssistant(
-    content,
-    pending = true,
-    requestId
-  ) {
-    if (
-      requestId !==
-      requestIdRef.current
-    ) {
-      return;
-    }
+      setError("");
+      setInput("");
 
-    setMessages((old) => {
-      const updated = [...old];
+      // Chat request will be connected in Part 7.
+      return text;
+    },
+    [input, loading]
+  );  const sendMessage = useCallback(
+    async (text) => {
+      const cleanText = String(text || "").trim();
 
-      const lastIndex =
-        updated.length - 1;
+      if (!cleanText || loading) return;
 
-      if (
-        lastIndex >= 0 &&
-        updated[lastIndex].role ===
-          "assistant"
-      ) {
-        updated[lastIndex] = {
-          ...updated[lastIndex],
-          content,
-          pending,
-        };
-      }
-
-      return updated;
-    });
-  }
-
-  /* =========================
-     HANDLE CHAT SCROLL
-  ========================= */
-
-  function handleChatScroll() {
-    const element =
-      chatAreaRef.current;
-
-    if (!element) return;
-
-    const distanceFromBottom =
-      element.scrollHeight -
-      element.scrollTop -
-      element.clientHeight;
-
-    /*
-     * 140px ke andar ho to auto-scroll
-     * continue rahega.
-     *
-     * User agar upar chala gaya,
-     * auto-scroll ruk jayega.
-     */
-    shouldAutoScrollRef.current =
-      distanceFromBottom < 140;
-  }
-
-  /* =========================
-     FOCUS INPUT
-  ========================= */
-
-  function focusComposer() {
-    inputRef.current?.focus();
-  }
-
-  /* =========================
-     BASIC HANDLERS
-  ========================= */
-
-  function handleSubmit(event) {
-    event?.preventDefault();
-
-    sendMessage();
-  }
-
-  function handleKeyDown(event) {
-    if (
-      event.key === "Enter" &&
-      !event.shiftKey
-    ) {
-      event.preventDefault();
-
-      sendMessage();
-    }
-  }
-
-  /* =========================
-     ACTIVE TASK
-  ========================= */
-
-  const activeTask =
-    taskModes.find(
-      (mode) =>
-        mode.id === taskMode
-    ) || taskModes[0];
-
-  const hasMessages =
-    messages.length > 0;
-      /* =========================
-     SEND MESSAGE
-  ========================= */
-
-  async function sendMessage(text) {
-    const message = String(
-      text !== undefined
-        ? text
-        : input
-    ).trim();
-
-    if (
-      !message ||
-      loadingRef.current
-    ) {
-      return;
-    }
-
-    const activeTaskMode =
-      taskMode;
-
-    const requestId =
-      ++requestIdRef.current;
-
-    const controller =
-      new AbortController();
-
-    abortRef.current =
-      controller;
-
-    loadingRef.current = true;
-
-    shouldAutoScrollRef.current =
-      true;
-
-    setInput("");
-    setNotice("");
-    setMenuOpen(false);
-    setLoading(true);
-
-    setStatusText(
-      activeTaskMode === "agent"
-        ? "Request ko samajh raha hoon aur plan bana raha hoon..."
-        : "Aapke request ko samajh raha hoon..."
-    );
-
-    /*
-     * Current conversation ki history
-     * API ko bhej rahe hain.
-     */
-    const history = messages
-      .filter(
-        (item) =>
-          item.role === "user" ||
-          item.role === "assistant"
-      )
-      .filter(
-        (item) =>
-          String(
-            item.content || ""
-          ).trim()
-      )
-      .slice(-14)
-      .map((item) => ({
-        role: item.role,
-        content: String(
-          item.content || ""
-        ),
-      }));
-
-    /*
-     * User message + temporary
-     * assistant message.
-     */
-    setMessages((old) => [
-      ...old,
-
-      {
+      const userMessage = {
         role: "user",
-        content: message,
-      },
+        content: cleanText,
+      };
 
-      {
+      const assistantMessage = {
         role: "assistant",
         content: "",
-        pending: true,
-      },
-    ]);
+      };
 
-    try {
-      const response =
-        await fetch(
+      setMessages((prev) => [
+        ...prev,
+        userMessage,
+        assistantMessage,
+      ]);
+
+      setInput("");
+      setError("");
+      setLoading(true);
+      shouldScrollRef.current = true;
+
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      try {
+        const history = [...messages, userMessage]
+          .slice(-16)
+          .map((item) => ({
+            role:
+              item.role === "assistant"
+                ? "assistant"
+                : "user",
+            content: extractText(item.content),
+          }));
+
+        const response = await fetch(
           "/api/chat",
           {
             method: "POST",
-
             headers: {
-              "Content-Type":
-                "application/json",
+              "Content-Type": "application/json",
             },
-
             body: JSON.stringify({
-              message,
-              taskMode:
-                activeTaskMode,
-
-              taskInstruction:
-                taskInstructions[
-                  activeTaskMode
-                ] || "",
-
-              messages: [
-                ...history,
-
-                {
-                  role: "user",
-                  content: message,
-                },
-              ],
+              message: cleanText,
+              history,
+              mode: taskMode,
+              task: taskMode,
             }),
-
-            signal:
-              controller.signal,
+            signal: controller.signal,
           }
         );
 
-      if (!response.ok) {
-        let errorMessage =
-          `Server error (${response.status})`;
-
-        try {
-          const errorData =
-            await response.json();
-
-          if (
-            errorData?.error
-          ) {
-            errorMessage =
-              String(
-                errorData.error
-              );
-          }
-        } catch {
-          // Error JSON nahi mila.
+        if (!response.ok) {
+          throw new Error(
+            `Request failed (${response.status})`
+          );
         }
 
-        throw new Error(
-          errorMessage
-        );
-      }
-
-      if (!response.body) {
-        throw new Error(
-          "API ne streaming response nahi diya."
-        );
-      }
-
-      setStatusText(
-        activeTaskMode === "agent"
-          ? "Answer prepare ho raha hai..."
-          : "ORION jawab taiyar kar raha hai..."
-      );
-
-      const reader =
-        response.body.getReader();
-
-      const decoder =
-        new TextDecoder(
-          "utf-8"
-        );
-
-      let buffer = "";
-      let fullReply = "";
-
-      /*
-       * SSE stream ke individual
-       * events process karne ka function.
-       */
-      const processEvent =
-        (rawEvent) => {
-          const event =
-            String(
-              rawEvent || ""
-            ).trim();
-
-          if (!event) {
-            return;
-          }
-
-          const dataLines =
-            event
-              .split(/\r?\n/)
-              .filter((line) =>
-                line.startsWith(
-                  "data:"
-                )
-              )
-              .map((line) =>
-                line
-                  .slice(5)
-                  .trim()
-              );
-
-          if (
-            !dataLines.length
-          ) {
-            return;
-          }
-
-          const payload =
-            dataLines.join(
-              "\n"
-            );
-
-          if (
-            !payload ||
-            payload === "[DONE]"
-          ) {
-            return;
-          }
-
-          let piece = "";
-
-          try {
-            const packet =
-              JSON.parse(
-                payload
-              );
-
-            if (
-              packet?.error
-            ) {
-              throw new Error(
-                String(
-                  packet.error
-                    ?.message ||
-                    packet.error
-                )
-              );
-            }
-
-            piece =
-              extractText(
-                packet
-              );
-          } catch (error) {
-            /*
-             * Agar JSON nahi hai,
-             * to raw text chunk use karenge.
-             */
-            if (
-              !payload.startsWith(
-                "{"
-              )
-            ) {
-              piece =
-                payload;
-            } else if (
-              error instanceof
-                Error &&
-              error.message
-            ) {
-              throw error;
-            }
-          }
-
-          if (!piece) {
-            return;
-          }
-
-          fullReply += piece;
-
-          updateLastAssistant(
-            fullReply,
-            true,
-            requestId
+        if (!response.body) {
+          throw new Error(
+            "Response stream nahi mila."
           );
+        }
+
+        const reader =
+          response.body.getReader();
+
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let fullText = "";        const addText = (text) => {
+          if (!text) return;
+
+          fullText += text;
+          updateLastAssistant(fullText);
         };
 
-      /*
-       * REAL STREAM READER
-       */
-      while (true) {
-        if (
-          controller.signal
-            .aborted ||
-          requestId !==
-            requestIdRef.current
-        ) {
-          break;
-        }
+        while (true) {
+          const { value, done } =
+            await reader.read();
 
-        const {
-          value,
-          done,
-        } = await reader.read();
+          if (done) break;
 
-        if (done) {
-          break;
-        }
+          buffer += decoder.decode(value, {
+            stream: true,
+          });
 
-        buffer +=
-          decoder.decode(
-            value,
-            {
-              stream: true,
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (!line.startsWith("data:")) {
+              continue;
             }
-          );
 
-        /*
-         * SSE events blank line se
-         * separate hote hain.
-         */
-        const events =
-          buffer.split(
-            /\r?\n\r?\n/
-          );
+            const data = line
+              .slice(5)
+              .trim();
 
-        /*
-         * Last incomplete event
-         * buffer mein rakhenge.
-         */
-        buffer =
-          events.pop() || "";
+            if (!data || data === "[DONE]") {
+              continue;
+            }
 
-        for (
-          const event of events
-        ) {
-          if (
-            controller.signal
-              .aborted ||
-            requestId !==
-              requestIdRef.current
-          ) {
-            break;
-          }
+            try {
+              const json = JSON.parse(data);
 
-          processEvent(event);
-        }
-      }
+              const text =
+                json?.choices?.[0]?.delta?.content ||
+                json?.choices?.[0]?.text ||
+                json?.text ||
+                "";
 
-      /*
-       * Decoder ka remaining data.
-       */
-      buffer +=
-        decoder.decode();
-
-      if (
-        buffer.trim() &&
-        !controller.signal
-          .aborted &&
-        requestId ===
-          requestIdRef.current
-      ) {
-        processEvent(buffer);
-      }
-
-      /*
-       * Agar response plain text
-       * format mein aaya ho.
-       */
-      if (
-        !fullReply.trim() &&
-        buffer.trim()
-      ) {
-        const fallback =
-          buffer.trim();
-
-        if (
-          fallback &&
-          fallback !== "[DONE]"
-        ) {
-          try {const packet =
-              JSON.parse(
-                fallback
-              );
-
-            fullReply =
-              extractText(
-                packet
-              );
-          } catch {
-            fullReply =
-              fallback;
+              addText(text);
+            } catch {
+              // Ignore incomplete stream chunks.
+            }
           }
         }
-      }
 
-      if (
-        controller.signal
-          .aborted ||
-        requestId !==
-          requestIdRef.current
-      ) {
-        return;
-      }
+        buffer += decoder.decode();
 
-      if (
-        !fullReply.trim()
-      ) {
-        throw new Error(
-          "AI se khaali response mila. API key aur route check karein."
-        );
-      }
+        if (!fullText.trim()) {
+          updateLastAssistant(
+            "Maaf kijiye, mujhe response nahi mila."
+          );
+        }
+      } catch (err) {
+        if (err?.name !== "AbortError") {
+          console.error(
+            "ORION AI error:",
+            err
+          );
 
-      /*
-       * Final answer ko pending
-       * state se hata denge.
-       */
-      updateLastAssistant(
-        fullReply,
-        false,
-        requestId
-      );
-
-      setStatusText("");
-
-    } catch (error) {
-
-      if (
-        requestId !==
-        requestIdRef.current
-      ) {
-        return;
-      }
-
-      /*
-       * User ne Stop dabaya.
-       */
-      if (
-        error?.name ===
-          "AbortError" ||
-        controller.signal.aborted
-      ) {
-        setMessages(
-          (old) =>
-            old.map(
-              (
-                item,
-                index
-              ) =>
-                index ===
-                  old.length - 1 &&
-                item.role ===
-                  "assistant"
-                  ? {
-                      ...item,
-                      pending:
-                        false,
-                    }
-                  : item
-            )
-        );
-
-        setStatusText("");
-
-      } else {
-
-        updateLastAssistant(
-          `⚠️ ${
-            error?.message ||
-            "Kuch galat ho gaya. Dobara try karein."
-          }`,
-          false,
-          requestId
-        );
-
-        setStatusText("");
-      }
-
-    } finally {
-
-      if (
-        requestId ===
-        requestIdRef.current
-      ) {
-        loadingRef.current =
-          false;
-
+          setError(
+            err?.message ||
+              "Kuch galat ho gaya. Dobara try karein."
+          );
+        }
+      } finally {
+        abortRef.current = null;
         setLoading(false);
-
-        abortRef.current =
-          null;
-
-        setStatusText("");
       }
-    }
-  }  /* =========================
-     VOICE INPUT
-  ========================= */
+    },
+    [
+      messages,
+      loading,
+      taskMode,
+      updateLastAssistant,
+    ]
+  );  const copyMessage = useCallback(async (content) => {
+    const text = extractText(content);
 
-  function startVoice() {
-    if (
-      typeof window ===
-      "undefined"
-    ) {
-      return;
-    }
-
-    const SpeechRecognition =
-      window.SpeechRecognition ||
-      window.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      setNotice(
-        "Is browser mein voice input support nahi karta."
-      );
-      return;
-    }
-
-    /*
-     * Agar already listening hai,
-     * button dobara dabane par stop.
-     */
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-
-      recognitionRef.current =
-        null;
-
-      setListening(false);
-
-      return;
-    }
-
-    const recognition =
-      new SpeechRecognition();
-
-    recognition.lang =
-      "hi-IN";
-
-    recognition.continuous =
-      false;
-
-    recognition.interimResults =
-      true;
-
-    recognition.onstart =
-      () => {
-        setListening(true);
-        setNotice("");
-      };
-
-    recognition.onresult =
-      (event) => {
-        let transcript = "";
-
-        for (
-          let i =
-            event.resultIndex;
-          i <
-            event.results.length;
-          i++
-        ) {
-          transcript +=
-            event.results[i][0]
-              .transcript;
-        }
-
-        setInput(
-          transcript
-        );
-      };
-
-    recognition.onerror =
-      () => {
-        setListening(false);
-
-        recognitionRef.current =
-          null;
-
-        setNotice(
-          "Voice input mein dikkat aayi. Dobara try karein."
-        );
-      };
-
-    recognition.onend =
-      () => {
-        setListening(false);
-
-        recognitionRef.current =
-          null;
-      };
-
-    recognitionRef.current =
-      recognition;
+    if (!text) return;
 
     try {
-      recognition.start();
+      await navigator.clipboard.writeText(text);
+      setCopiedText(text);
+
+      setTimeout(() => {
+        setCopiedText("");
+      }, 1200);
     } catch {
-      setListening(false);
-
-      recognitionRef.current =
-        null;
-
-      setNotice(
-        "Microphone shuru nahi ho saka."
-      );
+      setError("Copy nahi ho paya.");
     }
-  }
+  }, []);
 
-  /* =========================
-     TEXT TO SPEECH
-  ========================= */
+  const speakMessage = useCallback((content) => {
+    const text = extractText(content);
 
-  function speak(text) {
     if (
-      typeof window ===
-        "undefined" ||
+      !text ||
+      typeof window === "undefined" ||
       !window.speechSynthesis
     ) {
-      setNotice(
-        "Text-to-speech is browser mein available nahi hai."
-      );
-
       return;
     }
 
     window.speechSynthesis.cancel();
 
-    const utterance =
-      new SpeechSynthesisUtterance(
-        String(text || "")
-      );
+    const voice = new SpeechSynthesisUtterance(text);
 
-    utterance.lang =
-      "hi-IN";
+    voice.lang = "hi-IN";
+    voice.rate = 0.95;
+    voice.pitch = 1;
 
-    utterance.rate =
-      0.95;
+    window.speechSynthesis.speak(voice);
+  }, []);
 
-    utterance.pitch = 1;
-
-    window.speechSynthesis.speak(
-      utterance
-    );
-  }
-
-  /* =========================
-     COPY ANSWER
-  ========================= */
-
-  async function copyText(text) {
-    try {
-      await navigator.clipboard.writeText(
-        String(text || "")
-      );
-
-      setNotice(
-        "Jawab copy ho gaya!"
-      );
-
-      setTimeout(() => {
-        setNotice("");
-      }, 2200);
-
-    } catch {
-      setNotice(
-        "Copy nahi hua. Text ko select karke copy karein."
-      );
-    }
-  }
-
-  /* =========================
-     SUBMIT
-  ========================= */
-
-  function handleSubmit(event) {
-    event?.preventDefault();
-
-    sendMessage();
-  }
-
-  /* =========================
-     ENTER KEY
-  ========================= */
-
-  function handleKeyDown(event) {
-    /*
-     * Enter = Send
-     * Shift + Enter = New line
-     */
+  const toggleVoice = useCallback(() => {
     if (
-      event.key === "Enter" &&
-      !event.shiftKey
+      typeof window === "undefined" ||
+      !(
+        window.SpeechRecognition ||
+        window.webkitSpeechRecognition
+      )
     ) {
-      event.preventDefault();
-
-      sendMessage();
+      setError(
+        "Voice input aapke browser me available nahi hai."
+      );
+      return;
     }
-  }
 
-  /* =========================
-     CLOSE NOTICE
-  ========================= */
+    if (listening) {
+      recognitionRef.current?.stop();
+      setListening(false);
+      return;
+    }
 
-  function closeNotice() {
-    setNotice("");
-  }
+    const Recognition =
+      window.SpeechRecognition ||
+      window.webkitSpeechRecognition;
 
-  /* =========================
-     SELECT TASK
-  ========================= */
+    const recognition = new Recognition();
 
-  function selectTask(mode) {
-    setTaskMode(mode);
-    setMenuOpen(false);
+    recognition.lang = "hi-IN";
+    recognition.continuous = false;
+    recognition.interimResults = true;
 
-    /*
-     * User task select kare to
-     * input automatically focus.
-     */
-    requestAnimationFrame(() => {
-      inputRef.current?.focus();
-    });
-  }
+    recognition.onstart = () => {
+      setListening(true);
+      setError("");
+    };
 
-  /* =========================
-     QUICK PROMPT
-  ========================= */
+    recognition.onresult = (event) => {
+      let text = "";
 
-  function useSuggestion(prompt) {
-    setInput(prompt);
+      for (
+        let i = event.resultIndex;
+        i < event.results.length;
+        i++
+      ) {
+        text += event.results[i][0].transcript;
+      }
 
-    requestAnimationFrame(()=> {
-      inputRef.current?.focus();
-    });
-  }
+      if (text.trim()) {
+        setInput(text.trim());
+      }
+    };
 
-  /* =========================
-     MODAL
-  ========================= */
+    recognition.onerror = () => {
+      setListening(false);
+      setError("Voice input me problem aa gayi.");
+    };
 
-  function openComingSoon() {
-    setMenuOpen(false);
-    setShowComingSoon(true);
-  }
+    recognition.onend = () => {
+      setListening(false);
+      recognitionRef.current = null;
+    };
 
-  function closeComingSoon() {
-    setShowComingSoon(false);
-  }
+    recognitionRef.current = recognition;
+    recognition.start();
+  }, [listening]);  const handleSuggestion = useCallback(
+    (question) => {
+      if (!question || loading) return;
 
-  /* =========================
-     SAFE MESSAGE TEXT
-  ========================= */
+      setInput(question);
+      focusComposer();
+    },
+    [loading, focusComposer]
+  );
 
-  const lastMessage =
-    messages[
-      messages.length - 1
-    ];
+  const handleTaskChange = useCallback(
+    (event) => {
+      const value = event.target.value;
 
-  const isGenerating =
-    loading &&
-    lastMessage?.role ===
-      "assistant";  return (
-    <main className="page">
+      setTaskMode(value);
 
-      {/* =========================
-          AMBIENT BACKGROUND
-      ========================= */}
+      const task = taskModes.find(
+        (item) => item.id === value
+      );
 
-      <div className="ambientGlow ambientGlowOne" />
-      <div className="ambientGlow ambientGlowTwo" />
+      setTaskLabel(
+        task?.label || "Chat"
+      );
+    },
+    []
+  );
 
-      {/* =========================
-          HEADER
-      ========================= */}
+  const submitMessage = useCallback(
+    (event) => {
+      event?.preventDefault();
 
-      <header className="header">
+      const text = input.trim();
 
+      if (!text || loading) return;
+
+      sendMessage(text);
+    },
+    [input, loading, sendMessage]
+  );
+
+  const handleKeyDown = useCallback(
+    (event) => {
+      if (event.key !== "Enter") return;
+
+      if (event.shiftKey) return;
+
+      event.preventDefault();
+      submitMessage(event);
+    },
+    [submitMessage]
+  );
+
+  const quickAsk = useCallback(
+    (question) => {
+      if (loading) return;
+
+      sendMessage(question);
+    },
+    [loading, sendMessage]
+  );
+
+  const stopSpeaking = useCallback(() => {
+    if (
+      typeof window !== "undefined" &&
+      window.speechSynthesis
+    ) {
+      window.speechSynthesis.cancel();
+    }
+  }, []);
+
+  const currentSuggestions =
+    suggestions.slice(0, 4);  return (
+    <main className="orionApp">
+      <header className="topBar">
         <button
-          type="button"
           className="brandButton"
           onClick={newChat}
-          aria-label="ORION AI home"
+          aria-label="New chat"
         >
-          <span className="logoMark">
-            <span className="logoStar">
-              ✦
-            </span>
-          </span>
+          <span className="orionLogo">✦</span>
 
           <span className="brandText">
-            <span className="brandName">
-              ORION AI
-            </span>
-
-            <span className="brandSubtitle">
-              Your Intelligent Companion
-            </span>
+            <strong>ORION AI</strong>
+            <small>Your Intelligent Companion</small>
           </span>
         </button>
 
-        <div className="headerActions">
-
-          {/* New Chat */}
-
-          <button
-            type="button"
-            className="roundButton"
-            onClick={newChat}
-            title="New chat"
-            aria-label="New chat"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path d="M12 5v14" />
-              <path d="M5 12h14" />
-            </svg>
-          </button>
-
-          {/* Menu */}
-
-          <button
-            type="button"
-            className="roundButton"
-            onClick={() =>
-              setMenuOpen(
-                (open) => !open
-              )
-            }
-            title="Menu"
-            aria-label="Menu"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path d="M4 7h16" />
-              <path d="M4 12h16" />
-              <path d="M4 17h16" />
-            </svg>
-          </button>
-
-        </div>
+        <button
+          className="newChatButton"
+          onClick={newChat}
+          title="New chat"
+        >
+          ＋ New Chat
+        </button>
       </header>
 
-      {/* =========================
-          MENU
-      ========================= */}
-
-      {menuOpen && (
-        <div className="menuPanel">
-
-          <button
-            type="button"
-            className="menuItem"
-            onClick={newChat}
-          >
-            <span>＋</span>
-            <span>New chat</span>
-          </button>
-
-          <button
-            type="button"
-            className="menuItem"
-            onClick={openComingSoon}
-          >
-            <span>✧</span>
-            <span>More features</span>
-          </button>
-
-          <div className="menuCredit">
-            ORION AI · Powered by Dharm AI
-          </div>
-
-        </div>
-      )}
-
-      {/* =========================
-          CHAT AREA
-      ========================= */}
-
-      <section
-        ref={chatAreaRef}
-        className={`chatArea ${
-          hasMessages
-            ? "chatAreaActive"
-            : "chatAreaHome"
-        }`}
-        onScroll={handleChatScroll}
-      >
-
-        {/* =========================
-            HOME SCREEN
-        ========================= */}
-
-        {!hasMessages ? (
-
-          <div className="homeScreen">
-
-            {/* ORION LOGO */}
-
-            <div className="heroLogo">
-
-              <span className="heroLogoCore">
-                ✦
-              </span>
-
-              <span
-                className="heroOrbit heroOrbitOne"
-              />
-
-              <span
-                className="heroOrbit heroOrbitTwo"
-              />
-
-            </div>
-
-            {/* STATUS */}
-
-            <div className="heroEyebrow">
-
-              <span className="statusDot" />
-
-              YOUR AI COMPANION
-
-            </div>
-
-            {/* TITLE */}
-
-            <h1 className="heroTitle">
-              Hello,{" "}
-              <span>Explorer.</span>
-            </h1>
-
-            {/* DESCRIPTION */}
-
-            <p className="heroDescription">
-              Main ORION AI hoon.
-              Aapke sawalon, ideas,
-              padhai, kaam aur naye
-              projects mein madad ke
-              liye taiyar.
-            </p>
-
-            {/* CREATOR CREDIT */}
-
-            <div className="creditLine">
-              ORION AI
-              <span>·</span>
-            <strong>
-                Powered by Dharm AI
-              </strong>
-            </div>
-
-            {/* =========================
-                TASK MODES
-            ========================= */}
-
-            <div className="taskSection">
-
-              <div className="sectionHeading">
-
-                <span>
-                  Apna task chunein
-                </span>
-
-                <span className="sectionHint">
-                  OPTIONAL
-                </span>
-
-              </div>
-
-              <div className="taskGrid">
-
-                {taskModes.map(
-                  (mode) => (
-                    <button
-                      type="button"
-                      key={mode.id}
-                      className={`taskModeCard ${
-                        taskMode ===
-                        mode.id
-                          ? "taskModeSelected"
-                          : ""
-                      }`}
-                      onClick={() =>
-                        selectTask(
-                          mode.id
-                        )
-                      }
-                    >
-
-                      <span className="taskIcon">
-                        {mode.icon}
-                      </span>
-
-                      <span className="taskText">
-
-                        <span className="taskTitle">
-                          {mode.title}
-                        </span>
-
-                        <span className="taskDescription">
-                          {mode.description}
-                        </span>
-
-                      </span>
-
-                      <span className="taskArrow">
-                        ↗
-                      </span>
-
-                    </button>
-                  )
-                )}
-
-              </div>
-            </div>
-
-            {/* =========================
-                QUICK SUGGESTIONS
-            ========================= */}
-
-            <div className="suggestionSection">
-
-              <div className="sectionHeading">
-                <span>
-                  Shuru karne ke liye
-                </span>
-              </div>
-
-              <div className="suggestionGrid">
-
-                {suggestions.map(
-                  (item) => (
-                    <button
-                      type="button"
-                      key={item.title}
-                      className="suggestionCard"
-                      onClick={() =>
-                        useSuggestion(
-                          item.prompt
-                        )
-                      }
-                    >
-
-                      <span className="suggestionIcon">
-                        {item.icon}
-                      </span>
-
-                      <span className="suggestionTitleText">
-                        {item.title}
-                      </span>
-
-                      <span className="suggestionArrow">
-                        ↗
-                      </span>
-
-                    </button>
-                  )
-                )}
-
-              </div>
-            </div>
-
-          </div>
-
-        ) : (
-
-          /* =========================
-             MESSAGES
-          ========================= */
-
-          <div className="messagesContainer">
-
-            {messages.map(
-              (message, index) => (
-
-                <article
-                  key={`${message.role}-${index}`}
-                  className={`messageRow ${
-                    message.role ===
-                    "user"
-                      ? "userMessageRow"
-                      : "assistantMessageRow"
-                  }`}
-                >
-
-                  {/* ORION AVATAR */}
-
-                  {message.role ===
-                    "assistant" && (
-                    <div className="assistantAvatar">
-                      ✦
-                    </div>
-                  )}
-
-                  <div className="messageMain">
-
-                    {/* LABEL */}
-
-                    <div className="messageLabel">
-
-                      {message.role ===
-                      "user"
-                        ? "You"
-                        : "ORION AI"}
-
-                      {message.role ===
-                        "assistant" && (
-                        <span className="assistantBadge">
-                          AI
-                        </span>
-                      )}
-
-                    </div>
-
-                    {/* MESSAGE */}
-
-                    <div
-                      className={`messageBubble ${
-                        message.role ===
-                        "user"
-                          ? "userBubble"
-                          : "assistantBubble"
-                      }`}
-                    >
-
-                      {message.content ? (
-
-                        <div className="messageContent">
-
-                          {formatText(
-                            message.content
-                          )}
-
-                          {message.pending && (
-                            <span className="typingCursor" />
-                          )}
-
-                        </div>
-
-                      ) : message.pending ? (
-
-                        <div className="thinkingIndicator">
-
-                          <span />
-                          <span />
-                          <span />
-
-                          <small>
-                            ORION soch raha hai...
-                          </small>
-
-                        </div>
-
-                      ) : null}
-
-                    </div>
-
-                    {/* =========================
-                        ANSWER ACTIONS
-                    ========================= */}
-
-                    {message.role ===
-                      "assistant" &&
-                      message.content && (
-                        <div className="messageTools">
-
-                          <button
-                            type="button"
-                            className="toolButton"
-                            onClick={() =>
-                              copyText(
-                                message.content
-                              )
-                            }
-                          >
-                            <span>
-                              ▢
-                            </span>
-                            Copy
-                          </button>
-
-                          <button
-                            type="button"
-                            className="toolButton"
-                            onClick={() =>
-                              speak(
-                                message.content
-                              )
-                            }
-                          >
-                            <span>
-                              ♫
-                            </span>
-                            Suno
-                          </button>
-
-                        </div>
-                      )}
-
-                  </div>
-
-                </article>
-
-              )
-            )}
-
-            {/* GENERATION STATUS */}
-
-            {loading && (
-              <div className="generationStatus">
-
-                <div className="statusSpinner">
-                  <span />
-                  <span />
-                  <span />
-                </div>
-
-                <span>
-                  {statusText ||
-                    "ORION jawab taiyar kar raha hai..."}
-                </span>
-
-              </div>
-            )}
-
-          </div>
-        )}
-
-      </section>
-      {/* =========================
-          BOTTOM COMPOSER
-      ========================= */}
-
-      <footer className="bottomArea">
-
-        {/* =========================
-            NOTICE
-        ========================= */}
-
-        {notice && (
-          <button
-            type="button"
-            className="noticeBar"
-            onClick={closeNotice}
-          >
-            <span>{notice}</span>
-            <span>×</span>
-          </button>
-        )}
-
-        {/* =========================
-            ACTIVE TASK
-        ========================= */}
-
-        <div className="composerOuter">
-
-          {taskMode !== "chat" &&
-            !hasMessages && (
-              <div className="activeTaskLabel">
-
-                <span>
-                  {activeTask.icon}
-                </span>
-
-                <span>
-                  {activeTask.title}
-                </span>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setTaskMode("chat")
-                  }
-                  aria-label="Remove task"
-                >
-                  ×
-                </button>
-
-              </div>
-            )}
-
-          {/* =========================
-              INPUT BOX
-          ========================= */}
-
-          <form
-            className="inputBox"
-            onSubmit={handleSubmit}
-          >
-
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(event) =>
-                setInput(
-                  event.target.value
-                )
-              }
-              onKeyDown={
-                handleKeyDown
-              }
-              placeholder={
-                taskMode === "agent"
-                  ? "ORION Agent ko task dein..."
-                  : "ORION se kuch bhi poochhein..."
-              }
-              rows={1}
-              aria-label="Message"
-            />
-
-            {/* =========================
-                INPUT ACTIONS
-            ========================= */}
-
-            <div className="inputActions">
-
-              {/* LEFT */}
-
-              <div className="inputLeftActions">
-
-                <button
-                  type="button"
-                  className="inputIconButton"
-                  onClick={
-                    openComingSoon
-                  }
-                  title="More features"
-                  aria-label="More features"
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path d="M12 5v14" />
-                    <path d="M5 12h14" />
-                  </svg>
-                </button>
-
-                <span className="inputHint">
-                  Shift + Enter for new line
-                </span>
-
-              </div>
-
-              {/* RIGHT */}
-
-              <div className="inputRightActions">
-
-                {/* MICROPHONE */}
-
-                <button
-                  type="button"
-                  className={`voiceButton ${
-                    listening
-                      ? "voiceButtonActive"
-                      : ""
-                  }`}
-                  onClick={
-                    startVoice
-                  }
-                  title={
-                    listening
-                      ? "Voice band karein"
-                      : "Voice input"
-                  }
-                  aria-label="Voice input"
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <rect
-                      x="9"
-                      y="3"
-                      width="6"
-                      height="12"
-                      rx="3"
-                    />
-
-                    <path d="M5 11a7 7 0 0 0 14 0" />
-
-                    <path d="M12 18v3" />
-
-                    <path d="M9 21h6" />
-                  </svg>
-                </button>
-
-                {/* =========================
-                    STOP / SEND
-                ========================= */}
-
-                {loading ? (
-
-                  <button
-                    type="button"
-                    className="sendButton stopButton"
-                    onClick={
-                      stopGeneration
-                    }
-                    title="Stop response"
-                    aria-label="Stop response"
-                  >
-                    <span className="stopSquare" />
-                  </button>
-
-                ) : (
-
-                  <button
-                    type="submit"
-                    className="sendButton"
-                    disabled={
-                      !input.trim()
-                    }
-                    title="Send message"
-                    aria-label="Send message"
-                  >
-                    <svg
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                    >
-                      <path d="M12 19V5" />
-                      <path d="M5 12l7-7 7 7" />
-                    </svg>
-                  </button>
-
-                )}
-
-              </div>
-
-            </div>
-
-          </form>
-
-        </div>
-
-        {/* =========================
-            CLEAN CREATOR CREDIT
-            NO DISCLAIMER
-        ========================= */}
-
-        <div className="footerCredit">
-
-          <span className="footerStar">
-            ✦
-          </span>
-
-          <span>
-            ORION AI
-          </span>
-
-          <span className="footerSeparator">
-            ·
-          </span>
-
-          <strong>
-            Powered by Dharm AI
-          </strong>
-
-        </div>
-
-      </footer>
-
-      {/* =========================
-          COMING SOON MODAL
-      ========================= */}
-
-      {showComingSoon && (
+      <section className="chatArea">
         <div
-          className="modalBackdrop"
-          onClick={
-            closeComingSoon
-          }
-         
-                   role="presentation"
+          className="messages"
+          ref={messagesRef}
+          onScroll={handleChatScroll}
         >
+          {!hasMessages ? (
+            <div className="welcome">
+              <div className="welcomeLogo">✦</div>
 
-          <div
-            className="modalCard"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="modalTitle"
-            onClick={(event) =>
-              event.stopPropagation()
-            }
-          >
+              <h1>Hello, Explorer.</h1>
 
-            <button
-              type="button"
-              className="modalClose"
-              onClick={
-                closeComingSoon
-              }
-              aria-label="Close"
-            >
-              ×
-            </button>
+              <p className="welcomeBrand">
+                ORION AI · Powered by Dharm AI
+              </p>
 
-            <div className="modalIcon">
-              ✦
+              <div className="quickQuestions">
+                {quickQuestions.map((question) => (
+                  <button
+                    key={question}
+                    onClick={() => quickAsk(question)}
+                  >
+                    <span>✦</span>
+                    {question}
+                  </button>
+                ))}
+              </div>
             </div>
+          ) : (
+            <div className="messageList">
+              {messages.map((message, index) => {
+                const isUser =
+                  message.role === "user";
 
-            <h2 id="modalTitle">
-              More features
-            </h2>
+                const content =
+                  extractText(message.content);
 
-            <p>
-              ORION AI ke naye
-              features par kaam
-              chal raha hai.
-              Filhaal aap chat,
-              Agent mode, voice
-              input, copy aur
-              text-to-speech ka
-              istemal kar sakte hain.
-            </p>
+                return (
+                  <article
+                    className={
+                      isUser
+                        ? "message userMessage"
+                        : "message assistantMessage"
+                    }
+                    key={`${message.role}-${index}`}
+                  >
+                    <div className="messageBubble">
+                      {isUser ? (
+                        <div>{content}</div>
+                      ) : (
+                        <div
+                          className="markdown"
+                          dangerouslySetInnerHTML={{
+                            __html: formatText(content),
+                          }}
+                        />
+                      )}
+                    </div>
 
+                    {!isUser && content && (
+                      <div className="messageActions">
+                        <button
+                          onClick={() =>
+                            copyMessage(content)
+                          }
+                        >
+                          {copiedText === content
+                            ? "✓"
+                            : "⧉"}
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            speakMessage(content)
+                          }
+                        >
+                          🔊
+                        </button>
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+
+              {loading      <form
+        className="composerArea"
+        onSubmit={submitMessage}
+      >
+        <div className="taskRow">
+          <select
+            value={taskMode}
+            onChange={handleTaskChange}
+            disabled={loading}
+          >
+            {taskModes.map((task) => (
+              <option
+                key={task.id}
+                value={task.id}
+              >
+                {task.icon} {task.label}
+              </option>
+            ))}
+          </select>
+
+          <span className="taskLabel">
+            {taskLabel}
+          </span>
+        </div>
+
+        <div className="composer">
+          <textarea
+            ref={composerRef}
+            value={input}
+            onChange={(e) =>
+              setInput(e.target.value)
+            }
+            onKeyDown={handleKeyDown}
+            placeholder="Ask ORION AI anything..."
+            rows={1}
+            disabled={loading}
+          />
+
+          <div className="composerActions">
             <button
               type="button"
-              className="modalPrimary"
-              onClick={
-                closeComingSoon
-              }
+              className="iconButton"
+              onClick={toggleVoice}
+              disabled={loading}
             >
-              Samajh gaya
+              {listening ? "■" : "🎙️"}
             </button>
 
+            {loading ? (
+              <button
+                type="button"
+                className="sendButton stop"
+                onClick={stopGeneration}
+              >
+                ■
+              </button>
+            ) : (
+              <button
+                type="submit"
+                className="sendButton"
+                disabled={!input.trim()}
+              >
+                ↑
+              </button>
+            )}
           </div>
-
         </div>
-      )}
-    {/* =========================
-        ORION AI GLOBAL STYLES
-    ========================= */}
 
-    <style jsx global>{`
-
-      * {
-        box-sizing: border-box;
-      }
-
-      html,
-      body {
-        margin: 0;
-        padding: 0;
-        min-height: 100%;
-        background: #f6f9ff;
-        color: #172c4c;
-        font-family:
-          Inter,
-          ui-sans-serif,
-          system-ui,
-          -apple-system,
-          BlinkMacSystemFont,
-          "Segoe UI",
-          sans-serif;
-      }
-
-      body {
-        overflow: hidden;
-      }
-
-      button,
-      textarea {
-        font: inherit;
-      }
-
-      button {
-        -webkit-tap-highlight-color: transparent;
-      }
-
-      .page {
-        width: 100%;
-        height: 100dvh;
-        min-height: 0;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-        position: relative;
-        isolation: isolate;
-
-        background:
-          radial-gradient(
-            ellipse at 50% -20%,
-            rgba(92, 180, 255, 0.17),
-            transparent 48%
-          ),
-          linear-gradient(
-            145deg,
-            #fbfdff 0%,
-            #f3f8ff 52%,
-            #fafdff 100%
-          );
-
-        color: #172c4c;
-      }
-
-      .ambientGlow {
-        position: absolute;
-        width: 320px;
-        height: 320px;
-        border-radius: 50%;
-        filter: blur(85px);
-        pointer-events: none;
-        z-index: -1;
-        opacity: 0.28;
-      }
-
-      .ambientGlowOne {
-        background: #70baff;
-        top: 20%;
-        left: -230px;
-      }
-
-      .ambientGlowTwo {
-        background: #72e6f5;
-        right: -240px;
-        bottom: 12%;
-      }
-
-      /* =========================
-         HEADER
-      ========================= */
-
-      .header {
-        height: 76px;
-        flex: 0 0 76px;
-
-        width: 100%;
-
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-
-        gap: 12px;
-        padding: 0 24px;
-
-        background:
-          rgba(255, 255, 255, 0.9);
-
-        border-bottom:
-          1px solid #e4edf9;
-
-        backdrop-filter:
-          blur(18px);
-
-        position: relative;
-        z-index: 20;
-
-        box-shadow:
-          0 3px 18px
-          rgba(37, 86, 145, 0.035);
-      }
-
-      .brandButton {
-        display: flex;
-        align-items: center;
-
-        gap: 11px;
-
-        border: 0;
-        background: transparent;
-
-        color: inherit;
-
-        cursor: pointer;
-        padding: 0;
-
-        text-align: left;
-        min-width: 0;
-      }
-
-      .logoMark {
-        width: 43px;
-        height: 43px;
-
-        flex-shrink: 0;
-
-        display: grid;
-        place-items: center;
-
-        border-radius: 14px;
-
-        background:
-          linear-gradient(
-            140deg,
-            #eff8ff,
-            #dcecff
-          );
-
-        border:
-          1px solid #b6d9ff;
-
-        color: #0876ec;
-
-        box-shadow:
-          0 0 18px
-          rgba(43, 142, 255, 0.17),
-
-          inset 0 0 12px
-          rgba(255, 255, 255, 0.9);
-      }
-
-      .logoStar {
-        font-size: 27px;
-
-        text-shadow:
-          0 0 12px
-          rgba(20, 142, 255, 0.6);
-      }
-
-      .brandText {
-        display: flex;
-        flex-direction: column;
-        gap: 3px;
-
-        min-width: 0;
-      }
-
-      .brandName {
-        color: #123b70;
-
-        font-size: 17px;
-        font-weight: 850;
-
-        letter-spacing: 1.6px;
-      }
-
-      .brandSubtitle {
-        color: #7387a4;
-
-        font-size: 10px;
-        letter-spacing: 0.25px;
-      }
-
-      .headerActions {
-        display: flex;
-        align-items: center;
-        gap: 9px;
-      }
-
-      .roundButton {
-        width: 40px;
-        height: 40px;
-
-        display: grid;
-        place-items: center;
-
-        border:
-          1px solid #dce8f7;
-
-        border-radius: 13px;
-
-        background: #fff;
-        color: #35618e;
-
-        cursor: pointer;
-
-        transition:
-          0.2s ease;
-      }
-
-      .roundButton:hover {
-        color: #0879ed;
-
-        border-color:
-          #8dc5ff;
-
-        box-shadow:
-          0 0 16px
-          rgba(32, 140, 255, 0.14);
-
-        transform:
-          translateY(-1px);
-      }
-
-      .roundButton svg,
-      .inputIconButton svg,
-      .voiceButton svg,
-      .sendButton svg {
-        width: 20px;
-        height: 20px;
-
-        fill: none;
-
-        stroke:
-          currentColor;
-
-        stroke-width: 1.8;
-
-        stroke-linecap: round;
-        stroke-linejoin: round;
-      }
-
-      /* =========================
-         MENU
-      ========================= */
-
-      .menuPanel {
-        position: absolute;
-
-        top: 66px;
-        right: 22px;
-
-        z-index: 50;
-
-        width: 230px;
-
-        padding: 9px;
-
-        border-radius: 17px;
-
-        background:
-          rgba(255, 255, 255, 0.98);
-
-        border:
-          1px solid #dce8f8;
-
-        box-shadow:
-          0 15px 45px
-          rgba(26, 68, 120, 0.15);
-      }
-
-      .menuItem {
-        width: 100%;
-
-        padding: 12px;
-
-        border: 0;
-        border-radius: 10px;
-
-        display: flex;
-        align-items: center;
-
-        gap: 10px;
-
-        text-align: left;
-
-        background:
-          transparent;
-
-        color: #294668;
-
-        cursor: pointer;
-
-        transition:
-          0.18s ease;
-      }
-
-      .menuItem:hover {
-        background: #eff7ff;
-        color: #0879ed;
-      }
-
-      .menuCredit {
-        border-top:
-          1px solid #e7eef8;
-
-        margin-top: 6px;
-
-        padding:
-          12px 7px 5px;
-
-        color: #8192aa;
-
-        font-size: 10px;
-
-        text-align: center;
-      }
-
-      /* =========================
-         CHAT AREA
-      ========================= */
-
-      .chatArea {
-        flex: 1 1 auto;
-
-        min-height: 0;
-
-        overflow-y: auto;
-        overflow-x: hidden;
-
-        overscroll-behavior:
-          contain;
-
-        scrollbar-width:
-          thin;
-
-        scrollbar-color:
-          #c5d9ef
-          transparent;
-
-        position: relative;
-        z-index: 1;
-
-        scroll-behavior:
-          auto;
-      }
-
-      .chatArea::-webkit-scrollbar {
-        width: 6px;
-      }
-
-      .chatArea::-webkit-scrollbar-thumb {
-        background:
-          #c5d9ef;
-
-        border-radius:
-          8px;
-      }
-
-      .homeScreen {
-        min-height: 100%;
-
-        display: flex;
-        flex-direction: column;
-
-        align-items: center;
-        justify-content: center;
-
-        text-align: center;
-
-        padding:
-          32px 18px;
-
-        gap: 18px;
-      }
-
-      /* =========================
-         HERO
-      ========================= */
-
-      .heroLogo {
-        width: 92px;
-        height: 92px;
-
-        position: relative;
-
-        display: grid;
-        place-items: center;
-
-        border-radius: 28px;
-
-        color: #fff;
-
-        background:
-          linear-gradient(
-            135deg,
-            #1687ff,
-            #00d4ff
-          );
-
-        box-shadow:
-          0 0 30px
-          rgba(0, 174, 255, 0.38);
-
-        border:
-          1px solid
-          rgba(255, 255, 255, 0.65);
-
-        animation:
-          heroPulse 3.5s
-          ease-in-out infinite;
-      }
-
-      .heroLogoCore {
-        position: relative;
-        z-index: 2;
-
-        font-size: 42px;
-        font-weight: 900;
-
-        text-shadow:
-          0 0 18px
-          rgba(255, 255, 255, 0.75);
-      }
-
-      .heroOrbit {
-        position: absolute;
-
-        border:
-          1px solid
-          rgba(255, 255, 255, 0.45);
-
-        border-radius: 50%;
-
-        pointer-events: none;
-      }
-
-      .heroOrbitOne {
-        width: 116px;
-        height: 52px;
-
-        transform:
-          rotate(28deg);
-      }
-
-      .heroOrbitTwo {
-        width: 52px;
-        height: 116px;
-
-        transform:
-          rotate(28deg);
-      }
-
-      @keyframes heroPulse {
-        0%,
-        100% {
-          box-shadow:
-            0 0 25px
-            rgba(0, 174, 255, 0.3);
-        }
-
-        50% {
-          box-shadow:
-            0 0 42px
-            rgba(0, 174, 255, 0.5);
-        }
-      }
-
-      .heroEyebrow {
-        display: inline-flex;
-
-        align-items: center;
-
-        gap: 7px;
-
-        color: #5e7895;
-
-        font-size: 10px;
-
-        font-weight: 800;
-
-        letter-spacing:
-          1.8px;
-      }
-
-      .statusDot {
-        width: 7px;
-        height: 7px;
-
-        border-radius: 50%;
-
-        background:
-          #16b97a;
-
-        box-shadow:
-          0 0 9px
-          rgba(22, 185, 122, 0.6);
-      }
-
-      .heroTitle {
-        margin: 0;
-
-        font-size:
-          clamp(28px, 5vw, 42px);
-
-        font-weight: 850;
-
-        letter-spacing:
-          -1px;
-
-        color: #102d50;
-      }
-
-      .heroTitle span {
-        color: #1384ef;
-
-        text-shadow:
-          0 0 16px
-          rgba(19, 132, 239, 0.12);
-      }
-
-      .heroDescription {
-        max-width: 560px;
-
-        margin: 0;
-
-        color: #66809d;
-
-        font-size: 14px;
-
-        line-height: 1.7;
-      }
-
-      .creditLine {
-        display: inline-flex;
-
-        align-items: center;
-
-        gap: 7px;
-
-        color: #1687df;
-
-        font-size: 11px;
-
-        font-weight: 800;
-
-        letter-spacing:
-          0.5px;
-      }
-
-      .creditLine strong {
-        color: #0d67b7;
-      }
-
-      /* =========================
-         TASKS
-      ========================= */
-
-      .taskSection,
-      .suggestionSection {
-        width: 100%;
-        max-width: 700px;
-      }
-
-      .sectionHeading {
-        display: flex;
-
-        align-items: center;
-        justify-content: space-between;
-
-        margin-bottom: 9px;
-
-        color: #56718f;
-
-        font-size: 11px;
-        font-weight: 800;
-
-        letter-spacing:
-          0.7px;
-      }
-
-      .sectionHint {
-        color: #9aaabd;
-
-        font-size: 9px;
-
-        letter-spacing:
-          1px;
-      }
-
-      .taskGrid {
-        display: grid;
-
-        grid-template-columns:
-          repeat(
-            3,
-            minmax(0, 1fr)
-          );
-
-        gap: 9px;
-      }
-
-      .taskModeCard {
-        min-width: 0;
-
-        display: flex;
-
-        align-items: center;
-
-        gap: 8px;
-
-        padding: 10px;
-
-        border:
-          1px solid #dceafa;
-
-        border-radius: 14px;
-
-        background:
-          rgba(
-            255,
-            255,
-            255,
-            0.84
-          );
-
-        color: #244362;
-
-        text-align: left;
-
-        cursor: pointer;
-
-        transition:
-          0.2s ease;
-      }
-
-      .taskModeCard:hover,
-      .taskModeSelected {
-        border-color:
-          #69bdff;
-
-        background:
-          #f7fcff;
-
-        box-shadow:
-          0 5px 20px
-          rgba(
-            0,
-            139,
-            255,
-            0.1
-          );
-
-        transform:
-          translateY(-1px);
-      }
-
-      .taskIcon {
-        width: 30px;
-        height: 30px;
-
-        flex: 0 0 30px;
-
-        display: grid;
-        place-items: center;
-
-        border-radius: 9px;
-
-        background:
-          #eef7ff;
-
-        font-size: 15px;
-      }
-
-      .taskText {
-        min-width: 0;
-
-        display: flex;
-        flex-direction: column;
-
-        gap: 2px;
-      }
-
-      .taskTitle {
-        color: #245078;
-
-        font-size: 11px;
-
-        font-weight: 800;
-      }
-
-      .taskDescription {
-        color: #8196ac;
-
-        font-size: 9px;
-
-        line-height: 1.35;
-
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow:
-          ellipsis;
-      }
-
-      .taskArrow {
-        margin-left: auto;
-
-        color: #8da5bc;
-
-        font-size: 14px;
-      }
-
-      /* =========================
-         SUGGESTIONS
-      ========================= */
-
-      .suggestionGrid {
-        display: grid;
-
-        grid-template-columns:
-          repeat(
-            3,
-            minmax(0, 1fr)
-          );
-
-        gap: 8px;
-      }
-
-      .suggestionCard {
-        min-width: 0;
-
-        display: flex;
-
-        align-items: center;
-
-        gap: 7px;
-
-        padding:
-          9px 10px;
-
-        border:
-          1px solid #dceafa;
-
-        border-radius: 12px;
-
-        background:
-          rgba(
-            255,
-            255,
-            255,
-            0.86
-          );
-
-        color: #355574;
-
-        text-align: left;
-
-        cursor: pointer;
-
-        transition:
-          0.2s ease;
-
-        font-size: 11px;
-      }
-
-      .suggestionCard:hover {
-        border-color:
-          #55baff;
-
-        box-shadow:
-          0 5px 22px
-          rgba(
-            0,
-            139,
-            255,
-            0.12
-          );
-
-        transform:
-          translateY(-1px);
-      }
-
-      .suggestionIcon {
-        color: #1687df;
-
-        font-weight: 900;
-      }
-
-      .suggestionTitleText {
-        min-width: 0;
-
-        overflow: hidden;
-
-        white-space: nowrap;
-
-        text-overflow:
-          ellipsis;
-      }
-
-      .suggestionArrow {
-        margin-left: auto;
-
-        color: #9aadc0;
-      }    .messagesContainer {
-      width: 100%;
-      max-width: 920px;
-      margin: 0 auto;
-      padding: 26px 20px 18px;
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
-    }
-
-    .messageRow {
-      width: 100%;
-      display: flex;
-      animation: messageIn 0.22s ease;
-    }
-
-    .userMessageRow {
-      justify-content: flex-end;
-    }
-
-    .assistantMessageRow {
-      justify-content: flex-start;
-    }
-
-    .assistantAvatar {
-      width: 34px;
-      height: 34px;
-      min-width: 34px;
-      border-radius: 12px;
-      margin-right: 10px;
-      margin-top: 2px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      font-weight: 900;
-      color: #ffffff;
-      background: linear-gradient(135deg, #1687ff, #7b4dff);
-      box-shadow:
-        0 6px 18px rgba(35, 123, 255, 0.22),
-        0 0 18px rgba(96, 91, 255, 0.16);
-      flex-shrink: 0;
-    }
-
-    .messageMain {
-      min-width: 0;
-      max-width: min(820px, calc(100% - 44px));
-    }
-
-    .userMessageRow .messageMain {
-      max-width: min(760px, 88%);
-    }
-
-    .messageLabel {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      margin-bottom: 7px;
-      padding-left: 3px;
-      font-size: 11px;
-      line-height: 1;
-      color: #7690a8;
-      font-weight: 800;
-      letter-spacing: 0.02em;
-    }
-
-    .assistantBadge {
-      padding: 4px 7px;
-      border-radius: 7px;
-      color: #2b6fb0;
-      background: #edf7ff;
-      border: 1px solid #d9ecfb;
-      font-size: 10px;
-      font-weight: 900;
-    }
-
-    .messageBubble {
-      border-radius: 18px;
-      padding: 14px 16px;
-      font-size: 15px;
-      line-height: 1.72;
-      overflow-wrap: anywhere;
-      word-break: break-word;
-    }
-
-    .userBubble {
-      color: #183b5c;
-      background: linear-gradient(135deg, #eef7ff, #f5f1ff);
-      border: 1px solid #dceafa;
-      border-bottom-right-radius: 6px;
-      box-shadow: 0 5px 18px rgba(53, 104, 154, 0.07);
-    }
-
-    .assistantBubble {
-      color: #243f58;
-      background: #ffffff;
-      border: 1px solid #e1edf6;
-      border-top-left-radius: 6px;
-      box-shadow: 0 6px 22px rgba(48, 91, 128, 0.06);
-    }
-
-    .assistantBubble p {
-      margin: 0 0 10px;
-    }
-
-    .assistantBubble p:last-child {
-      margin-bottom: 0;
-    }
-
-    .assistantBubble h1,
-    .assistantBubble h2,
-    .assistantBubble h3 {
-      margin: 14px 0 8px;
-      color: #173b5d;
-      line-height: 1.3;
-    }
-
-    .assistantBubble h1 {
-      font-size: 22px;
-    }
-
-    .assistantBubble h2 {
-      font-size: 19px;
-    }
-
-    .assistantBubble h3 {
-      font-size: 17px;
-    }
-
-    .assistantBubble strong {
-      color: #163d61;
-      font-weight: 800;
-    }
-
-    .assistantBubble em {
-      color: #466681;
-    }
-
-    .textBullet {
-      position: relative;
-      padding-left: 19px;
-      margin: 5px 0;
-    }
-
-    .textBullet::before {
-      content: "•";
-      position: absolute;
-      left: 4px;
-      top: 0;
-      color: #397fd1;
-      font-weight: 900;
-    }
-
-    .numberedLine {
-      margin: 6px 0;
-      padding-left: 2px;
-    }
-
-    .spaceLine {
-      height: 6px;
-    }
-
-    .codeBlock {
-      width: 100%;
-      margin: 12px 0;
-      padding: 13px;
-      overflow-x: auto;
-      border-radius: 12px;
-      background: #f5f8fb;
-      border: 1px solid #dce8f1;
-      color: #26445f;
-      font-family:
-        ui-monospace,
-        SFMono-Regular,
-        Menlo,
-        Monaco,
-        Consolas,
-        monospace;
-      font-size: 12px;
-      line-height: 1.65;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-    }
-
-    .tableWrap {
-      width: 100%;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      margin: 12px 0;
-      border-radius: 12px;
-      border: 1px solid #dce9f4;
-    }
-
-    .answerTable {
-      width: 100%;
-      min-width: 560px;
-      border-collapse: collapse;
-      font-size: 12px;
-    }
-
-    .answerTable th,
-    .answerTable td {
-      min-width: 120px;
-      padding: 9px 10px;
-      border: 1px solid #cfe1f4;
-      text-align: left;
-      vertical-align: top;
-      line-height: 1.5;
-      overflow-wrap: anywhere;
-    }
-
-    .answerTable th {
-      background: #eef7ff;
-      color: #244b70;
-      font-weight: 800;
-    }
-
-    .answerTable td {
-      background: #ffffff;
-      color: #294766;
-    }
-
-    .typingCursor {
-      display: inline-block;
-      width: 7px;
-      height: 17px;
-      margin-left: 3px;
-      vertical-align: -3px;
-      border-radius: 2px;
-      background: #3988d8;
-      animation: cursorBlink 0.9s infinite;
-    }
-
-    .thinkingIndicator {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      min-height: 20px;
-    }
-
-    .thinkingIndicator span {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #6596bd;
-      animation: thinkingDot 1.1s infinite ease-in-out;
-    }
-
-    .thinkingIndicator span:nth-child(2) {
-      animation-delay: 0.15s;
-    }
-
-    .thinkingIndicator span:nth-child(3) {
-      animation-delay: 0.3s;
-    }
-
-    .messageTools {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      margin-top: 7px;
-      padding-left: 2px;
-    }
-
-    .toolButton {
-      width: 30px;
-      height: 28px;
-      border: 1px solid #dfebf4;
-      border-radius: 8px;
-      background: #ffffff;
-      color: #6d879e;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-size: 13px;
-      transition:
-        transform 0.16s ease,
-        background 0.16s ease,
-        color 0.16s ease;
-    }
-
-    .toolButton:hover {
-      transform: translateY(-1px);
-      background: #f1f8ff;
-      color: #2879bd;
-    }
-
-    .generationStatus {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin: 0 auto 10px;
-      width: fit-content;
-      max-width: calc(100% - 32px);
-      padding: 7px 11px;
-      border-radius: 999px;
-      color: #5e7c96;
-      background: rgba(245, 250, 255, 0.95);
-      border: 1px solid #dfeef8;
-      font-size: 11px;
-      font-weight: 700;
-      box-shadow: 0 4px 14px rgba(58, 105, 143, 0.05);
-    }
-
-    .statusSpinner {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      border: 2px solid #d8e9f6;
-      border-top-color: #3988d8;
-      animation: spin 0.8s linear infinite;
-    }
-
-    .bottomArea {
-      flex-shrink: 0;
-      width: 100%;
-      padding: 8px 16px 12px;
-      background:
-        linear-gradient(
-          to top,
-          rgba(255, 255, 255, 1) 65%,
-          rgba(255, 255, 255, 0.92) 100%
-        );
-    }
-
-    .noticeBar {
-      width: min(760px, 100%);
-      margin: 0 auto 7px;
-      padding: 7px 11px;
-      border-radius: 10px;
-      background: #f2f8fd;
-      border: 1px solid #dcecf7;
-      color: #58738a;
-      font-size: 11px;
-      line-height: 1.45;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-
-    .noticeClose {
-      border: 0;
-      background: transparent;
-      color: #7893a9;
-      cursor: pointer;
-      font-size: 15px;
-      padding: 0 2px;
-    }
-
-    .composerOuter {
-      width: min(900px, 100%);
-      margin: 0 auto;
-    }
-
-    .activeTaskLabel {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      margin: 0 0 6px 4px;
-      color: #68839a;
-      font-size: 11px;
-      font-weight: 800;
-    }
-
-    .activeTaskDot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: #4b91d0;
-      box-shadow: 0 0 9px rgba(75, 145, 208, 0.45);
-    }
-
-    .inputBox {
-      width: 100%;
-      min-height: 58px;
-      display: flex;
-      align-items: flex-end;
-      gap: 7px;
-      padding: 8px;
-      border: 1px solid #d7e6f1;
-      border-radius: 18px;
-      background: #ffffff;
-      box-shadow:
-        0 8px 30px rgba(40, 88, 127, 0.08),
-        0 0 0 1px rgba(255, 255, 255, 0.9) inset;
-      transition:
-        border-color 0.2s ease,
-        box-shadow 0.2s ease;
-    }
-
-    .inputBox:focus-within {
-      border-color: #a8cdea;
-      box-shadow:
-        0 8px 30px rgba(40, 88, 127, 0.09),
-        0 0 0 3px rgba(69, 145, 211, 0.08);
-    }
-
-        .inputBox textarea {
-      display: block;
-      width: 100%;
-      min-width: 0;
-      min-height: 40px;
-      max-height: 150px;
-      resize: none;
-      border: 0;
-      outline: 0;
-      background: transparent;
-      color: #203e58;
-      font-family: inherit;
-      font-size: 15px;
-      line-height: 1.5;
-      padding: 6px 2px 43px 2px;
-      margin: 0;
-      overflow-y: auto;
-    }
-
-    .inputBox textarea::placeholder {
-      color: #9aafbf;
-    }
-
-        .inputActions {
-      position: absolute;
-      left: 8px;
-      right: 8px;
-      bottom: 7px;
-      width: auto;
-      height: 38px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 6px;
-      pointer-events: none;
-    }
-
-    .inputLeftActions {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      flex-shrink: 0;
-      pointer-events: auto;
-    }
-
-    .inputRightActions {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-shrink: 0;
-      pointer-events: auto;
-    }
-
-    .inputIconButton,
-    .voiceButton,
-    .sendButton,
-    .stopButton {
-      border: 0;
-      cursor: pointer;
-    .inputBox {
-      position: relative;
-      width: 100%;
-      min-height: 56px;
-      padding: 7px 8px;
-      border: 1px solid #d7e6f1;
-      border-radius: 18px;
-      background: #ffffff;
-      box-shadow:
-        0 7px 25px rgba(40, 88, 127, 0.08),
-        0 0 0 1px rgba(255, 255, 255, 0.9) inset;
-      overflow: hidden;
-      transition:
-        border-color 0.2s ease,
-        box-shadow 0.2s ease;
-    }
-
-    .inputBox:focus-within {
-      border-color: #a8cdea;
-      box-shadow:
-        0 7px 25px rgba(40, 88, 127, 0.09),
-        0 0 0 3px rgba(69, 145, 211, 0.08);
-      }
-
-    .voiceButton {
-      width: 38px;
-      height: 38px;
-      border-radius: 12px;
-      background: #f0f6fb;
-      color: #55748d;
-      border: 1px solid #dce9f2;
-      font-size: 17px;
-    }
-
-    .voiceButton:hover {
-      transform: translateY(-1px);
-      background: #e9f5ff;
-      color: #287ab8;
-    }
-
-    .voiceButtonActive {
-      background: #eaf4ff;
-      color: #277fc4;
-      box-shadow: 0 0 0 3px rgba(39, 127, 196, 0.08);
-    }
-
-    .sendButton {
-      width: 40px;
-      height: 40px;
-      border-radius: 13px;
-      color: #ffffff;
-      background: linear-gradient(135deg, #318ee0, #7258e8);
-      box-shadow: 0 6px 16px rgba(76, 111, 213, 0.2);
-      font-size: 17px;
-    }
-
-    .sendButton:hover:not(:disabled) {
-      transform: translateY(-1px);
-      box-shadow: 0 8px 19px rgba(76, 111, 213, 0.26);
-    }
-
-    .sendButton:disabled {
-      opacity: 0.42;
-      cursor: default;
-      box-shadow: none;
-    }
-
-    .stopButton {
-      width: 40px;
-      height: 40px;
-      border-radius: 13px;
-      color: #ffffff;
-      background: #536d83;
-      box-shadow: 0 6px 16px rgba(67, 91, 110, 0.17);
-    }
-
-    .stopButton:hover {
-      transform: translateY(-1px);
-      background: #405b71;
-    }
-
-    .stopSquare {
-      width: 13px;
-      height: 13px;
-      border-radius: 3px;
-      background: #ffffff;
-    }
-
-    .footerCredit {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 7px;
-      padding-top: 8px;
-      color: #8aa0b1;
-      font-size: 10px;
-      font-weight: 800;
-      letter-spacing: 0.02em;
-    }
-
-    .footerStar {
-      color: #5598d2;
-      font-size: 10px;
-    }
-
-    .footerSeparator {
-      color: #c3d2dd;
-    }
-
-    .modalBackdrop {
-      position: fixed;
-      inset: 0;
-      z-index: 100;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      background: rgba(21, 48, 70, 0.28);
-      backdrop-filter: blur(7px);
-      -webkit-backdrop-filter: blur(7px);
-      animation: fadeIn 0.18s ease;
-    }
-
-    .modalCard {
-      width: min(390px, 100%);
-      padding: 22px;
-      border-radius: 22px;
-      background: #ffffff;
-      border: 1px solid #deebf4;
-      box-shadow: 0 25px 80px rgba(27, 64, 92, 0.2);
-      position: relative;
-      text-align: center;
-    }
-
-    .modalClose {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      width: 32px;
-      height: 32px;
-      border: 0;
-      border-radius: 9px;
-      background: #f2f7fb;
-      color: #70879a;
-      cursor: pointer;
-      font-size: 18px;
-    }
-
-    .modalIcon {
-      width: 56px;
-      height: 56px;
-      margin: 3px auto 12px;
-      border-radius: 18px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #ffffff;
-      font-size: 25px;
-      background: linear-gradient(135deg, #2f91df, #7956e8);
-      box-shadow: 0 10px 26px rgba(77, 113, 216, 0.2);
-    }
-
-    .modalCard h3 {
-      margin: 0 0 7px;
-      color: #1d405f;
-      font-size: 20px;
-    }
-
-    .modalCard p {
-      margin: 0 0 16px;
-      color: #6d8497;
-      font-size: 13px;
-      line-height: 1.6;
-    }
-
-    .modalPrimary {
-      width: 100%;
-      height: 42px;
-      border: 0;
-      border-radius: 12px;
-      cursor: pointer;
-      color: #ffffff;
-      font-weight: 800;
-      background: linear-gradient(135deg, #318ee0, #7258e8);
-    }
-
-    @keyframes messageIn {
-      from {
-        opacity: 0;
-        transform: translateY(5px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    @keyframes cursorBlink {
-      0%,
-      45% {
-        opacity: 1;
-      }
-
-      46%,
-      100% {
-        opacity: 0;
-      }
-    }
-
-    @keyframes thinkingDot {
-      0%,
-      60%,
-      100% {
-        transform: translateY(0);
-        opacity: 0.45;
-      }
-
-      30% {
-        transform: translateY(-3px);
-        opacity: 1;
-      }
-    }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
-
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-      }
-
-      to {
-        opacity: 1;
-      }
-    }
-
-    @media (max-width: 760px) {
-      .page {
-        height: 100dvh;
-      }
-
-      .header {
-        height: 58px;
-        padding: 8px 10px;
-      }
-
-      .brandLogo {
-        width: 35px;
-        height: 35px;
-        border-radius: 11px;
-      }
-
-      .brandName {
-        font-size: 18px;
-      }
-
-      .brandTagline {
-        font-size: 9px;
-      }
-
-      .headerButton {
-        width: 34px;
-        height: 34px;
-        border-radius: 10px;
-      }
-
-      .chatArea {
-        padding-bottom: 0;
-      }
-
-      .homeScreen {
-        min-height: auto;
-        padding: 24px 14px 18px;
-      }
-
-      .heroLogo {
-        width: 70px;
-        height: 70px;
-        border-radius: 22px;
-      }
-
-      .heroTitle {
-        font-size: 30px;
-      }
-
-      .heroDescription {
-        font-size: 13px;
-        max-width: 340px;
-      }
-
-      .heroCredit {
-        font-size: 10px;
-      }
-
-      .taskGrid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 7px;
-      }
-
-      .taskModeCard {
-        min-height: 73px;
-        padding: 10px;
-        border-radius: 13px;
-      }
-
-      .taskIcon {
-        width: 28px;
-        height: 28px;
-        border-radius: 9px;
-        font-size: 13px;
-      }
-
-      .taskText strong {
-        font-size: 11px;
-      }
-
-      .taskText span {
-        font-size: 8px;
-      }
-
-      .suggestionGrid {
-        grid-template-columns: 1fr 1fr;
-        gap: 7px;
-      }
-
-      .suggestionCard {
-        min-height: 54px;
-        padding: 8px 9px;
-        border-radius: 12px;
-        font-size: 10px;
-      }
-
-      .messagesContainer {
-        padding: 18px 10px 12px;
-        gap: 18px;
-      }
-
-      .messageMain {
-        max-width: calc(100% - 42px);
-      }
-
-      .userMessageRow .messageMain {
-        max-width: 92%;
-      }
-
-      .assistantAvatar {
-        width: 31px;
-        height: 31px;
-        min-width: 31px;
-        border-radius: 10px;
-        margin-right: 8px;
-        font-size: 14px;
-      }
-
-      .messageBubble {
-        padding: 12px 13px;
-        border-radius: 15px;
-        font-size: 14px;
-        line-height: 1.65;
-      }
-
-      .messageLabel {
-        font-size: 10px;
-      }
-
-      .assistantBadge {
-        padding: 3px 6px;
-        font-size: 9px;
-      }
-
-      .assistantBubble h1 {
-        font-size: 19px;
-      }
-
-      .assistantBubble h2 {
-        font-size: 17px;
-      }
-
-      .assistantBubble h3 {
-        font-size: 15px;
-      }
-
-      .codeBlock {
-        font-size: 11px;
-        padding: 10px;
-      }
-
-      .tableWrap {
-        margin-left: -3px;
-        width: calc(100% + 6px);
-      }
-
-      .answerTable {
-        font-size: 11px;
-        min-width: 520px;
-      }
-
-      .answerTable th,
-      .answerTable td {
-        min-width: 105px;
-        padding: 7px 8px;
-      }
-
-      .messageTools {
-        margin-top: 5px;
-      }
-
-      .toolButton {
-        width: 28px;
-        height: 26px;
-      }
-
-      .bottomArea {
-        padding: 6px 9px 8px;
-      }
-
-      .noticeBar {
-        margin-bottom: 5px;
-        font-size: 10px;
-      }
-
-      .activeTaskLabel {
-        margin-left: 3px;
-        font-size: 10px;
-      }
-
-           .inputBox {
-        min-height: 53px;
-        padding: 6px 7px;
-        border-radius: 16px;
-        overflow: hidden;
-      }
-
-      .inputBox textarea {
-        min-height: 38px;
-        font-size: 14px;
-        padding: 5px 2px 40px 2px;
-        margin: 0;
-      }
-
-      .inputActions {
-        left: 7px;
-        right: 7px;
-        bottom: 6px;
-        height: 35px;
-      }
-
-      .inputIconButton {
-        width: 34px;
-        height: 34px;
-      }
-
-      .voiceButton,
-      .sendButton,
-      .stopButton {
-        width: 35px;
-        height: 35px;
-        border-radius: 11px;
-      }
-
-      .footerCredit {
-        padding-top: 5px;
-        padding-bottom: 0;
-        font-size: 9px;
-      } 
-
-      .sendButton {
-        font-size: 15px;
-      }
-
-      .stopSquare {
-        width: 12px;
-        height: 12px;
-      }
-
-      .footerCredit {
-        padding-top: 6px;
-        font-size: 9px;
-      }
-
-      .menuPanel {
-        top: 52px;
-        right: 9px;
-        width: min(270px, calc(100vw - 18px));
-      }
-    }
-
-    @media (max-width: 420px) {
-      .brandTagline {
-        display: none;
-      }
-
-      .heroTitle {
-        font-size: 27px;
-      }
-
-      .heroLogo {
-        width: 64px;
-        height: 64px;
-      }
-
-      .taskGrid {
-        grid-template-columns: 1fr 1fr;
-      }
-
-      .suggestionGrid {
-        grid-template-columns: 1fr;
-      }
-
-      .suggestionCard {
-        min-height: 47px;
-      }
-
-      .messageBubble {
-        font-size: 13.5px;
-      }
-
-      .assistantAvatar {
-        width: 29px;
-        height: 29px;
-        min-width: 29px;
-      }
-
-      .messageMain {
-        max-width: calc(100% - 38px);
-      }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      *,
-      *::before,
-      *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        scroll-behavior: auto !important;
-        transition-duration: 0.01ms !important;
-      }
-    }
-          /* =========================
-         FINAL COMPOSER FIX
-         ========================= */
-
-      .bottomArea {
-        position: relative !important;
-        flex-shrink: 0 !important;
-        width: 100% !important;
-        height: auto !important;
-        min-height: 0 !important;
-        padding: 5px 10px 7px !important;
-        overflow: visible !important;
-      }
-
-      .composerOuter {
-        width: min(900px, 100%) !important;
-        margin: 0 auto !important;
-      }
-
-      .activeTaskLabel {
-        margin: 0 0 5px 4px !important;
-        height: auto !important;
-      }
-
-      .inputBox {
-        position: relative !important;
-        display: block !important;
-        width: 100% !important;
-        height: 58px !important;
-        min-height: 58px !important;
-        max-height: 58px !important;
-        margin: 0 !important;
-        padding: 7px 8px !important;
-        border-radius: 17px !important;
-        overflow: hidden !important;
-        box-sizing: border-box !important;
-      }
-
-      .inputBox textarea {
-        display: block !important;
-        position: absolute !important;
-        left: 9px !important;
-        right: 9px !important;
-        top: 6px !important;
-        width: calc(100% - 18px) !important;
-        height: 42px !important;
-        min-height: 42px !important;
-        max-height: 42px !important;
-        margin: 0 !important;
-        padding: 7px 2px !important;
-        resize: none !important;
-        overflow-x: hidden !important;
-        overflow-y: auto !important;
-        box-sizing: border-box !important;
-      }
-
-      .inputActions {
-        position: absolute !important;
-        left: 7px !important;
-        right: 7px !important;
-        bottom: 7px !important;
-        width: auto !important;
-        height: 36px !important;
-        min-height: 36px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: space-between !important;
-        pointer-events: none !important;
-        z-index: 5 !important;
-      }
-
-      .inputLeftActions,
-      .inputRightActions {
-        display: flex !important;
-        align-items: center !important;
-        gap: 6px !important;
-        pointer-events: auto !important;
-      }
-
-      .inputIconButton {
-        width: 34px !important;
-        height: 34px !important;
-        min-width: 34px !important;
-        min-height: 34px !important;
-      }
-
-      .voiceButton,
-      .sendButton,
-      .stopButton {
-        width: 35px !important;
-        height: 35px !important;
-        min-width: 35px !important;
-        min-height: 35px !important;
-        flex-shrink: 0 !important;
-        border-radius: 11px !important;
-      }
-
-      .inputHint {
-        display: none !important;
-      }
-
-      .footerCredit {
-        position: relative !important;
-        width: 100% !important;
-        height: auto !important;
-        min-height: 18px !important;
-        margin: 0 !important;
-        padding: 5px 0 0 !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        line-height: 1.2 !important;
-        overflow: visible !important;
-      }
-
-      @media (max-width: 760px) {
-        .bottomArea {
-          padding: 4px 8px 6px !important;
-        }
-
-        .inputBox {
-          height: 54px !important;
-          min-height: 54px !important;
-          max-height: 54px !important;
-          padding: 6px 7px !important;
-          border-radius: 16px !important;
-        }
-
-        .inputBox textarea {
-          left: 8px !important;
-          right: 8px !important;
-          top: 5px !important;
-          width: calc(100% - 16px) !important;
-          height: 39px !important;
-          min-height: 39px !important;
-          max-height: 39px !important;
-          padding: 6px 2px !important;
-          font-size: 14px !important;
-        }
-
-        .inputActions {
-          left: 7px !important;
-          right: 7px !important;
-          bottom: 5px !important;
-          height: 35px !important;
-        }
-
-        .inputIconButton,
-        .voiceButton,
-        .sendButton,
-        .stopButton {
-          width: 34px !important;
-          height: 34px !important;
-          min-width: 34px !important;
-          min-height: 34px !important;
-        }
-
-        .footerCredit {
-          padding-top: 5px !important;
-          font-size: 9px !important;
-        }
-      }
-
-      @media (max-width: 420px) {
-        .bottomArea {
-          padding: 3px 7px 5px !important;
-        }
-
-        .inputBox {
-          height: 52px !important;
-          min-height: 52px !important;
-          max-height: 52px !important;
-        }
-
-        .inputBox textarea {
-          height: 37px !important;
-          min-height: 37px !important;
-          max-height: 37px !important;
-          font-size: 13.5px !important;
-        }
-
-        .inputActions {
-          left: 6px !important;
-          right: 6px !important;
-          bottom: 5px !important;
-        }
-      }
-  `}</style>
+        <div className="composerBottom">
+          <div className="brandCredit">
+            <span>✦ ORION AI</span>
+            <b>Powered by Dharm AI</b>
+          </div>
+        </div>
+      </form>      <div className="suggestionRow">
+        {currentSuggestions.map((item) => (
+          <button
+            key={item}
+            type="button"
+            onClick={() => handleSuggestion(item)}
+            disabled={loading}
+          >
+            {item}
+          </button>
+        ))}
+      </div>
+        <style jsx>{css}</style>
     </main>
   );
-      }
+}
+
+const css = `
+* {
+  box-sizing: border-box;
+}
+
+.orionApp {
+  min-height: 100vh;
+  background: #fff;
+  color: #171717;
+  display: flex;
+  flex-direction: column;
+  font-family: Inter, Arial, sans-serif;
+}
+
+.topBar {
+  height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 22px;
+  border-bottom: 1px solid #eee;
+}
+
+.brandButton {
+  border: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.orionLogo {
+  font-size: 27px;
+  text-shadow: 0 0 14px #aaa;
+}
+
+.brandText {
+  display: flex;
+  flex-direction: column;
+}
+
+.brandText strong {
+  font-size: 16px;
+}
+
+.brandText small {
+  color: #777;
+  font-size: 11px;
+}
+
+.newChatButton {
+  border: 1px solid #ddd;
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.chatArea {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+}
+
+.messages {
+  width: min(900px, 100%);
+  overflow-y: auto;
+  padding: 30px 16px 170px;
+}
+
+.welcome {
+  min-height: 55vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.welcomeLogo {
+  font-size: 55px;
+  text-shadow: 0 0 18px #aaa;
+}
+
+.welcome h1 {
+  margin: 10px 0 5px;
+  font-size: clamp(30px, 7vw, 48px);
+}
+
+.welcomeBrand {
+  color: #777;
+  font-size: 14px;
+  margin-bottom: 25px;
+}
+
+.quickQuestions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.quickQuestions button,
+.suggestionRow button {
+  border: 1px solid #e2e2e2;
+  background: #fff;
+  border-radius: 12px;
+  padding: 9px 12px;
+  cursor: pointer;
+}
+
+.messageList {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.message {
+  max-width: 82%;
+}
+
+.userMessage {
+  align-self: flex-end;
+}
+
+.assistantMessage {
+  align-self: flex-start;
+}
+
+.messageBubble {
+  padding: 12px 15px;
+  border-radius: 17px;
+  line-height: 1.65;
+  font-size: 15px;
+}
+
+.userMessage .messageBubble {
+  background: #171717;
+  color: #fff;
+}
+
+.assistantMessage .messageBubble {
+  background: #f7f7f7;
+}
+
+.markdown p {
+  margin: 0 0 8px;
+}
+
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+  margin: 12px 0 7px;
+}
+
+.markdown pre {
+  overflow-x: auto;
+  background: #111;
+  color: #fff;
+  padding: 12px;
+  border-radius: 10px;
+}
+
+.messageActions {
+  display: flex;
+  gap: 5px;
+  margin-top: 4px;
+}
+
+.messageActions button,
+.iconButton {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 5px;
+}
+
+.typing {
+  display: flex;
+  gap: 5px;
+  padding: 12px;
+}
+
+.typing span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #888;
+  animation: pulse 1s infinite;
+}
+
+.typing span:nth-child(2) {
+  animation-delay: .15s;
+}
+
+.typing span:nth-child(3) {
+  animation-delay: .3s;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: .25;
+    transform: translateY(-3px);
+  }
+}
+
+.errorBox {
+  margin: 12px auto;
+  padding: 10px;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.composerArea {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: min(900px, calc(100% - 24px));
+  padding: 8px 0 11px;
+  background: rgba(255,255,255,.97);
+}
+
+.taskRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.taskRow select {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  padding: 5px;
+}
+
+.taskLabel {
+  color: #888;
+  font-size: 12px;
+}
+
+.composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  border: 1px solid #ddd;
+  border-radius: 16px;
+  padding: 7px;
+  background: #fff;
+  box-shadow: 0 5px 25px rgba(0,0,0,.06);
+}
+
+.composer textarea {
+  flex: 1;
+  resize: none;
+  border: 0;
+  outline: 0;
+  min-height: 38px;
+  max-height: 120px;
+  padding: 9px 6px;
+  font: inherit;
+}
+
+.composerActions {
+  display: flex;
+  align-items: center;
+}
+
+.sendButton {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 11px;
+  background: #171717;
+  color: #fff;
+  cursor: pointer;
+}
+
+.sendButton:disabled {
+  opacity: .3;
+}
+
+.sendButton.stop {
+  background: #444;
+}
+
+.composerBottom {
+  padding-top: 5px;
+}
+
+.brandCredit {
+  display: flex;
+  justify-content: center;
+  gap: 7px;
+  color: #777;
+  font-size: 10px;
+}
+
+.brandCredit b {
+  color: #555;
+}
+
+.suggestionRow {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .topBar {
+    padding: 0 12px;
+  }
+
+  .newChatButton {
+    font-size: 12px;
+    padding: 7px 9px;
+  }
+
+  .messages {
+    padding: 25px 10px 160px;
+  }
+
+  .message {
+    max-width: 92%;
+  }
+
+  .welcome {
+    min-height: 50vh;
+  }
+
+  .quickQuestions button {
+    font-size: 12px;
+  }
+
+  .composerArea {
+    width: calc(100% - 14px);
+  }
+
+  .brandCredit {
+    font-size: 9px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+`;
