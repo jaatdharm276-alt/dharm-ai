@@ -177,8 +177,9 @@ function formatText(text) {
     );
   }
 
-  return output.join("");
-        }
+return output.join("");
+}
+
 export default function Home() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -910,11 +911,11 @@ export default function Home() {
                 </div>
               )}
 
-              {error && (
+                            {error && (
                 <div className="error-message">
                   {error}
                 </div>
-              )}              </div>
+              )}
             </div>
           )}
 
