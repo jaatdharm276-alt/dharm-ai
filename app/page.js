@@ -749,8 +749,10 @@ function renderInline(text) {
                   </article>
                 );
               })}
-
-              {loading      <form
+              </div>
+            </div>
+          </section>
+                  <form
         className="composerArea"
         onSubmit={submitMessage}
       >
