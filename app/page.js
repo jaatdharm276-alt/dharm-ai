@@ -805,6 +805,9 @@ function Home() {
 
   const isHome = !hasMessages;
   return (
+  <>
+    <style>{styles}</style>
+
     <main className="orion-app">
       <div className="orion-glow glow-one" />
       <div className="orion-glow glow-two" />
@@ -1166,7 +1169,8 @@ function Home() {
           {TASK_INSTRUCTIONS[taskMode]}
         </div>
       </main>
-    );
+</>
+);
 }const styles = `
   * {
     box-sizing: border-box;
@@ -1918,12 +1922,4 @@ function Home() {
     }
   }
 `;
-
-  return (
-    <>
-      <style>{styles}</style>
-    </>
-  );
-}
-
 export default Home; 
