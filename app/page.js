@@ -1417,8 +1417,7 @@ export default function Home() {
           Powered by Dharm AI
         </div>
       </div>
-      </div>
-
+    
       <style jsx global>{`
         * {
           box-sizing: border-box;
