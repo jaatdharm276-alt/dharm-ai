@@ -842,9 +842,9 @@ export default function Home() {
 
       setError(
         "Microphone start nahi ho paya."
-      );
-    }
-  }, [listening, loading]);
+      },
+    [listening, loading]
+  );
 
   const filteredMessages = useMemo(() => {
     const query =
