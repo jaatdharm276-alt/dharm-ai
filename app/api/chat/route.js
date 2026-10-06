@@ -228,15 +228,43 @@ function isCreatorQuestion(message) {
   );
 }
 
-function getCreatorResponse() {
+function getCreatorResponse(message) {
+  const text = cleanText(message).toLowerCase();
+
+  const asksAboutDharmAI =
+    text.includes("dharm ai") ||
+    text.includes("dharm-ai");
+
+  const asksAboutOrion =
+    text.includes("orion ai") ||
+    text.includes("orion");
+
+  if (asksAboutDharmAI && !asksAboutOrion) {
+    return [
+      "Dharm AI ko Dharmraj Jat ne banaya hai.",
+      "",
+      "Dharm AI original project hai, jisse ORION AI ko develop aur evolve kiya ja raha hai.",
+      "",
+      "Dharmraj Jat hi Dharm AI aur ORION AI dono ke creator hain.",
+    ].join("\n");
+  }
+
+  if (asksAboutOrion) {
+    return [
+      "ORION AI, Dharm AI project se develop aur evolve kiya ja raha hai.",
+      "",
+      "ORION AI ka foundation Dharm AI project hai.",
+      "",
+      "Dharmraj Jat hi Dharm AI aur ORION AI dono ke creator hain.",
+    ].join("\n");
+  }
+
   return [
     "Main ORION AI hoon.",
     "",
-    "ORION AI ko Dharm AI project se develop aur evolve kiya ja raha hai.",
+    "Mujhe Dharm AI project se develop aur evolve kiya ja raha hai.",
     "",
-    "Mera focus ek intelligent, context-aware aur AGI-oriented assistant architecture banana hai — jisme understanding, planning, execution aur verification jaise layers gradually develop kiye ja rahe hain.",
-    "",
-    "Powered by Dharm AI.",
+    "Dharm AI aur ORION AI dono ke creator Dharmraj Jat hain.",
   ].join("\n");
 }
 
@@ -859,7 +887,7 @@ async function handleChatRequest(
   ) {
     return streamResponse(
       createTextStream(
-        getCreatorResponse()
+       getCreatorResponse(message)
       )
     );
   }
