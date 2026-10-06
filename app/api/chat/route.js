@@ -205,13 +205,17 @@ function buildSystemPrompt(
 const CREATOR_KEYWORDS = [
   "creator",
   "kisne banaya",
-  "kiske dwara",
+  "kiske dwara banaya",
   "who made you",
   "who created you",
+  "who developed you",
+  "who is your developer",
+  "developer kaun hai",
+  "tumhara developer kaun hai",
+  "tumhe kisne banaya",
+  "dovloper",
   "developer",
-  "owner",
-  "dharm ai",
-  "dharm-ai",
+  "owner kaun hai",
 ];
 
 function isCreatorQuestion(message) {
