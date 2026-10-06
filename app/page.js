@@ -260,21 +260,29 @@ export default function Home() {
 
   const visibleHomeActions = HOME_ACTIONS;
 
-  //   const scrollToBottom = useCallback((force = false) => {
-    const container = messagesRef.current;
+    const scrollToBottom = useCallback(
+    (force = false) => {
+      const container =
+        messagesRef.current;
 
-    if (!container) {
-      return;
-    }
+      if (!container) {
+        return;
+      }
 
-    if (!force && !shouldFollowRef.current) {
-      return;
-    }
+      if (
+        !force &&
+        !shouldFollowRef.current
+      ) {
+        return;
+      }
 
-    requestAnimationFrame(() => {
-      container.scrollTop = container.scrollHeight;
-    });
-  }, []);
+      requestAnimationFrame(() => {
+        container.scrollTop =
+          container.scrollHeight;
+      });
+    },
+    []
+  );
 
   const handleMessagesScroll = useCallback(() => {
     const container = messagesRef.current;
