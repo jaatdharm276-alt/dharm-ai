@@ -203,7 +203,6 @@ function buildSystemPrompt(
   ].join("\n");
 }
 const CREATOR_KEYWORDS = [
-const CREATOR_KEYWORDS = [
   "creator",
   "created you",
   "who made you",
