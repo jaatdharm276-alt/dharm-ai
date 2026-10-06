@@ -840,11 +840,13 @@ export default function Home() {
       setListening(false);
       recognitionRef.current = null;
 
-      setError(
+           setError(
         "Microphone start nahi ho paya."
-      },
-    [listening, loading]
-  );
+      );
+    }
+  },
+  [listening, loading]
+); 
 
   const filteredMessages = useMemo(() => {
     const query =
