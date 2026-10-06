@@ -829,12 +829,7 @@ export default function Home() {
       }
     };
 
-        try {
-      recognition.start();
-    } catch (err) {
-      console.error(
-        "Unable to start voice:",
-        err
+        
   const startVoice = useCallback(() => {
     if (loading) {
       return;
