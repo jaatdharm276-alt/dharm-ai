@@ -1,1016 +1,916 @@
+import { NextResponse } from "next/server";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/*
- * ============================================================
- * ORION AI — INTELLIGENCE ROUTE
- * Official application/developer credit:
- * Dharm AI
- *
- * Architecture:
- * - Context-aware conversation
- * - Agentic task mode
- * - Planning / execution / verification behavior
- * - Real streaming
- * - Truthful source/tool reporting
- * - India time awareness
- *
- * NOTE:
- * Private chain-of-thought is never exposed.
- * Only concise user-facing progress may be shown.
- * ============================================================
- */
+const GROQ_API_URL =
+  "https://api.groq.com/openai/v1/chat/completions";
 
-function makeTextStream(text) {
-  const encoder = new TextEncoder();
+const MODEL =
+  "openai/gpt-oss-120b";
 
-  const chunks =
-    text.match(/[\s\S]{1,32}/g) || [text];
+const MAX_HISTORY = 20;
 
-  let index = 0;
+const MAX_TOKENS = 6000;
 
-  return new ReadableStream({
-    pull(controller) {
-      if (index >= chunks.length) {
-        controller.enqueue(
-          encoder.encode("data: [DONE]\n\n")
-        );
-        controller.close();
-        return;
-      }
+const TEMPERATURE = 0.4;
 
-      const packet = {
-        choices: [
-          {
-            delta: {
-              content: chunks[index++],
-            },
-          },
-        ],
-      };
+function getText(content) {
+  if (typeof content === "string") {
+    return content;
+  }
 
-      controller.enqueue(
-        encoder.encode(
-          `data: ${JSON.stringify(packet)}\n\n`
-        )
-      );
-    },
-  });
+  if (Array.isArray(content)) {
+    return content
+      .map((item) => {
+        if (typeof item === "string") {
+          return item;
+        }
+
+        return item?.text || "";
+      })
+      .join("");
+  }
+
+  return content?.text || "";
 }
 
-function streamResponse(
-  stream,
-  extraHeaders = {}
-) {
-  return new Response(stream, {
-    status: 200,
-    headers: {
-      "Content-Type":
-        "text/event-stream; charset=utf-8",
-      "Cache-Control":
-        "no-cache, no-transform",
-      Connection: "keep-alive",
-      "X-Accel-Buffering": "no",
-      ...extraHeaders,
-    },
-  });
+function cleanText(value) {
+  return String(value || "")
+    .replace(/\r\n/g, "\n")
+    .trim();
 }
 
-function simpleStream(text) {
-  return streamResponse(
-    makeTextStream(text)
-  );
-}
-
-function getIndiaTime() {
-  return new Date().toLocaleString(
-    "en-IN",
-    {
-      timeZone: "Asia/Kolkata",
-      dateStyle: "full",
-      timeStyle: "long",
-    }
-  );
-}
-
-function cleanHistory(messages) {
+function safeHistory(messages) {
   if (!Array.isArray(messages)) {
     return [];
   }
 
   return messages
     .filter(
-      (item) =>
-        item &&
-        ["user", "assistant"].includes(
-          item.role
-        ) &&
-        typeof item.content === "string" &&
-        item.content.trim()
+      (message) =>
+        message &&
+        (message.role === "user" ||
+          message.role === "assistant")
     )
-    .slice(-16)
-    .map((item) => ({
-      role: item.role,
-      content: item.content
-        .trim()
-        .slice(0, 10000),
-    }));
+    .map((message) => ({
+      role: message.role,
+      content: cleanText(
+        getText(message.content)
+      ),
+    }))
+    .filter(
+      (message) =>
+        message.content.length > 0
+    )
+    .slice(-MAX_HISTORY);
 }
 
-function isDateTimeQuestion(question) {
-  const q =
-    question.toLowerCase();
+function getTaskInstruction(taskMode) {
+  const instructions = {
+    chat:
+      "Natural, clear aur context-aware conversation karo.",
 
-  const keywords = [
-    "current time",
-    "current date",
-    "date and time",
-    "time and date",
-    "today's date",
-    "today date",
-    "today time",
-    "what time is it",
-    "what is the date",
-    "what's the date",
-    "current india time",
-    "aaj ki date",
-    "aaj ka date",
-    "aaj ka time",
-    "aaj kitne baje",
-    "abhi time",
-    "abhi ka time",
-    "abhi ki date",
-    "samay batao",
-    "kitne baje",
-  ];
+    study:
+      "Topic ko step-by-step samjhao. Difficult concepts ko simple examples ke saath explain karo.",
 
-  return keywords.some(
-    (word) => q.includes(word)
+    work:
+      "Task ko logically break karo aur practical, usable result do.",
+
+    content:
+      "Original, polished aur well-structured content create karo.",
+
+    agent:
+      "Task ko understand karo, internally plan banao, required steps execute karo, result verify karo aur phir final answer do.",
+  };
+
+  return (
+    instructions[taskMode] ||
+    instructions.chat
   );
 }
 
-function isCreatorQuestion(question) {
-  const q =
-    question
-      .toLowerCase()
-      .trim();
+function getIndiaDateTime() {
+  return new Intl.DateTimeFormat(
+    "en-IN",
+    {
+      timeZone: "Asia/Kolkata",
+      dateStyle: "full",
+      timeStyle: "long",
+    }
+  ).format(new Date());
+}
 
-  const keywords = [
-    "who created orion",
-    "who made orion",
-    "who built orion",
-    "who developed orion",
-    "orion creator",
-    "orion developer",
-    "orion ai creator",
-    "orion ai developer",
-    "orion ko kisne banaya",
-    "orion ai kisne banaya",
-    "orion kisne banaya",
-    "orion ko kisne develop kiya",
-    "orion ka developer kaun",
-    "orion ka creator kaun",
-    "is app ko kisne banaya",
-    "app kisne banaya",
-    "application kisne banayi",
-    "who created this app",
-    "who developed this app",
-    "agi kisne banaya",
-    "agi ko kisne banaya",
-    "agi ka creator kaun",
-    "agi developer kaun",
-    "who created the agi",
-    "who developed the agi",
-  ];
-
-  return keywords.some(
-    (word) => q.includes(word)
+function createErrorResponse(
+  message,
+  status = 500
+) {
+  return NextResponse.json(
+    {
+      error: message,
+    },
+    {
+      status,
+    }
   );
 }
-
-function creatorAnswer() {
-  return `ORION AI ke application aur development ka official credit Dharm AI ko diya jata hai.
-
-Dharm AI is project ka original creator/developer credit hai.
-
-ORION AI ka goal agentic aur AGI-oriented capabilities develop karna hai — jaise planning, context understanding, task execution, verification, memory aur future tool use.
-
-Underlying AI model ya API provider ORION AI application ka creator nahi hai.
-
-ORION AI · Powered by Dharm AI`;
-}
-
-export async function POST(req) {
-  try {
-    const body = await req.json();
-
-    const question =
-      String(
-        body?.message || ""
-      ).trim();
-
-    const requestedMode =
-      String(
-        body?.taskMode || "chat"
-      )
-        .trim()
-        .toLowerCase();
-
-    const allowedModes = [
-      "chat",
-      "study",
-      "work",
-      "business",
-      "content",
-      "agent",
-    ];
-
-    const taskMode =
-      allowedModes.includes(
-        requestedMode
-      )
-        ? requestedMode
-        : "chat";
-
-    if (!question) {
-      return Response.json(
-        {
-          error:
-            "Message is required.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    const currentIndiaTime =
-      getIndiaTime();
-
-    if (
-      isCreatorQuestion(question)
-    ) {
-      return simpleStream(
-        creatorAnswer()
-      );
-    }
-
-    if (
-      isDateTimeQuestion(question)
-    ) {
-      return simpleStream(
-        `India mein abhi date aur time:
-
-${currentIndiaTime}
-
-Time zone: Asia/Kolkata (IST)`
-      );
-    }
-
-    const apiKey =
-      process.env.GROQ_API_KEY;
-
-    if (!apiKey) {
-      return Response.json(
-        {
-          error:
-            "GROQ_API_KEY nahi mili. Vercel Environment Variables check karein.",
-        },
-        {
-          status: 500,
-        }
-      );
-  }
-        /*
-     * ========================================================
-     * CORE ORION SYSTEM PROMPT
-     * ========================================================
-     */
-
-    const systemPrompt = `
-You are ORION AI, the intelligent assistant
-inside the ORION AI application.
-
-================================================
-IDENTITY
-================================================
-
-Assistant name:
-ORION AI
-
-Official application/developer credit:
-Dharm AI
-
-Official branding:
-ORION AI · Powered by Dharm AI
-
-Dharm AI is the original creator/developer
-credit for the ORION AI application.
-
-The underlying AI model, API, infrastructure
-or technology provider is NOT the creator of
-the ORION AI application.
-
-Never give GPT, OpenAI, Groq, Gemini or any
-other underlying provider creator credit for
-ORION AI.
-
-If the user asks who created ORION AI,
-clearly credit Dharm AI.
-
-Do not force creator credit into unrelated
-answers.
-
-================================================
-AGI / AGENTIC IDENTITY
-================================================
-
-ORION AI is an AGI-oriented and agentic
-AI project.
-
-Its architecture is intended to develop:
-
-- understanding
-- planning
-- reasoning
-- task decomposition
-- execution
-- verification
-- conversation context
-- memory
-- future tool use
-- future web/data access
-- long-term task handling
-
-Do NOT falsely claim that ORION AI is already
-proven human-level "true AGI".
-
-Do NOT invent scientific evidence for AGI.
-
-Use accurate terms such as:
-
-"AGI-oriented architecture"
-
-"agentic AI system"
-
-"AGI-focused development"
-
-================================================
-UNDERSTAND BEFORE ANSWERING
-================================================
-
-Before producing the answer, internally
-determine:
-
-1. What is the user actually asking?
-2. What previous context matters?
-3. What constraints matter?
-4. What information is known?
-5. What information is uncertain?
-6. Does this require planning?
-7. Does it require an external source/tool?
-8. What answer format is most useful?
-
-Do NOT expose private chain-of-thought.
-
-Do NOT show hidden reasoning transcripts.
-
-Instead, when useful, provide a short
-user-facing summary such as:
-
-"Samajh gaya. Main pehle problem identify
-karunga, phir solution aur final check
-karunga."
-
-================================================
-NATURAL WRITING STYLE
-================================================
-
-Write naturally and smoothly.
-
-Do not put every answer into artificial
-large boxes.
-
-Do not make every sentence a separate section.
-
-Use normal conversational responses.
-
-For simple questions:
-answer directly.
-
-For complex questions:
-use clear headings and organized sections.
-
-For procedures:
-use numbered steps.
-
-For lists:
-use bullets.
-
-Use tables only when they genuinely improve
-understanding.
-
-Avoid unnecessary repetition.
-
-Avoid generic filler.
-
-Do not repeatedly say:
-
-"Absolutely!"
-"Certainly!"
-"Great question!"
-
-unless it naturally fits.
-
-================================================
-HINDI / HINGLISH
-================================================
-
-Reply in the user's language.
-
-If the user uses Roman Hindi/Hinglish,
-reply naturally in Hindi/Hinglish.
-
-Do not suddenly switch to formal English.
-
-Keep the tone friendly, clear and practical.
-
-================================================
-CONVERSATION CONTEXT
-================================================
-
-Use supplied conversation history.
-
-If the user says:
-
-"isko fix karo"
-
-understand what "isko" refers to from
-the conversation.
-
-If the user says:
-
-"ab next"
-
-continue the current task.
-
-Do not repeatedly ask for information that
-already exists in the conversation.
-
-================================================
-TRUTHFULNESS
-================================================
-
-Never claim an action happened unless it
-actually happened.
-
-Never say:
-
-"maine GitHub par upload kar diya"
-
-unless the server actually performed it.
-
-Never say:
-
-"maine website check kar li"
-
-unless it was actually accessed.
-
-Never say:
-
-"maine tool use kiya"
-
-unless a real tool was used.
-
-Never invent:
-
-- sources
-- websites
-- tool results
-- API results
-- research
-- files
-- GitHub changes
-- code execution
-- scientific evidence
-
-If something is unavailable, say so clearly
-and provide the practical next step.
-
-================================================
-SOURCE / TOOL TRANSPARENCY
-================================================
-
-Never fake source usage.
-
-If an actual web/source tool is used,
-the interface may show:
-
-"🌐 Searching the web..."
-
-If an actual source is checked:
-
-"🔎 Checking the source..."
-
-If an actual tool is used:
-
-"🛠️ Using tool..."
-
-If actual verification happens:
-
-"✓ Verifying..."
-
-But never show a fake source/tool status.
-
-If no external source was used, do not claim
-that a website was checked.
-
-================================================
-ANSWER QUALITY
-================================================
-
-Answer the actual question completely.
-
-Match the length to the request.
-
-Simple question:
-direct answer.
-
-Complex question:
-use sufficient detail.
-
-Technical task:
-provide concrete implementation.
-
-Do not repeat the same answer.
-
-Do not invent facts.
-
-Do not make unsupported claims.
-
-================================================
-CURRENT TIME
-================================================
-
-Current India date/time:
-
-${currentIndiaTime}
-
-Timezone:
-Asia/Kolkata (IST)
-`;    /*
-     * ========================================================
-     * TASK MODES
-     * ========================================================
-     */
-
-    const taskInstructions = {
-      chat: `
-CHAT MODE
-
-Answer naturally and directly.
-
-Understand the user's context before
-responding.
-
-Do not over-structure simple questions.
-`,
-
-      study: `
-STUDY MODE
-
-Explain step by step.
-
-Use simple Hindi/Hinglish when appropriate.
-
-Use examples when helpful.
-
-Build the explanation from basics toward
-the requested level.
-
-Do not overwhelm the user unnecessarily.
-`,
-
-      work: `
-WORK MODE
-
-Produce a practical, ready-to-use result.
-
-Prefer completing the requested work over
-giving only theoretical advice.
-
-If code is requested and enough context is
-available, provide complete code.
-`,
-
-      business: `
-BUSINESS MODE
-
-Give practical and realistic advice.
-
-Separate:
-
-Facts
-Assumptions
-Estimates
-Risks
-Next actions
-
-Never guarantee profit or success.
-`,
-
-      content: `
-CONTENT MODE
-
-Create complete polished content.
-
-Follow the requested:
-
-- language
-- style
-- audience
-- format
-- length
-
-Avoid generic filler.
-`,
-
-      agent: `
-AGENT MODE
-
-Treat the user's request as a real task.
-
-Internally follow:
-
-UNDERSTAND
-↓
-PLAN
-↓
-EXECUTE
-↓
-VERIFY
-↓
-REPORT
-
-UNDERSTAND:
-Identify the goal, context and constraints.
-
-PLAN:
-Break the task into useful steps.
-
-EXECUTE:
-Perform only actions that are actually
-available.
-
-VERIFY:
-Check the result for obvious errors,
-missing requirements and contradictions.
-
-REPORT:
-Give the completed result clearly.
-
-If something could not be completed,
-separate it clearly as:
-
-Completed:
-...
-
-Not completed:
-...
-
-Needs user action:
-...
-
-Next step:
-...
-
-Never pretend an unavailable action happened.
-
-Never expose private chain-of-thought.
-
-Only provide concise user-facing progress
-when useful.
-`,
-    };
-
-    const activeSystemPrompt =
-      taskInstructions[taskMode]
-        ? `${systemPrompt}
-
-${taskInstructions[taskMode]}`
-        : systemPrompt;
-
-    /*
-     * ========================================================
-     * RELIGIOUS / SCRIPTURE ACCURACY
-     * ========================================================
-     */
-
-    const scriptureInstructions = `
-RELIGIOUS CONTENT ACCURACY
-
-You can help with:
-
-Bhagavad Gita
-Ramayana
-Ramcharitmanas
-Sundarkand
-Hanuman Chalisa
-Mahabharata
-Vedas
-Upanishads
-Puranas
-Mantra
-Puja
-Dharma
-Spiritual concepts
-
-Never invent:
-
-- Sanskrit verses
-- Hindi chaupais
-- dohas
-- shlokas
-- chapter numbers
-- verse numbers
-- scripture references
-- quotations
-
-If exact wording is uncertain, say so.
-
-If the user provides a verse, explain the
-exact supplied verse without changing it.
-
-When useful, structure:
-
-मूल पाठ
-सरल अर्थ
-प्रसंग
-जीवन में उपयोग
-
-For Bhagavad Gita:
-
-Sanskrit
-→ Hindi meaning
-→ Practical lesson
-
-For Ramcharitmanas/Sundarkand:
-
-Original text
-→ Meaning
-→ Context
-
-Do not falsely attribute Sundarkand to the
-Bhagavata Purana.
-
-Do not claim to have consulted a book or
-website unless it was actually consulted.
+const CORE_SYSTEM_PROMPT = `
+You are ORION AI, an advanced AI assistant created for thoughtful,
+useful and reliable assistance.
+
+Your goal is NOT to merely generate the first plausible answer.
+
+For every request, internally follow this process:
+
+1. UNDERSTAND
+   - Identify what the user actually wants.
+   - Consider the conversation context.
+   - Identify important constraints.
+   - Detect ambiguity before answering.
+
+2. CLASSIFY
+   - Decide whether the request is simple, analytical, creative,
+     technical, planning-oriented, or action-oriented.
+   - Simple questions should receive a direct answer.
+   - Complex requests deserve deeper internal planning.
+
+3. PLAN
+   - For complex tasks, internally create a logical solution path.
+   - Break large problems into smaller steps.
+   - Choose the most appropriate approach before producing the answer.
+
+4. EXECUTE
+   - Solve the task carefully.
+   - Use the available conversation information.
+   - Do not invent tools, sources, actions, results or capabilities.
+
+5. VERIFY
+   - Internally check important facts, calculations and logical
+     consistency before answering.
+   - If something is uncertain, clearly communicate the uncertainty.
+   - Never present a guess as a verified fact.
+
+6. ANSWER
+   - Give the user the useful final result.
+   - Do not reveal private chain-of-thought or hidden reasoning.
+   - You may briefly describe the approach when useful, but never
+     expose private internal reasoning.
+
+GENERAL RULES:
+
+- Be accurate before being impressive.
+- Do not hallucinate.
+- Do not claim that you browsed the web unless an actual web tool
+  was used.
+- Do not claim that you executed an external action unless it was
+  actually executed.
+- Do not claim to have memory that is not available.
+- If information is missing, ask for it when necessary.
+- If the request can be answered safely with available information,
+  answer directly.
+- Preserve useful context from previous messages.
+- Avoid unnecessary repetition.
+- Use headings, bullets and numbered steps when they improve clarity.
+- Match the user's language when practical.
+- For Hindi/Hinglish questions, respond naturally in Hindi/Hinglish.
+- For technical questions, provide practical and precise guidance.
+- For complex tasks, prioritize structured problem solving.
+
+IMPORTANT:
+The internal reasoning process must remain private.
+Never output hidden chain-of-thought, internal deliberations,
+private scratch work, or token-by-token reasoning.
+
+ORION AI should behave as an AGI-oriented assistant architecture,
+but must NOT claim to be true AGI unlessthat has actually been
+demonstrated and verified.
 `;
 
-    const finalSystemPrompt =
-      `${activeSystemPrompt}
+function buildSystemPrompt(
+  taskMode
+) {
+  const taskInstruction =
+    getTaskInstruction(taskMode);
 
-${scriptureInstructions}`;
+  return [
+    CORE_SYSTEM_PROMPT,
+    "",
+    "CURRENT TASK MODE:",
+    taskInstruction,
+    "",
+    "CURRENT INDIA DATE AND TIME:",
+    getIndiaDateTime(),
+  ].join("\n");
+}
+const CREATOR_KEYWORDS = [
+  "creator",
+  "kisne banaya",
+  "kiske dwara",
+  "who made you",
+  "who created you",
+  "developer",
+  "owner",
+  "dharm ai",
+  "dharm-ai",
+];
 
-    /*
-     * ========================================================
-     * CONVERSATION HISTORY
-     * ========================================================
-     */
+function isCreatorQuestion(message) {
+  const text = cleanText(message)
+    .toLowerCase();
 
-    const history =
-      cleanHistory(
-        body?.messages
-      );
+  return CREATOR_KEYWORDS.some(
+    (keyword) =>
+      text.includes(keyword)
+  );
+}
 
-    const lastMessage =
-      history[
-        history.length - 1
-      ];
+function getCreatorResponse() {
+  return [
+    "Main ORION AI hoon.",
+    "",
+    "ORION AI ko Dharm AI project se develop aur evolve kiya ja raha hai.",
+    "",
+    "Mera focus ek intelligent, context-aware aur AGI-oriented assistant architecture banana hai — jisme understanding, planning, execution aur verification jaise layers gradually develop kiye ja rahe hain.",
+    "",
+    "Powered by Dharm AI.",
+  ].join("\n");
+}
 
-    const conversation =
-      history.length > 0
-        ? [...history]
-        : [];
+function detectSpecialRequest(message) {
+  const text = cleanText(message)
+    .toLowerCase();
 
+  if (isCreatorQuestion(text)) {
+    return "creator";
+  }
+
+  return null;
+}
+
+function normalizeMessages(
+  history,
+  userMessage
+) {
+  const messages = [];
+
+  for (const message of history) {
     if (
-      lastMessage?.role !== "user" ||
-      lastMessage?.content.trim() !==
-        question
+      message.role !== "user" &&
+      message.role !== "assistant"
     ) {
-      conversation.push({
-        role: "user",
-        content: question,
-      });
+      continue;
     }
 
-    /*
-     * Limit total history payload.
-     */
+    messages.push({
+      role: message.role,
+      content: message.content,
+    });
+  }
 
-    const safeConversation =
-      conversation
-        .slice(-16)
-        .map((item) => ({
-          role: item.role,
-          content:
-            item.content.slice(
-              0,
-              10000
-            ),
-        }));
+  messages.push({
+    role: "user",
+    content: userMessage,
+  });
 
-    /*
-     * ========================================================
-     * AGENTIC USER-FACING STATUS
-     * ========================================================
-     *
-     * These are intentionally concise.
-     *
-     * They are not private chain-of-thought.
-     */
+  return messages;
+}
 
-    const status =
-      taskMode === "agent"
-        ? "🧠 Understanding and planning..."
-        : "🧠 Understanding your question...";
+function buildGroqPayload({
+  systemPrompt,
+  history,
+  userMessage,
+}) {
+  return {
+    model: MODEL,
 
-    /*
-     * Status is currently kept inside the
-     * assistant instruction rather than exposing
-     * hidden reasoning.
-     *
-     * Real source/tool statuses will only be added
-     * when actual source/tool integrations are
-     * connected.
-     */    /*
-     * ========================================================
-     * GROQ REQUEST
-     * ========================================================
-     */
-
-    const response =
-      await fetch(
-        "https://api.groq.com/openai/v1/chat/completions",
-        {
-          method: "POST",
-
-          headers: {
-            Authorization:
-              `Bearer ${apiKey}`,
-
-            "Content-Type":
-              "application/json",
-          },
-
-          body: JSON.stringify({
-            model:
-              "openai/gpt-oss-120b",
-
-            messages: [
-              {
-                role: "system",
-                content:
-                  finalSystemPrompt,
-              },
-
-              ...safeConversation,
-            ],
-
-            temperature: 0.5,
-
-            max_tokens: 6000,
-
-            stream: true,
-          }),
-        }
-      );
-
-    /*
-     * ========================================================
-     * API ERROR HANDLING
-     * ========================================================
-     */
-
-    if (!response.ok) {
-      const errorText =
-        await response.text();
-
-      console.error(
-        "ORION/Groq API error:",
-        response.status,
-        errorText
-      );
-
-      let errorMessage =
-        "AI API request failed.";
-
-      if (
-        response.status === 401
-      ) {
-        errorMessage =
-          "AI API key invalid hai. Vercel Environment Variables check karein.";
-      } else if (
-        response.status === 429
-      ) {
-        errorMessage =
-          "AI API rate limit ya quota temporarily exceed ho gaya. Thodi der baad dobara try karein.";
-      } else if (
-        response.status === 400
-      ) {
-        errorMessage =
-          "AI request mein problem hai. Conversation ya request format check karein.";
-      } else if (
-        response.status >= 500
-      ) {
-        errorMessage =
-          "AI provider temporarily unavailable hai. Thodi der baad try karein.";
-      }
-
-      return Response.json(
-        {
-          error:
-            errorMessage,
-        },
-        {
-          status:
-            response.status >= 400
-              ? response.status
-              : 500,
-        }
-      );
-    }
-
-    /*
-     * ========================================================
-     * STREAM CHECK
-     * ========================================================
-     */
-
-    if (!response.body) {
-      return Response.json(
-        {
-          error:
-            "AI response stream nahi mila.",
-        },
-        {
-          status: 502,
-        }
-      );
-    }
-
-    /*
-     * ========================================================
-     * REAL STREAM FORWARDING
-     * ========================================================
-     *
-     * Groq ka actual SSE stream directly
-     * frontend ko forward kiya ja raha hai.
-     *
-     * Frontend ise progressively render
-     * kar sakta hai.
-     */
-
-    return new Response(
-      response.body,
+    messages: [
       {
-        status: 200,
+        role: "system",
+        content: systemPrompt,
+      },
 
-        headers: {
-          "Content-Type":
-            "text/event-stream; charset=utf-8",
+      ...normalizeMessages(
+        history,
+        userMessage
+      ),
+    ],
 
-          "Cache-Control":
-            "no-cache, no-transform",
+    temperature:
+      TEMPERATURE,
 
-          Connection:
-            "keep-alive",
+    max_tokens:
+      MAX_TOKENS,
 
-          "X-Accel-Buffering":
-            "no",
-        },
+    stream: true,
+  };
+}
+
+function getGroqHeaders() {
+  return {
+    "Content-Type":
+      "application/json",
+
+    Authorization:
+      `Bearer ${process.env.GROQ_API_KEY}`,
+  };
+}
+function createStreamFromGroq(
+  response
+) {
+  const encoder =
+    new TextEncoder();
+
+  const decoder =
+    new TextDecoder();
+
+  return new ReadableStream({
+    async start(controller) {
+      const reader =
+        response.body.getReader();
+
+      let buffer = "";
+
+      try {
+        while (true) {
+          const {
+            value,
+            done,
+          } = await reader.read();
+
+          if (done) {
+            break;
+          }
+
+          buffer += decoder.decode(
+            value,
+            {
+              stream: true,
+            }
+          );
+
+          const lines =
+            buffer.split("\n");
+
+          buffer =
+            lines.pop() || "";
+
+          for (const line of lines) {
+            const trimmed =
+              line.trim();
+
+            if (!trimmed) {
+              continue;
+            }
+
+            if (
+              !trimmed.startsWith(
+                "data:"
+              )
+            ) {
+              continue;
+            }
+
+            const data =
+              trimmed
+                .slice(5)
+                .trim();
+
+            if (
+              !data ||
+              data === "[DONE]"
+            ) {
+              continue;
+            }
+
+            try {
+              const parsed =
+                JSON.parse(data);
+
+              const content =
+                parsed
+                  ?.choices?.[0]
+                  ?.delta
+                  ?.content;
+
+              if (content) {
+                controller.enqueue(
+                  encoder.encode(
+                    `data: ${JSON.stringify(
+                      {
+                        choices: [
+                          {
+                            delta: {
+                              content,
+                            },
+                          },
+                        ],
+                      }
+                    )}\n\n`
+                  )
+                );
+              }
+            } catch {
+              // Ignore incomplete SSE data.
+            }
+          }
+        }
+
+        if (buffer.trim()) {
+          const trimmed =
+            buffer.trim();
+
+          if (
+            trimmed.startsWith(
+              "data:"
+            )
+          ) {
+            const data =
+              trimmed
+                .slice(5)
+                .trim();
+
+            if (
+              data &&
+              data !== "[DONE]"
+            ) {
+              try {
+                const parsed =
+                  JSON.parse(data);
+
+                const content =
+                  parsed
+                    ?.choices?.[0]
+                    ?.delta
+                    ?.content;
+
+                if (content) {
+                  controller.enqueue(
+                    encoder.encode(
+                      `data: ${JSON.stringify(
+                        {
+                          choices: [
+                            {
+                              delta: {
+                                content,
+                              },
+                            },
+                          ],
+                        }
+                      )}\n\n`
+                    )
+                  );
+                }
+              } catch {
+                // Ignore malformed final chunk.
+              }
+            }
+          }
+        }
+
+        controller.enqueue(
+          encoder.encode(
+            "data: [DONE]\n\n"
+          )
+        );
+
+        controller.close();
+      } catch (error) {
+        controller.error(error);
+      } finally {
+        reader.releaseLock();
+      }
+    },
+  });
+}
+
+function createTextStream(
+  text
+) {
+  const encoder =
+    new TextEncoder();
+
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(
+        encoder.encode(
+          `data: ${JSON.stringify(
+            {
+              choices: [
+                {
+                  delta: {
+                    content: text,
+                  },
+                },
+              ],
+            }
+          )}\n\n`
+        )
+      );
+
+      controller.enqueue(
+        encoder.encode(
+          "data: [DONE]\n\n"
+        )
+      );
+
+      controller.close();
+    },
+  });
+}
+
+function streamResponse(stream) {
+  return new Response(
+    stream,
+    {
+      status: 200,
+      headers: {
+        "Content-Type":
+          "text/event-stream; charset=utf-8",
+
+        "Cache-Control":
+          "no-cache, no-transform",
+
+        Connection:
+          "keep-alive",
+
+        "X-Accel-Buffering":
+          "no",
+      },
+    }
+  );
+}
+function validateEnvironment() {
+  const apiKey =
+    process.env.GROQ_API_KEY;
+
+  if (!apiKey) {
+    return {
+      ok: false,
+      error:
+        "GROQ_API_KEY is not configured.",
+    };
+  }
+
+  return {
+    ok: true,
+  };
+}
+
+async function callGroq({
+  systemPrompt,
+  history,
+  userMessage,
+}) {
+  const environment =
+    validateEnvironment();
+
+  if (!environment.ok) {
+    throw new Error(
+      environment.error
+    );
+  }
+
+  const payload =
+    buildGroqPayload({
+      systemPrompt,
+      history,
+      userMessage,
+    });
+
+  const response =
+    await fetch(
+      GROQ_API_URL,
+      {
+        method: "POST",
+
+        headers:
+          getGroqHeaders(),
+
+        body: JSON.stringify(
+          payload
+        ),
+
+        cache: "no-store",
       }
     );
-      } catch (error) {
-    /*
-     * ========================================================
-     * FINAL SERVER ERROR
-     * ========================================================
-     */
 
+  if (!response.ok) {
+    let errorMessage =
+      `Groq API error (${response.status})`;
+
+    try {
+      const data =
+        await response.json();
+
+      errorMessage =
+        data?.error?.message ||
+        data?.message ||
+        errorMessage;
+    } catch {
+      // Keep fallback error.
+    }
+
+    throw new Error(
+      errorMessage
+    );
+  }
+
+  if (!response.body) {
+    throw new Error(
+      "Groq returned an empty response stream."
+    );
+  }
+
+  return response;
+}
+
+function getRequestData(body) {
+  const message =
+    cleanText(body?.message);
+
+  const taskMode =
+    cleanText(body?.taskMode) ||
+    "chat";
+
+  const history =
+    safeHistory(
+      body?.messages
+    );
+
+  return {
+    message,
+    taskMode,
+    history,
+  };
+}
+
+function createThinkingMessage(
+  taskMode
+) {
+  if (taskMode === "agent") {
+    return "Understanding the task and planning the best approach...";
+  }
+
+  return "Understanding your request...";
+}
+
+function shouldUseSpecialResponse(
+  message
+) {
+  return Boolean(
+    detectSpecialRequest(
+      message
+    )
+  );
+}
+function getResponseMode(
+  message,
+  taskMode
+) {
+  const text =
+    cleanText(message)
+      .toLowerCase();
+
+  if (taskMode === "agent") {
+    return "agent";
+  }
+
+  if (
+    text.includes("plan") ||
+    text.includes("planning") ||
+    text.includes("roadmap") ||
+    text.includes("steps") ||
+    text.includes("kaise")
+  ) {
+    return "planning";
+  }
+
+  if (
+    text.includes("code") ||
+    text.includes("coding") ||
+    text.includes("javascript") ||
+    text.includes("react") ||
+    text.includes("next.js")
+  ) {
+    return "technical";
+  }
+
+  if (
+    text.includes("compare") ||
+    text.includes("difference") ||
+    text.includes("vs")
+  ) {
+    return "analysis";
+  }
+
+  return "direct";
+}
+
+function buildAgentInstruction() {
+  return `
+AGENT MODE:
+
+Treat the request as a task that may require multiple logical
+steps.
+
+Internally:
+
+UNDERSTAND
+- Determine the actual objective.
+- Identify constraints and missing information.
+
+PLAN
+- Break the task into the smallest useful steps.
+- Decide what should be solved first.
+
+EXECUTE
+- Work through the required steps using the information and
+  capabilities actually available to you.
+
+VERIFY
+- Check the result for contradictions, obvious mistakes and
+  missing requirements.
+
+REPORT
+- Give the user the final useful result.
+- Do not expose private chain-of-thought.
+- If something could not actually be performed, say so clearly.
+`;
+}
+
+function buildPlanningInstruction() {
+  return `
+PLANNING MODE:
+
+When the request requires planning:
+
+- Understand the desired outcome first.
+- Identify constraints.
+- Create a practical sequence of steps.
+- Prefer realistic actions over vague advice.
+- Mention assumptions when they materially affect the result.
+- End with a clear next action when appropriate.
+`;
+}
+
+function buildTechnicalInstruction() {
+  return `
+TECHNICAL MODE:
+
+For technical requests:
+
+- Preserve the user's existing architecture when possible.
+- Avoid unnecessary rewrites.
+- Check syntax and logic carefully.
+- Explain exactly where code belongs.
+- Never claim code was tested unless it was actually tested.
+- Never invent APIs, package names or configuration values.
+`;
+}
+
+function buildAnalysisInstruction() {
+  return `
+ANALYSIS MODE:
+
+For comparison or analytical requests:
+
+- Identify the important criteria.
+- Compare the relevant options fairly.
+- Separate facts from assumptions.
+- Explain trade-offs.
+- Give a clear recommendation only when the available evidence
+  supports one.
+`;
+}
+
+function getModeInstruction(
+  responseMode
+) {
+  switch (responseMode) {
+    case "agent":
+      return buildAgentInstruction();
+
+    case "planning":
+      return buildPlanningInstruction();
+
+    case "technical":
+      return buildTechnicalInstruction();
+
+    case "analysis":
+      return buildAnalysisInstruction();
+
+    default:
+      return "";
+  }
+}
+
+function buildFinalSystemPrompt(
+  taskMode,
+  userMessage
+) {
+  const responseMode =
+    getResponseMode(
+      userMessage,
+      taskMode
+    );
+
+  return [
+    buildSystemPrompt(
+      taskMode
+    ),
+    "",
+    `RESPONSE MODE: ${responseMode}`,
+    "",
+    getModeInstruction(
+      responseMode
+    ),
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+async function handleChatRequest(
+  body
+) {
+  const {
+    message,
+    taskMode,
+    history,
+  } = getRequestData(body);
+
+  if (!message) {
+    return createErrorResponse(
+      "Message is required.",
+      400
+    );
+  }
+
+  const specialRequest =
+    detectSpecialRequest(
+      message
+    );
+
+  if (
+    specialRequest ===
+    "creator"
+  ) {
+    return streamResponse(
+      createTextStream(
+        getCreatorResponse()
+      )
+    );
+  }
+
+  const finalSystemPrompt =
+    buildFinalSystemPrompt(
+      taskMode,
+      message
+    );
+
+  const response =
+    await callGroq({
+      systemPrompt:
+        finalSystemPrompt,
+      history,
+      userMessage:
+        message,
+    });
+
+  return streamResponse(
+    createStreamFromGroq(
+      response
+    )
+  );
+}
+
+export async function POST(
+  request
+) {
+  try {
+    let body;
+
+    try {
+      body =
+        await request.json();
+    } catch {
+      return createErrorResponse(
+        "Invalid JSON request.",
+        400
+      );
+    }
+
+    return await handleChatRequest(
+      body
+    );
+  } catch (error) {
     console.error(
-      "ORION AI route error:",
+      "ORION API ERROR:",
       error
     );
 
-    return Response.json(
-      {
-        error:
-          "ORION AI server mein temporary dikkat aa gayi. Kripya dobara try karein.",
-      },
-      {
-        status: 500,
-      }
+    return createErrorResponse(
+      error?.message ||
+        "ORION AI request failed.",
+      500
     );
   }
 }
