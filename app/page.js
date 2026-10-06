@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -18,9 +19,24 @@ const taskModes = [
   { id: "chat", label: "Chat", icon: "✦" },
   { id: "study", label: "Study", icon: "📚" },
   { id: "work", label: "Work", icon: "⚡" },
-  { id: "business", label: "Business", icon: "◈" },
   { id: "content", label: "Content", icon: "✎" },
   { id: "agent", label: "Agent", icon: "◉" },
+];
+
+const taskInstructions = {
+  chat: "Meri baat ko samjho aur natural, clear aur helpful jawab do.",
+  study: "Topic ko step-by-step aur simple language mein samjhao.",
+  work: "Task ko logically break karke practical solution do.",
+  content: "High-quality, original aur well-structured content banao.",
+  agent:
+    "Task ko samjho, plan banao, available information ka use karo, result verify karo aur phir final answer do.",
+};
+
+const quickQuestions = [
+  "Bhagavad Gita ka saar batao",
+  "Dharma kya hai?",
+  "Hanuman ji ka mantra batao",
+  "Aaj ka dharmik vichar batao",
 ];
 const taskInstructions = {
   chat: "Meri baat samjho aur natural tarike se jawab do.",
@@ -187,7 +203,6 @@ export default function Home() {
   const [listening, setListening] = useState(false);
   const [error, setError] = useState("");
   const [taskMode, setTaskMode] = useState("chat");
-  const [taskLabel, setTaskLabel] = useState("Chat");
   const [copiedText, setCopiedText] = useState("");
 
   const messagesRef = useRef(null);
@@ -195,7 +210,23 @@ export default function Home() {
   const abortRef = useRef(null);
   const recognitionRef = useRef(null);
 
+  // User agar manually upar scroll kare,
+  // to streaming ke waqt use zabardasti neeche nahi le jayenge.
   const shouldScrollRef = useRef(true);
+
+  const userHasScrolledRef = useRef(false);
+
+  const activeTask = useMemo(() => {
+    return (
+      taskModes.find(
+        (task) => task.id === taskMode
+      ) || taskModes[0]
+    );
+  }, [taskMode]);
+
+  const hasMessages = messages.length > 0;
+
+  const currentSuggestions = suggestions.slice(0, 4);
 
   const activeTask =
     taskModes.find(
@@ -255,31 +286,38 @@ export default function Home() {
   }, [stopGeneration]);
 
   const handleChatScroll = useCallback(() => {
-    const element = messagesRef.current;
+  const element = messagesRef.current;
 
-    if (!element) {
-      return;
-    }
+  if (!element) {
+    return;
+  }
 
-    const distanceFromBottom =
-      element.scrollHeight -
-      element.scrollTop -
-      element.clientHeight;
+  const distanceFromBottom =
+    element.scrollHeight -
+    element.scrollTop -
+    element.clientHeight;
 
-    shouldScrollRef.current =
-      distanceFromBottom < 120;
-  }, []);
+  const nearBottom = distanceFromBottom < 100;
 
-  useEffect(() => {
-    const element = messagesRef.current;
+  shouldScrollRef.current = nearBottom;
 
-    if (!element || !shouldScrollRef.current) {
-      return;
-    }
+  userHasScrolledRef.current = !nearBottom;
+}, []);
 
-    element.scrollTop =
-      element.scrollHeight;
-  }, [messages]);
+ useEffect(() => {
+  const element = messagesRef.current;
+
+  if (!element || !shouldScrollRef.current) {
+    return;
+  }
+
+  requestAnimationFrame(() => {
+    element.scrollTo({
+      top: element.scrollHeight,
+      behavior: "smooth",
+    });
+  });
+}, [messages]); 
 
   useEffect(() => {
     composerRef.current?.focus();
@@ -800,7 +838,33 @@ export default function Home() {
 
           {hasMessages && (
             <div className="conversation">
-                          {messages.map(
+           {loading && (
+  <div className="message-row assistant-row">
+    <div className="message-avatar">
+      ✦
+    </div>
+
+    <div className="assistant-bubble thinking-bubble">
+      <div className="assistant-label">
+        <span className="assistant-orb">✦</span>
+        <span>ORION AI</span>
+      </div>
+
+      <div className="thinking-status">
+        <span className="thinking-text">
+          Understanding & planning
+        </span>
+
+        <span className="thinking-dots">
+          <i />
+          <i />
+          <i />
+        </span>
+      </div>
+    </div>
+  </div>
+)}               
+          {messages.map(
                 (message, index) => {
                   const isUser =
                     message.role === "user";
@@ -832,11 +896,18 @@ export default function Home() {
                             : "assistant-bubble"
                         }`}
                       >
-                        <div className="message-name">
-                          {isUser
-                            ? "You"
-                            : "ORION AI"}
-                        </div>
+                      {!isUser && (
+  <div className="assistant-label">
+    <span className="assistant-orb">✦</span>
+    <span>ORION AI</span>
+  </div>
+)}
+
+{isUser && (
+  <div className="message-name">
+    You
+  </div>
+)}
 
                         {isUser ? (
                           <div className="message-content user-content">
@@ -1368,24 +1439,50 @@ export default function Home() {
   }
 
   .message-bubble {
-    max-width: min(82%, 700px);
-    border-radius: 17px;
-    padding: 11px 14px;
-  }
+  max-width: min(82%, 760px);
+  padding: 2px 0;
+}
 
-  .user-bubble {
-    background: #f1f2ff;
-    border: 1px solid #e2e3ff;
-    border-bottom-right-radius: 5px;
-  }
+.user-bubble {
+  max-width: min(78%, 650px);
+  padding: 10px 14px;
+  border-radius: 16px;
+  border-bottom-right-radius: 5px;
+  background: #f3f4ff;
+  border: 1px solid #e5e6ff;
+}
 
-  .assistant-bubble {
-    background: #ffffff;
-    border: 1px solid #e9ebf0;
-    border-bottom-left-radius: 5px;
-    box-shadow:
-      0 5px 20px rgba(17, 24, 39, 0.035);
-  }
+.assistant-bubble {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 2px 0;
+}
+.assistant-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 7px;
+  color: #686f80;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.045em;
+}
+
+.assistant-orb {
+  width: 23px;
+  height: 23px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  color: #6366f1;
+  background: #f7f7ff;
+  border: 1px solid #e5e5ff;
+  box-shadow:
+    0 0 14px rgba(99, 102, 241, 0.18);
+  font-size: 12px;
+}
 
   .message-name {
     margin-bottom: 5px;
@@ -1490,7 +1587,59 @@ export default function Home() {
   .typing-bubble {
     min-width: 90px;
   }
+.thinking-bubble {
+  padding-top: 4px;
+}
 
+.thinking-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #858b99;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.thinking-text {
+  letter-spacing: 0.01em;
+}
+
+.thinking-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.thinking-dots i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #6366f1;
+  opacity: 0.35;
+  animation: thinkingPulse 1.2s infinite ease-in-out;
+}
+
+.thinking-dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.thinking-dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes thinkingPulse {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.3;
+  }
+
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
   .typing-indicator {
     display: flex;
     align-items: center;
