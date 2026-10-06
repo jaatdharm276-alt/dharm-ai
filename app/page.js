@@ -835,34 +835,157 @@ export default function Home() {
       console.error(
         "Unable to start voice:",
         err
+  const startVoice = useCallback(() => {
+    if (loading) {
+      return;
+    }
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const SpeechRecognition =
+      window.SpeechRecognition ||
+      window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setError(
+        "Aapke browser mein voice input support nahi hai."
+      );
+      return;
+    }
+
+    if (listening) {
+      try {
+        recognitionRef.current?.stop();
+      } catch {
+        // Ignore stop errors.
+      }
+
+      setListening(false);
+      return;
+    }
+
+    const recognition =
+      new SpeechRecognition();
+
+    recognition.lang = "hi-IN";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+
+    recognitionRef.current =
+      recognition;
+
+    let finalText = "";
+
+    recognition.onstart = () => {
+      setError("");
+      setListening(true);
+    };
+
+    recognition.onresult = (event) => {
+      let transcript = "";
+
+      for (
+        let i = event.resultIndex;
+        i < event.results.length;
+        i += 1
+      ) {
+        transcript +=
+          event.results[i][0]
+            ?.transcript || "";
+      }
+
+      if (!transcript) {
+        return;
+      }
+
+      if (
+        event.results[
+          event.results.length - 1
+        ]?.isFinal
+      ) {
+        finalText =
+          transcript.trim();
+
+        setInput(finalText);
+      } else {
+        setInput(transcript);
+      }
+    };
+
+    recognition.onerror = (event) => {
+      console.error(
+        "Speech recognition error:",
+        event.error
+      );
+
+      if (
+        event.error ===
+        "not-allowed"
+      ) {
+        setError(
+          "Microphone permission allow karein."
+        );
+      } else if (
+        event.error !==
+        "aborted"
+      ) {
+        setError(
+          "Voice input mein problem aa gayi."
+        );
+      }
+
+      setListening(false);
+    };
+
+    recognition.onend = () => {
+      setListening(false);
+      recognitionRef.current = null;
+
+      if (finalText.trim()) {
+        setInput(
+          finalText.trim()
+        );
+      }
+    };
+
+    try {
+      recognition.start();
+    } catch (err) {
+      console.error(
+        "Unable to start voice:",
+        err
       );
 
       setListening(false);
       recognitionRef.current = null;
 
-           setError(
+      setError(
         "Microphone start nahi ho paya."
       );
     }
-  },
-  [listening, loading]
-); 
+  }, [listening, loading]);
 
-  const filteredMessages = useMemo(() => {
-    const query =
-      searchQuery.trim().toLowerCase();
+  const filteredMessages =
+    useMemo(() => {
+      const query =
+        searchQuery
+          .trim()
+          .toLowerCase();
 
-    if (!query) {
-      return messages;
-    }
+      if (!query) {
+        return messages;
+      }
 
-    return messages.filter(
-      (message) =>
-        getText(message.content)
-          .toLowerCase()
-          .includes(query)
-    );
-  }, [messages, searchQuery]);
+      return messages.filter(
+        (message) =>
+          getText(message.content)
+            .toLowerCase()
+            .includes(query)
+      );
+    }, [messages, searchQuery]);
 
   const openSearch = useCallback(() => {
     setSearchOpen((current) => {
