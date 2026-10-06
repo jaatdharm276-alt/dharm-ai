@@ -45,19 +45,19 @@ const TASK_MODES = [
 
 const TASK_INSTRUCTIONS = {
   chat:
-    "Natural aur clear conversation karo. User ke context ko samjho.",
+    "User ko naturally samjho aur clear, useful answer do.",
 
   study:
-    "Topic ko step-by-step aur simple language mein samjhao.",
+    "Topic ko step-by-step, simple aur educational tareeke se samjhao.",
 
   work:
-    "Task ko logically break karke practical result do.",
+    "Task ko practical steps mein break karo aur useful result do.",
 
   content:
-    "Original, polished aur well-structured content banao.",
+    "Original, polished aur well-structured content create karo.",
 
   agent:
-    "Task ko understand, plan, execute aur verify karke result do.",
+    "Task ko understand, plan, execute aur verify karke final result do.",
 };
 
 const HOME_ACTIONS = [
@@ -66,16 +66,16 @@ const HOME_ACTIONS = [
     icon: "💡",
     title: "Business Idea",
     description:
-      "Budget aur skills ke hisaab se practical idea explore karo.",
+      "Low budget mein practical business idea explore karo.",
     prompt:
-      "Mere liye ek practical business idea suggest karo jo low budget mein start ho sake.",
+      "Mere liye ek practical low-budget business idea suggest karo aur uska step-by-step plan batao.",
   },
   {
     id: "commit",
     icon: "◈",
     title: "Commit",
     description:
-      "Apne goal ko clear plan aur daily action mein badlo.",
+      "Goal ko clear plan aur daily action mein badlo.",
     prompt:
       "Mere goal ko ek practical commitment plan mein convert karo.",
   },
@@ -226,15 +226,21 @@ function formatMessage(content) {
   return output.join("");
 }
 
-export default function Home() {
+function Home() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
   const [error, setError] = useState("");
-  const [taskMode, setTaskMode] = useState("chat");
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+
+  const [taskMode, setTaskMode] =
+    useState("chat");
+
+  const [searchOpen, setSearchOpen] =
+    useState(false);
+
+  const [searchQuery, setSearchQuery] =
+    useState("");
 
   const messagesRef = useRef(null);
   const composerRef = useRef(null);
@@ -251,40 +257,33 @@ export default function Home() {
     );
   }, [taskMode]);
 
-  const hasMessages = messages.length > 0;
+  const hasMessages =
+    messages.length > 0;
 
-  const visibleSuggestions = SUGGESTIONS.slice(
-    0,
-    4
-  );
+  const visibleSuggestions =
+    SUGGESTIONS.slice(0, 4);
 
-  const visibleHomeActions = HOME_ACTIONS;
+  const visibleHomeActions =
+    HOME_ACTIONS;
+  const scrollToBottom = useCallback((force = false) => {
+    const container = messagesRef.current;
 
-    const scrollToBottom = useCallback(
-    (force = false) => {
-      const container =
-        messagesRef.current;
+    if (!container) {
+      return;
+    }
 
-      if (!container) {
-        return;
-      }
-
-      if (
-        !force &&
-        !shouldFollowRef.current
-      ) {
-        return;
-      }
-
-      requestAnimationFrame(() => {
-        container.scrollTop =
-          container.scrollHeight;
+    if (
+      force ||
+      shouldFollowRef.current
+    ) {
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: force ? "auto" : "smooth",
       });
-    },
-    []
-  );
+    }
+  }, []);
 
-  const handleMessagesScroll = useCallback(() => {
+  const handleMessageScroll = useCallback(() => {
     const container = messagesRef.current;
 
     if (!container) {
@@ -300,60 +299,66 @@ export default function Home() {
       distanceFromBottom < 120;
   }, []);
 
-  const addMessage = useCallback((role, content) => {
-    setMessages((current) => [
-      ...current,
-      {
-        id:
-          `${Date.now()}-${Math.random()
-            .toString(36)
-            .slice(2)}`,
-        role,
-        content,
-      },
-    ]);
+  useEffect(() => {
+    if (!hasMessages) {
+      return;
+    }
+
+    scrollToBottom(false);
+  }, [
+    messages,
+    hasMessages,
+    scrollToBottom,
+  ]);
+
+  useEffect(() => {
+    if (!composerRef.current) {
+      return;
+    }
+
+    composerRef.current.style.height = "auto";
+
+    const nextHeight =
+      Math.min(
+        composerRef.current.scrollHeight,
+        150
+      );
+
+    composerRef.current.style.height =
+      `${nextHeight}px`;
+  }, [input]);
+
+  const createId = useCallback(() => {
+    return `${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 9)}`;
   }, []);
 
-  const updateLastAssistantMessage = useCallback(
-    (content) => {
-      setMessages((current) => {
-        if (!current.length) {
-          return current;
-        }
+  const startNewChat = useCallback(() => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
 
-        const updated = [...current];
-        const lastIndex = updated.length - 1;
+    setLoading(false);
+    setListening(false);
+    setError("");
+    setMessages([]);
+    setInput("");
+    setSearchOpen(false);
+    setSearchQuery("");
 
-        if (
-          updated[lastIndex].role !==
-          "assistant"
-        ) {
-          return updated;
-        }
+    shouldFollowRef.current = true;
 
-        updated[lastIndex] = {
-          ...updated[lastIndex],
-          content,
-        };
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {}
+    }
 
-        return updated;
-      });
-    },
-    []
-  );
-
-  const createAssistantMessage = useCallback(() => {
-    setMessages((current) => [
-      ...current,
-      {
-        id:
-          `${Date.now()}-assistant-${Math.random()
-            .toString(36)
-            .slice(2)}`,
-        role: "assistant",
-        content: "",
-      },
-    ]);
+    setTimeout(() => {
+      composerRef.current?.focus();
+    }, 100);
   }, []);
 
   const stopGeneration = useCallback(() => {
@@ -365,71 +370,37 @@ export default function Home() {
     setLoading(false);
   }, []);
 
-  const resetChat = useCallback(() => {
-    stopGeneration();
-
-    setMessages([]);
-    setInput("");
-    setError("");
-    setSearchOpen(false);
-    setSearchQuery("");
-
-    shouldFollowRef.current = true;
-
-    requestAnimationFrame(() => {
-      composerRef.current?.focus();
-    });
-  }, [stopGeneration]);
-
-  useEffect(() => {
-    scrollToBottom(false);
-  }, [messages, scrollToBottom]);
-
-  useEffect(() => {
-    return () => {
-      if (abortRef.current) {
-        abortRef.current.abort();
-      }
-
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch {
-          // Ignore cleanup errors.
-        }
-      }
-    };
-  }, []);
-
-  const buildPrompt = useCallback(
-    (userText) => {
-      const instruction =
-        TASK_INSTRUCTIONS[taskMode] ||
-        TASK_INSTRUCTIONS.chat;
-
-      return [
-        `Task mode: ${activeTask.label}`,
-        `Instruction: ${instruction}`,
-        "",
-        userText.trim(),
-      ].join("\n");
+  const buildHistory = useCallback(
+    (currentMessages) => {
+      return currentMessages
+        .filter(
+          (message) =>
+            message.role === "user" ||
+            message.role === "assistant"
+        )
+        .slice(-20)
+        .map((message) => ({
+          role: message.role,
+          content: getText(message.content),
+        }));
     },
-    [activeTask.label, taskMode]
+    []
   );
 
   const sendMessage = useCallback(
-    async (customText = "") => {
-      const rawText =
-        customText || input;
+    async (customMessage = null) => {
+      const messageText =
+        typeof customMessage === "string"
+          ? customMessage.trim()
+          : input.trim();
 
-      const userText =
-        rawText.trim();
-
-      if (!userText || loading) {
+      if (!messageText || loading) {
         return;
       }
 
-      stopGeneration();
+      if (abortRef.current) {
+        abortRef.current.abort();
+      }
 
       setError("");
       setInput("");
@@ -438,12 +409,17 @@ export default function Home() {
       shouldFollowRef.current = true;
 
       const userMessage = {
-        id:
-          `${Date.now()}-user-${Math.random()
-            .toString(36)
-            .slice(2)}`,
+        id: createId(),
         role: "user",
-        content: userText,
+        content: messageText,
+      };
+
+      const assistantId = createId();
+
+      const assistantMessage = {
+        id: assistantId,
+        role: "assistant",
+        content: "",
       };
 
       const nextMessages = [
@@ -453,19 +429,12 @@ export default function Home() {
 
       setMessages([
         ...nextMessages,
-        {
-          id:
-            `${Date.now()}-assistant-${Math.random()
-              .toString(36)
-              .slice(2)}`,
-          role: "assistant",
-          content: "",
-        },
+        assistantMessage,
       ]);
 
-      requestAnimationFrame(() => {
+      setTimeout(() => {
         scrollToBottom(true);
-      });
+      }, 50);
 
       const controller =
         new AbortController();
@@ -481,66 +450,83 @@ export default function Home() {
               "Content-Type":
                 "application/json",
             },
-            signal:
-              controller.signal,
+            signal: controller.signal,
             body: JSON.stringify({
-              message:
-                buildPrompt(userText),
-
+              message: messageText,
               taskMode,
-
-              messages: nextMessages.map(
-                (message) => ({
-                  role:
-                    message.role,
-                  content:
-                    getText(
-                      message.content
-                    ),
-                })
-              ),
+              messages:
+                buildHistory(nextMessages),
             }),
           }
         );
 
         if (!response.ok) {
-          let message =
+          let errorMessage =
             "Something went wrong.";
 
           try {
-            const data =
+            const errorData =
               await response.json();
 
-            message =
-              data?.error ||
-              data?.message ||
-              message;
+            errorMessage =
+              errorData?.error ||
+              errorMessage;
           } catch {
-            // Keep fallback message.
+            const errorText =
+              await response.text();
+
+            if (errorText) {
+              errorMessage = errorText;
+            }
           }
 
-          throw new Error(message);
+          throw new Error(errorMessage);
         }
 
         if (!response.body) {
           throw new Error(
             "AI response stream is unavailable."
           );
-        }
-
-        const reader =
+        }const reader =
           response.body.getReader();
 
         const decoder =
           new TextDecoder();
 
-        let assistantText = "";
         let buffer = "";
+        let fullAnswer = "";
 
-        const processChunk = (
-          chunk
+        const updateAssistant = (
+          content
         ) => {
-          buffer += chunk;
+          setMessages((current) =>
+            current.map((message) =>
+              message.id === assistantId
+                ? {
+                    ...message,
+                    content,
+                  }
+                : message
+            )
+          );
+        };
+
+        while (true) {
+          const {
+            value,
+            done,
+          } = await reader.read();
+
+          if (done) {
+            break;
+          }
+
+          buffer += decoder.decode(
+            value,
+            {
+              stream: true,
+            }
+          );
 
           const lines =
             buffer.split("\n");
@@ -548,153 +534,126 @@ export default function Home() {
           buffer =
             lines.pop() || "";
 
-          for (const line of lines) {
-            const trimmed =
-              line.trim();
+          for (const rawLine of lines) {
+            const line =
+              rawLine.trim();
 
-            if (!trimmed) {
+            if (!line) {
               continue;
             }
 
             if (
-              trimmed.startsWith(
-                "data:"
-              )
+              line === "data: [DONE]" ||
+              line === "[DONE]"
             ) {
-              const data =
-                trimmed
-                  .slice(5)
-                  .trim();
+              continue;
+            }
+
+            if (!line.startsWith("data:")) {
+              continue;
+            }
+
+            const data =
+              line.slice(5).trim();
+
+            if (!data) {
+              continue;
+            }
+
+            try {
+              const parsed =
+                JSON.parse(data);
+
+              const delta =
+                parsed?.choices?.[0]
+                  ?.delta?.content;
 
               if (
-                !data ||
-                data === "[DONE]"
+                typeof delta ===
+                "string" &&
+                delta.length > 0
               ) {
-                continue;
+                fullAnswer += delta;
+
+                updateAssistant(
+                  fullAnswer
+                );
               }
-
-              try {
-                const parsed =
-                  JSON.parse(data);
-
-                const token =
-                  getText(
-                    parsed?.choices?.[0]
-                      ?.delta?.content
-                  ) ||
-                  getText(
-                    parsed?.choices?.[0]
-                      ?.message?.content
-                  ) ||
-                  getText(
-                    parsed?.content
-                  ) ||
-                  getText(
-                    parsed?.text
-                  );
-
-                if (token) {
-                  assistantText +=
-                    token;
-
-                  updateLastAssistantMessage(
-                    assistantText
-                  );
-
-                  scrollToBottom(false);
-                }
-              } catch {
-                // Ignore incomplete SSE JSON.
-              }
+            } catch {
+              continue;
             }
           }
-        };
+        }
 
-        while (true) {
-          const {
-            value,
-            done,
-          } =
-            await reader.read();
-
-          if (done) {
-            break;
-          }
-
-          processChunk(
-            decoder.decode(
-              value,
-              {
-                stream: true,
-              }
-            )
+        if (!fullAnswer.trim()) {
+          updateAssistant(
+            "Mujhe abhi koi response nahi mila. Please dobara try karo."
           );
         }
-
-        const remaining =
-          decoder.decode();
-
-        if (remaining) {
-          processChunk(remaining);
-        }
-
-        if (!assistantText.trim()) {
-          updateLastAssistantMessage(
-            "Mujhe is waqt koi response nahi mila. Kripya dobara try karein."
-          );
-        }
-      } catch (err) {
+      } catch (requestError) {
         if (
-          err?.name ===
+          requestError?.name ===
           "AbortError"
         ) {
           return;
         }
 
-        console.error(
-          "ORION chat error:",
-          err
-        );
+        const message =
+          requestError?.message ||
+          "AI response nahi aa saka.";
 
-        setError(
-          err?.message ||
-            "AI response mein problem aa gayi."
-        );
+        setError(message);
 
-        updateLastAssistantMessage(
-          "Sorry, response generate karte waqt problem aa gayi. Kripya dobara try karein."
+        setMessages((current) =>
+          current.map((item) =>
+            item.id === assistantId
+              ? {
+                  ...item,
+                  content:
+                    "Sorry, response generate nahi ho saka. Please dobara try karo.",
+                }
+              : item
+          )
         );
       } finally {
         abortRef.current = null;
         setLoading(false);
 
-        requestAnimationFrame(() => {
+        setTimeout(() => {
           scrollToBottom(false);
-        });
+        }, 50);
       }
     },
     [
-      buildPrompt,
       input,
       loading,
       messages,
-      scrollToBottom,
-      stopGeneration,
       taskMode,
-      updateLastAssistantMessage,
+      createId,
+      buildHistory,
+      scrollToBottom,
     ]
   );
 
+  const handleSubmit = useCallback(
+    async (event) => {
+      event?.preventDefault();
+
+      await sendMessage();
+    },
+    [sendMessage]
+  );
+
   const handleSuggestion = useCallback(
-    (suggestion) => {
-      sendMessage(suggestion);
+    async (suggestion) => {
+      await sendMessage(suggestion);
     },
     [sendMessage]
   );
 
   const handleHomeAction = useCallback(
-    (action) => {
-      sendMessage(action.prompt);
+    async (action) => {
+      await sendMessage(action.prompt);
     },
     [sendMessage]
   );
@@ -706,102 +665,46 @@ export default function Home() {
         !event.shiftKey
       ) {
         event.preventDefault();
-        sendMessage();
+
+        if (!loading) {
+          sendMessage();
+        }
       }
     },
-    [sendMessage]
+    [loading, sendMessage]
   );
 
-  const handleInputChange =
-    useCallback((event) => {
-      setInput(event.target.value);
-    }, []);
+  const filteredMessages = useMemo(() => {
+    const query =
+      searchQuery.trim().toLowerCase();
 
-    if (loading) {
-      return;
+    if (!query) {
+      return messages;
     }
 
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const SpeechRecognition =
-      window.SpeechRecognition ||
-      window.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      setError(
-        "Aapke browser mein voice input support nahi hai."
-      );
-      return;
-    }
-
-    if (listening) {
-      try {
-        recognitionRef.current?.stop();
-      } catch {
-        // Ignore stop errors.
+    return messages.filter(
+      (message) =>
+        getText(message.content)
+          .toLowerCase()
+          .includes(query)
+    );
+  }, [messages, searchQuery]);
+    useEffect(() => {
+    return () => {
+      if (abortRef.current) {
+        abortRef.current.abort();
       }
 
-      setListening(false);
-      return;
-    }
-
-    const recognition =
-      new SpeechRecognition();
-
-    recognition.lang = "hi-IN";
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-
-    recognitionRef.current =
-      recognition;
-
-    let finalText = "";
-
-    recognition.onstart = () => {
-      setError("");
-      setListening(true);
-    };
-
-    recognition.onresult = (event) => {
-      let transcript = "";
-
-      for (
-        let i = event.resultIndex;
-        i < event.results.length;
-        i += 1
-      ) {
-        transcript +=
-          event.results[i][0]
-            ?.transcript || "";
-      }
-
-      if (!transcript) {
-        return;
-      }
-
-      if (
-        event.results[
-          event.results.length - 1
-        ]?.isFinal
-      ) {
-        finalText = transcript.trim();
-        setInput(finalText);
-      } else {
-        setInput(transcript);
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {}
       }
     };
-  
+  }, []);
+
   const startVoice = useCallback(() => {
-    if (loading) {
-      return;
-    }
-
-    if (typeof window === "undefined") {
-      return;
-    }
+    if (loading) return;
 
     const SpeechRecognition =
       window.SpeechRecognition ||
@@ -809,18 +712,13 @@ export default function Home() {
 
     if (!SpeechRecognition) {
       setError(
-        "Aapke browser mein voice input support nahi hai."
+        "Voice input is not supported on this browser."
       );
       return;
     }
 
     if (listening) {
-      try {
-        recognitionRef.current?.stop();
-      } catch {
-        // Ignore stop errors.
-      }
-
+      recognitionRef.current?.stop();
       setListening(false);
       return;
     }
@@ -831,16 +729,10 @@ export default function Home() {
     recognition.lang = "hi-IN";
     recognition.continuous = false;
     recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-
-    recognitionRef.current =
-      recognition;
-
-    let finalText = "";
 
     recognition.onstart = () => {
-      setError("");
       setListening(true);
+      setError("");
     };
 
     recognition.onresult = (event) => {
@@ -849,1582 +741,1189 @@ export default function Home() {
       for (
         let i = event.resultIndex;
         i < event.results.length;
-        i += 1
+        i++
       ) {
         transcript +=
-          event.results[i][0]
-            ?.transcript || "";
+          event.results[i][0].transcript;
       }
 
-      if (!transcript) {
-        return;
-      }
-
-      if (
-        event.results[
-          event.results.length - 1
-        ]?.isFinal
-      ) {
-        finalText =
-          transcript.trim();
-
-        setInput(finalText);
-      } else {
-        setInput(transcript);
-      }
+      setInput(transcript);
     };
 
-    recognition.onerror = (event) => {
-      console.error(
-        "Speech recognition error:",
-        event.error
-      );
-
-      if (
-        event.error ===
-        "not-allowed"
-      ) {
-        setError(
-          "Microphone permission allow karein."
-        );
-      } else if (
-        event.error !==
-        "aborted"
-      ) {
-        setError(
-          "Voice input mein problem aa gayi."
-        );
-      }
-
+    recognition.onerror = () => {
       setListening(false);
     };
 
     recognition.onend = () => {
       setListening(false);
-      recognitionRef.current = null;
-
-      if (finalText.trim()) {
-        setInput(
-          finalText.trim()
-        );
-      }
     };
 
-    try {
-      recognition.start();
-    } catch (err) {
-      console.error(
-        "Unable to start voice:",
-        err
-      );
-
-      setListening(false);
-      recognitionRef.current = null;
-
-      setError(
-        "Microphone start nahi ho paya."
-      );
+    recognitionRef.current = recognition;
+    recognition.start();
+  }, [loading, listening]);
+    const speakText = useCallback((text) => {
+    if (
+      typeof window === "undefined" ||
+      !window.speechSynthesis ||
+      !text
+    ) {
+      return;
     }
-  }, [listening, loading]);
 
-  const filteredMessages =
-    useMemo(() => {
-      const query =
-        searchQuery
-          .trim()
-          .toLowerCase();
+    window.speechSynthesis.cancel();
 
-      if (!query) {
-        return messages;
-      }
+    const cleanText = text
+      .replace(/[*#`]/g, "")
+      .replace(/\n+/g, " ")
+      .trim();
 
-      return messages.filter(
-        (message) =>
-          getText(message.content)
-            .toLowerCase()
-            .includes(query)
-      );
-    }, [messages, searchQuery]);
+    const utterance =
+      new SpeechSynthesisUtterance(cleanText);
 
-  const openSearch = useCallback(() => {
-    setSearchOpen((current) => {
-      const next = !current;
+    utterance.lang = "hi-IN";
+    utterance.rate = 0.95;
+    utterance.pitch = 1;
 
-      if (!next) {
-        setSearchQuery("");
-      }
-
-      return next;
-    });
+    window.speechSynthesis.speak(
+      utterance
+    );
   }, []);
+  const currentSearchResults = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return messages;
+    }
 
-  const selectMode = useCallback(
-    (mode) => {
-      setTaskMode(mode);
-    },
-    []
-  );
+    const query =
+      searchQuery.trim().toLowerCase();
 
-  const handleActionSubmit =
-    useCallback(
-      (event) => {
-        event.preventDefault();
-        sendMessage();
-      },
-      [sendMessage]
+    return messages.filter((message) =>
+      getText(message.content)
+        .toLowerCase()
+        .includes(query)
     );
+  }, [messages, searchQuery]);
 
-  const handleSuggestionClick =
-    useCallback(
-      (suggestion) => {
-        setInput(suggestion);
-
-        requestAnimationFrame(() => {
-          composerRef.current?.focus();
-        });
-      },
-      []
-    );
-
-  const isSearchActive =
-    searchOpen &&
-    searchQuery.trim().length > 0;
-
-  const displayMessages =
-    isSearchActive
-      ? filteredMessages
-      : messages;
-
-  const showHome =
-    !hasMessages;
-
- return (
+  const isHome = !hasMessages;
+  return (
     <main className="orion-app">
-      <div className="orion-bg-glow glow-one" />
-      <div className="orion-bg-glow glow-two" />
+      <div className="orion-glow glow-one" />
+      <div className="orion-glow glow-two" />
 
       <header className="topbar">
         <button
-          type="button"
           className="brand-button"
-          onClick={resetChat}
-          aria-label="ORION AI home"
+          onClick={startNewChat}
+          type="button"
         >
           <span className="brand-orbit">
-            ◉
+            ✦
           </span>
 
-          <span className="brand-name">
-            ORION
+          <span className="brand-text">
+            ORION AI
           </span>
         </button>
 
-        <div className="topbar-actions">
-          <button
-            type="button"
-            className="icon-button"
-            onClick={openSearch}
-            aria-label="Search chat"
-            title="Search"
-          >
-            ⌕
-          </button>
+        <div className="top-actions">
+          {hasMessages && (
+            <button
+              className="top-button"
+              onClick={() =>
+                setSearchOpen(
+                  (value) => !value
+                )
+              }
+              type="button"
+              aria-label="Search chat"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <circle
+                  cx="11"
+                  cy="11"
+                  r="6.5"
+                />
+                <path d="m16 16 5 5" />
+              </svg>
+            </button>
+          )}
 
-          <button
-            type="button"
-            className="icon-button"
-            onClick={resetChat}
-            aria-label="New chat"
-            title="New chat"
-          >
-            ＋
-          </button>
+          {hasMessages && (
+            <button
+              className="new-chat-button"
+              onClick={startNewChat}
+              type="button"
+            >
+              + New chat
+            </button>
+          )}
         </div>
       </header>
 
-      {showHome ? (
+      {searchOpen && hasMessages && (
+        <div className="search-panel">
+          <input
+            value={searchQuery}
+            onChange={(event) =>
+              setSearchQuery(
+                event.target.value
+              )
+            }
+            placeholder="Search this chat..."
+            autoFocus
+          />
+        </div>
+      )}
+
+      {!hasMessages ? (
         <section className="home-screen">
-          <div className="hero-logo">
-            <div className="hero-orion-mark">
-              ◉
+          <div className="hero">
+            <div className="hero-logo">
+              ✦
             </div>
+
+            <p className="namaste">
+              🙏 Namaste
+            </p>
+
+            <h1>
+              Welcome to{" "}
+              <span>ORION AI</span>
+            </h1>
+
+            <p className="tagline">
+              Your Intelligent Companion
+            </p>
+
+            <p className="credit">
+              Powered by Dharm AI
+            </p>
           </div>
-
-          <div className="namaste-pill">
-            <span>🙏</span>
-            <span>Namaste</span>
-          </div>
-
-          <h1 className="hero-title">
-            Welcome to ORION AI
-          </h1>
-
-          <p className="hero-subtitle">
-            Your Intelligent Companion
-          </p>
-
-          <p className="powered-credit">
-            Powered by Dharm AI
-          </p>
-
           <div className="home-actions">
-            {visibleHomeActions.map(
-              (action) => (
+            {visibleHomeActions.map((action) => (
+              <button
+                key={action.id}
+                className="action-card"
+                onClick={() =>
+                  handleHomeAction(action)
+                }
+                type="button"
+              >
+                <span className="action-icon">
+                  {action.icon}
+                </span>
+
+                <span className="action-content">
+                  <strong>{action.title}</strong>
+                  <small>
+                    {action.description}
+                  </small>
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <div className="mode-row">
+            {TASK_MODES.map((mode) => (
+              <button
+                key={mode.id}
+                type="button"
+                className={
+                  taskMode === mode.id
+                    ? "mode-button active"
+                    : "mode-button"
+                }
+                onClick={() =>
+                  setTaskMode(mode.id)
+                }
+              >
+                <span>{mode.icon}</span>
+                {mode.label}
+              </button>
+            ))}
+          </div>
+          <div className="suggestions">
+            {visibleSuggestions.map(
+              (suggestion) => (
                 <button
-                  key={action.id}
+                  key={suggestion}
                   type="button"
-                  className="home-action-card"
+                  className="suggestion-button"
                   onClick={() =>
-                    handleHomeAction(
-                      action
+                    handleSuggestion(
+                      suggestion
                     )
                   }
                 >
-                  <span className="action-icon">
-                    {action.icon}
-                  </span>
-
-                  <span className="action-content">
-                    <strong>
-                      {action.title}
-                    </strong>
-
-                    <small>
-                      {action.description}
-                    </small>
-                  </span>
-
-                  <span className="action-arrow">
-                    →
-                  </span>
+                  <span>✦</span>
+                  {suggestion}
                 </button>
               )
             )}
           </div>
-
-          <div className="mode-section">
-            <div className="section-label">
-              Choose your mode
-            </div>
-
-            <div className="mode-row">
-              {TASK_MODES.map(
-                (mode) => {
-                  const active =
-                    taskMode === mode.id;
-
-                  return (
-                    <button
-                      key={mode.id}
-                      type="button"
-                      className={
-                        active
-                          ? "mode-button active"
-                          : "mode-button"
-                      }
-                      onClick={() =>
-                        selectMode(
-                          mode.id
-                        )
-                      }
-                    >
-                      <span>
-                        {mode.icon}
-                      </span>
-
-                      <span>
-                        {mode.label}
-                      </span>
-                    </button>
-                  );
-                }
-              )}
-            </div>
-          </div>
-
-          <div className="quick-section">
-            <div className="section-label">
-              Quick questions
-            </div>
-
-            <div className="quick-grid">
-              {visibleSuggestions.map(
-                (suggestion) => (
-                  <button
-                    key={suggestion}
-                    type="button"
-                    className="quick-question"
-                    onClick={() =>
-                      handleSuggestionClick(
-                        suggestion
-                      )
-                    }
-                  >
-                    <span className="quick-star">
-                      ✦
-                    </span>
-
-                    <span>
-                      {suggestion}
-                    </span>
-                  </button>
-                )
-              )}
-            </div>
-          </div>
-        </section>
-      ) : (
-        <section className="chat-screen">
-          <div className="chat-heading">
-            <div>
-              <span className="chat-mode">
-                {activeTask.icon}{" "}
-                {activeTask.label}
-              </span>
-
-              <h2>
-                ORION AI
-              </h2>
-            </div>
-
-            {loading && (
-              <button
-                type="button"
-                className="stop-button"
-                onClick={
-                  stopGeneration
-                }
-              >
-                Stop
-              </button>
-            )}
-          </div>
-
-          {searchOpen && (
-            <div className="search-bar">
-              <span>⌕</span>
-
-              <input
-                value={searchQuery}
-                onChange={(event) =>
-                  setSearchQuery(
-                    event.target.value
-                  )
-                }
-                placeholder="Search this chat..."
-                autoFocus
-              />
-
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSearchQuery("")
-                  }
-                  aria-label="Clear search"
-                >
-                  ×
-                </button>
-              )}
-            </div>
-          )}
-
-          <div
-            ref={messagesRef}
-            className="messages-container"
-            onScroll={
-              handleMessagesScroll
-            }
+          <form
+            className="composer"
+            onSubmit={handleSubmit}
           >
-            {displayMessages.length ===
-            0 ? (
-              <div className="empty-chat">
-                <div className="empty-orion">
-                  ◉
+            <textarea
+              ref={composerRef}
+              value={input}
+              onChange={(event) =>
+                setInput(event.target.value)
+              }
+              onKeyDown={handleKeyDown}
+              placeholder="Ask ORION AI anything..."
+              rows={1}
+              disabled={loading}
+            />
+
+            <button
+              type="button"
+              className={
+                listening
+                  ? "icon-button listening"
+                  : "icon-button"
+              }
+              onClick={startVoice}
+              disabled={loading}
+              aria-label="Voice input"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <rect
+                  x="9"
+                  y="3"
+                  width="6"
+                  height="12"
+                  rx="3"
+                />
+                <path d="M5 11a7 7 0 0 0 14 0" />
+                <path d="M12 18v3" />
+                <path d="M9 21h6" />
+              </svg>
+            </button>
+
+            <button
+              type="submit"
+              className="send-button"
+              disabled={
+                !input.trim() || loading
+              }
+              aria-label="Send message"
+            >
+              ↑
+            </button>
+          </form>
+
+          <p className="composer-credit">
+            Powered by Dharm AI
+          </p>
+          </section>
+        ) : (
+          <section className="chat-screen">
+            <div
+              ref={messagesRef}
+              className="messages-container"
+              onScroll={handleMessageScroll}
+            >
+              {searchQuery.trim() &&
+              currentSearchResults.length === 0 ? (
+                <div className="no-results">
+                  No messages found.
                 </div>
-
-                <h3>
-                  What can I help you with?
-                </h3>
-
-                <p>
-                  Ask ORION AI anything.
-                </p>
-              </div>
-            ) : (
-              displayMessages.map(
-                (message) => {
-                  const text =
-                    getText(
-                      message.content
-                    );
-
-                  const isAssistant =
-                    message.role ===
-                    "assistant";
-
-                  const isEmpty =
-                    !text.trim();
-
-                  return (
+              ) : (
+                currentSearchResults.map(
+                  (message) => (
                     <article
-                      key={
-                        message.id
-                      }
+                      key={message.id}
                       className={
-                        isAssistant
-                          ? "message-row assistant-row"
-                          : "message-row user-row"
+                        message.role === "user"
+                          ? "message user-message"
+                          : "message assistant-message"
                       }
                     >
-                      {isAssistant && (
+                      {message.role ===
+                        "assistant" && (
                         <div className="assistant-avatar">
-                          ◉
+                          ✦
                         </div>
                       )}
 
                       <div className="message-content">
-                        {isAssistant &&
-                          isEmpty &&
-                          loading ? (
-                          <div className="thinking-area">
-                            <span>
-                              Understanding
-                              &amp; planning
-                              ...
-                            </span>
-
-                            <div className="typing-dots">
-                              <i />
-                              <i />
-                              <i />
-                            </div>
-                          </div>
-                        ) : (
+                        {message.content ? (
                           <div
-                            className="message-text"
                             dangerouslySetInnerHTML={{
                               __html:
                                 formatMessage(
-                                  text
+                                  message.content
                                 ),
                             }}
                           />
-                        )}
+                        ) : loading &&
+                          message.id ===
+                            messages[
+                              messages.length - 1
+                            ]?.id ? (
+                          <div className="thinking">
+                            <span />
+                            <span />
+                            <span />
+                          </div>
+                        ) : null}
                       </div>
                     </article>
-                  );
-                }
-              )
-            )}
-          </div>
-        </section>
-      )}
+                  )
+                )
+              )}              {loading && (
+                <button
+                  type="button"
+                  className="stop-button"
+                  onClick={stopGeneration}
+                >
+                  ■ Stop generating
+                </button>
+              )}
+            </div>
 
-      <div className="composer-area">
+            {!loading &&
+              messages.length > 0 && (
+                <div className="chat-hint">
+                  ORION AI · {activeTask.label}
+                </div>
+              )}
+            <form
+              className="composer chat-composer"
+              onSubmit={handleSubmit}
+            >
+              <textarea
+                ref={composerRef}
+                value={input}
+                onChange={(event) =>
+                  setInput(event.target.value)
+                }
+                onKeyDown={handleKeyDown}
+                placeholder={`Message ORION AI · ${activeTask.label}`}
+                rows={1}
+                disabled={loading}
+              />
+
+              <button
+                type="button"
+                className={
+                  listening
+                    ? "icon-button listening"
+                    : "icon-button"
+                }
+                onClick={startVoice}
+                disabled={loading}
+                aria-label="Voice input"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <rect
+                    x="9"
+                    y="3"
+                    width="6"
+                    height="12"
+                    rx="3"
+                  />
+                  <path d="M5 11a7 7 0 0 0 14 0" />
+                  <path d="M12 18v3" />
+                  <path d="M9 21h6" />
+                </svg>
+              </button>
+
+              <button
+                type="submit"
+                className="send-button"
+                disabled={
+                  !input.trim() || loading
+                }
+                aria-label="Send message"
+              >
+                ↑
+              </button>
+            </form>
+            <p className="composer-credit">
+              Powered by Dharm AI
+            </p>
+          </section>
+        )}
+
         {error && (
           <div className="error-message">
             {error}
           </div>
         )}
 
-        <div className="composer-shell">
-          <textarea
-            ref={composerRef}
-            value={input}
-            onChange={
-              handleInputChange
-            }
-            onKeyDown={handleKeyDown}
-            placeholder={
-              listening
-                ? "Listening..."
-                : "Ask ORION AI..."
-            }
-            rows={1}
-            disabled={loading}
-          />
-                        <button
-            type="button"
-            className={
-              listening
-                ? "composer-icon listening"
-                : "composer-icon"
-            }
-            onClick={startVoice}
-            disabled={loading}
-            aria-label={
-              listening
-                ? "Stop voice input"
-                : "Voice input"
-            }
-            title={
-              listening
-                ? "Stop voice input"
-                : "Voice input"
-            }
-          >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
-            >
-              <path
-                d="M12 15.5C14.21 15.5 16 13.71 16 11.5V6.5C16 4.29 14.21 2.5 12 2.5C9.79 2.5 8 4.29 8 6.5V11.5C8 13.71 9.79 15.5 12 15.5Z"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M19 11.5C19 15.37 15.87 18.5 12 18.5C8.13 18.5 5 15.37 5 11.5"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-              />
-              <path
-                d="M12 18.5V21.5"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-              />
-              <path
-                d="M9 21.5H15"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-              />
-            </svg>
-          </button>
-          <button
-            type="button"
-            className="send-button"
-            onClick={() =>
-              sendMessage()
-            }
-            disabled={
-              loading ||
-              !input.trim()
-            }
-            aria-label="Send message"
-            title="Send"
-          >
-            →
-          </button>
+        <div className="mode-description">
+          {TASK_INSTRUCTIONS[taskMode]}
         </div>
-
-        <div className="composer-credit">
-          Powered by Dharm AI
-        </div>
-      </div>
-    
-      <style jsx global>{`
-        * {
-          box-sizing: border-box;
-        }
-
-        html,
-        body {
-          margin: 0;
-          padding: 0;
-          min-height: 100%;
-          background: #ffffff;
-        }
-
-        body {
-          font-family:
-            Inter,
-            ui-sans-serif,
-            system-ui,
-            -apple-system,
-            BlinkMacSystemFont,
-            "Segoe UI",
-            sans-serif;
-          color: #17131f;
-        }
-
-        button,
-        textarea,
-        input {
-          font: inherit;
-        }
-
-        button {
-          border: 0;
-        }
-
-        .orion-app {
-          position: relative;
-          min-height: 100vh;
-          overflow: hidden;
-          background:
-            radial-gradient(
-              circle at 50% 12%,
-              rgba(124, 58, 237, 0.08),
-              transparent 32%
-            ),
-            #ffffff;
-        }
-
-        .orion-bg-glow {
-          position: fixed;
-          width: 320px;
-          height: 320px;
-          border-radius: 50%;
-          pointer-events: none;
-          filter: blur(80px);
-          opacity: 0.28;
-          z-index: 0;
-        }
-
-        .glow-one {
-          top: -180px;
-          left: -120px;
-          background: rgba(
-            139,
-            92,
-            246,
-            0.32
-          );
-        }
-
-        .glow-two {
-          right: -160px;
-          bottom: -180px;
-          background: rgba(
-            59,
-            130,
-            246,
-            0.22
-          );
-        }
-
-        .topbar {
-          position: relative;
-          z-index: 10;
-          height: 70px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0 24px;
-          border-bottom: 1px solid
-            rgba(100, 80, 130, 0.08);
-          background: rgba(
-            255,
-            255,
-            255,
-            0.82
-          );
-          backdrop-filter: blur(18px);
-        }
-
-        .brand-button {
-          display: flex;
-          align-items: center;
-          gap: 9px;
-          padding: 0;
-          background: transparent;
-          cursor: pointer;
-        }
-
-        .brand-orbit {
-          display: grid;
-          place-items: center;
-          width: 31px;
-          height: 31px;
-          border-radius: 50%;
-          color: #7c3aed;
-          font-size: 21px;
-          box-shadow:
-            0 0 12px
-              rgba(124, 58, 237, 0.4),
-            inset 0 0 8px
-              rgba(59, 130, 246, 0.15);
-        }
-
-        .brand-name {
-          font-size: 17px;
-          font-weight: 800;
-          letter-spacing: 0.14em;
-          background: linear-gradient(
-            90deg,
-            #6d28d9,
-            #2563eb
-          );
-          -webkit-background-clip: text;
-          background-clip: text;
-          color: transparent;
-        }
-
-        .topbar-actions {
-          display: flex;
-          align-items: center;
-          gap: 7px;
-        }
-
-        .icon-button {
-          width: 38px;
-          height: 38px;
-          display: grid;
-          place-items: center;
-          border-radius: 12px;
-          background: rgba(
-            124,
-            58,
-            237,
-            0.06
-          );
-          color: #5b21b6;
-          font-size: 22px;
-          cursor: pointer;
-          transition:
-            transform 0.2s ease,
-            background 0.2s ease;
-        }
-
-        .icon-button:hover {
-          transform: translateY(-1px);
-          background: rgba(
-            124,
-            58,
-            237,
-            0.11
-          );
-        }
-
-        .home-screen {
-          position: relative;
-          z-index: 2;
-          width: min(
-            760px,
-            calc(100% - 32px)
-          );
-          margin: 0 auto;
-          padding:
-            52px 0
-            170px;
-          text-align: center;
-        }
-
-        .hero-logo {
-          display: flex;
-          justify-content: center;
-          margin-bottom: 18px;
-        }
-
-        .hero-orion-mark {
-          position: relative;
-          display: grid;
-          place-items: center;
-          width: 78px;
-          height: 78px;
-          border-radius: 50%;
-          color: #6d28d9;
-          font-size: 47px;
-          background: rgba(
-            124,
-            58,
-            237,
-            0.055
-          );
-          box-shadow:
-            0 0 18px
-              rgba(124, 58, 237, 0.28),
-            0 0 45px
-              rgba(59, 130, 246, 0.12),
-            inset 0 0 18px
-              rgba(124, 58, 237, 0.08);
-        }
-
-        .hero-orion-mark::before {
-          content: "";
-          position: absolute;
-          inset: -7px;
-          border: 1px solid
-            rgba(124, 58, 237, 0.18);
-          border-radius: 50%;
-        }
-
-        .namaste-pill {
-          display: inline-flex;
-          align-items: center;
-          gap: 7px;
-          padding: 7px 13px;
-          border-radius: 999px;
-          background: rgba(
-            124,
-            58,
-            237,
-            0.07
-          );
-          border: 1px solid
-            rgba(124, 58, 237, 0.1);
-          color: #6d28d9;
-          font-size: 12px;
-          font-weight: 700;
-        }
-
-        .hero-title {
-          margin:
-            16px 0
-            7px;
-          font-size: clamp(
-            28px,
-            5vw,
-            42px
-          );
-          line-height: 1.12;
-          letter-spacing: -0.035em;
-          font-weight: 800;
-          background: linear-gradient(
-            90deg,
-            #18131f,
-            #5b21b6,
-            #2563eb
-          );
-          -webkit-background-clip: text;
-          background-clip: text;
-          color: transparent;
-        }
-
-        .hero-subtitle {
-          margin: 0;
-          color: #68606f;
-          font-size: 15px;
-        }
-
-        .powered-credit {
-          margin:
-            9px 0
-            30px;
-          color: #8b8491;
-          font-size: 11px;
-          letter-spacing: 0.04em;
-        }
-
-        .home-actions {
-          display: grid;
-          grid-template-columns:
-            repeat(2, minmax(0, 1fr));
-          gap: 12px;
-          margin-bottom: 27px;
-        }
-
-        .home-action-card {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          min-height: 78px;
-          padding: 15px;
-          text-align: left;
-          border-radius: 17px;
-          border: 1px solid
-            rgba(124, 58, 237, 0.11);
-          background: rgba(
-            255,
-            255,
-            255,
-            0.86
-          );
-          box-shadow:
-            0 8px 28px
-              rgba(70, 45, 100, 0.07);
-          cursor: pointer;
-          transition:
-            transform 0.2s ease,
-            box-shadow 0.2s ease,
-            border-color 0.2s ease;}
-            .home-action-card:hover {
-          transform: translateY(-2px);
-          border-color: rgba(
-            124,
-            58,
-            237,
-            0.22
-          );
-          box-shadow:
-            0 12px 34px
-              rgba(70, 45, 100, 0.11);
-        }
-
-        .action-icon {
-          flex: 0 0 auto;
-          display: grid;
-          place-items: center;
-          width: 41px;
-          height: 41px;
-          border-radius: 13px;
-          background: rgba(
-            124,
-            58,
-            237,
-            0.08
-          );
-          font-size: 19px;
-        }
-
-        .action-content {
-          min-width: 0;
-          display: flex;
-          flex-direction: column;
-          gap: 3px;
-        }
-
-        .action-content strong {
-          color: #29212f;
-          font-size: 13px;
-        }
-
-        .action-content small {
-          color: #827a89;
-          font-size: 10px;
-          line-height: 1.4;
-        }
-
-        .action-arrow {
-          margin-left: auto;
-          color: #7c3aed;
-          font-size: 18px;
-        }
-
-        .section-label {
-          margin-bottom: 10px;
-          color: #918a99;
-          font-size: 10px;
-          font-weight: 700;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-        }
-
-        .mode-section {
-          margin-bottom: 24px;
-        }
-
-        .mode-row {
-          display: flex;
-          justify-content: center;
-          gap: 7px;
-          flex-wrap: wrap;
-        }
-
-        .mode-button {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 8px 12px;
-          border-radius: 999px;
-          background: #f7f5f9;
-          color: #766f7e;
-          font-size: 11px;
-          font-weight: 650;
-          cursor: pointer;
-          transition:
-            background 0.2s ease,
-            color 0.2s ease,
-            transform 0.2s ease;
-        }
-
-        .mode-button.active {
-          background: #eee7fb;
-          color: #6d28d9;
-          box-shadow:
-            0 0 0 1px
-              rgba(124, 58, 237, 0.1);
-        }
-
-        .mode-button:hover {
-          transform: translateY(-1px);
-        }
-
-        .quick-section {
-          margin-top: 4px;
-        }
-
-        .quick-grid {
-          display: grid;
-          grid-template-columns:
-            repeat(2, minmax(0, 1fr));
-          gap: 9px;
-        }
-
-        .quick-question {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          min-width: 0;
-          padding: 11px 12px;
-          text-align: left;
-          border: 1px solid
-            rgba(120, 100, 145, 0.09);
-          border-radius: 13px;
-          background: rgba(
-            255,
-            255,
-            255,
-            0.75
-          );
-          color: #5e5666;
-          font-size: 11px;
-          cursor: pointer;
-          transition:
-            border-color 0.2s ease,
-            background 0.2s ease;
-        }
-
-        .quick-question:hover {
-          border-color: rgba(
-            124,
-            58,
-            237,
-            0.18
-          );
-          background: #faf8fd;
-        }
-
-        .quick-star {
-          color: #7c3aed;
-          font-size: 13px;
-        }
-
-        .chat-screen {
-          position: relative;
-          z-index: 2;
-          width: min(
-            900px,
-            calc(100% - 28px)
-          );
-          height: calc(
-            100vh - 150px
-          );
-          margin: 0 auto;
-          padding-bottom: 8px;
-        }.chat-heading {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding:
-            17px 3px
-            10px;
-        }
-
-        .chat-mode {
-          color: #806f91;
-          font-size: 10px;
-          font-weight: 700;
-        }
-
-        .chat-heading h2 {
-          margin: 3px 0 0;
-          color: #28202f;
-          font-size: 19px;
-          letter-spacing: -0.02em;
-        }
-
-        .stop-button {
-          padding: 7px 12px;
-          border-radius: 9px;
-          background: #f3eefa;
-          color: #6d28d9;
-          font-size: 11px;
-          font-weight: 700;
-          cursor: pointer;
-        }
-
-        .search-bar {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin:
-            2px 0
-            8px;
-          padding: 8px 11px;
-          border: 1px solid
-            rgba(124, 58, 237, 0.12);
-          border-radius: 12px;
-          background: #fff;
-        }
-
-        .search-bar span {
-          color: #806f91;
-        }
-
-        .search-bar input {
-          flex: 1;
-          min-width: 0;
-          border: 0;
-          outline: none;
-          color: #29212f;
-          background: transparent;
-          font-size: 12px;
-        }
-
-        .search-bar button {
-          padding: 0 3px;
-          color: #827a89;
-          background: transparent;
-          font-size: 19px;
-          cursor: pointer;
-        }
-
-        .messages-container {
-          height: calc(
-            100% - 61px
-          );
-          overflow-y: auto;
-          padding:
-            8px 5px
-            90px;
-          scroll-behavior: auto;
-          scrollbar-width: thin;
-          scrollbar-color:
-            rgba(124, 58, 237, 0.18)
-            transparent;
-        }
-
-        .messages-container::-webkit-scrollbar {
-          width: 5px;
-        }
-
-        .messages-container::-webkit-scrollbar-thumb {
-          border-radius: 999px;
-          background: rgba(
-            124,
-            58,
-            237,
-            0.18
-          );
-        }
-
-        .message-row {
-          display: flex;
-          gap: 10px;
-          width: 100%;
-          margin:
-            0 0
-            24px;
-        }
-
-        .assistant-row {
-          justify-content: flex-start;
-        }
-
-        .user-row {
-          justify-content: flex-end;
-        }
-
-        .assistant-avatar {
-          flex: 0 0 auto;
-          display: grid;
-          place-items: center;
-          width: 29px;
-          height: 29px;
-          margin-top: 2px;
-          border-radius: 50%;
-          color: #7c3aed;
-          background: #f2edfa;
-          box-shadow:
-            0 0 12px
-              rgba(124, 58, 237, 0.14);
-          font-size: 16px;
-        }
-
-        .message-content {
-          max-width: min(
-            760px,
-            86%
-          );
-        }
-
-        .user-row
-          .message-content {
-          padding:
-            10px 14px;
-          border-radius:
-            17px 17px 5px 17px;
-          background: #f1eafb;
-          color: #31253c;
-        }
-
-        .message-text {
-          color: #29212f;
-          font-size: 14px;
-          line-height: 1.7;
-          overflow-wrap: anywhere;
-        }
-
-        .user-row
-          .message-text {
-          color: #31253c;
-        }
-
-        .message-text p {
-          margin:
-            0 0
-            9px;
-        }
-
-        .message-text p:last-child {
-          margin-bottom: 0;
-        }
-
-        .message-text h2,
-        .message-text h3,
-        .message-text h4 {
-          margin:
-            14px 0
-            7px;
-          color: #352542;
-          line-height: 1.3;
-        }
-
-        .message-text h2 {
-          font-size: 20px;
-        }
-
-        .message-text h3 {
-          font-size: 17px;
-        }
-
-        .message-text h4 {
-          font-size: 15px;
-        }
-
-        .message-text li {
-          margin:
-            5px 0
-            5px 18px;
-          padding-left: 2px;
-        }
-
-        .message-text code {
-          padding:
-            2px 5px;
-          border-radius: 5px;
-          background: #f1edf5;
-          color: #5b21b6;
-          font-size: 0.9em;
-        }.message-text pre {
-          margin:
-            11px 0;
-          padding: 12px;
-          overflow-x: auto;
-          border-radius: 10px;
-          background: #211a29;
-        }
-
-        .message-text pre code {
-          padding: 0;
-          background: transparent;
-          color: #f5f0fa;
-          font-size: 12px;
-        }
-
-        .thinking-area {
-          display: flex;
-          align-items: center;
-          gap: 9px;
-          padding-top: 3px;
-          color: #80768b;
-          font-size: 12px;
-        }
-
-        .typing-dots {
-          display: flex;
-          gap: 4px;
-          align-items: center;
-        }
-
-        .typing-dots i {
-          width: 4px;
-          height: 4px;
-          border-radius: 50%;
-          background: #8b5cf6;
-          animation: typingDot
-            1.1s infinite ease-in-out;
-        }
-
-        .typing-dots i:nth-child(2) {
-          animation-delay: 0.15s;
-        }
-
-        .typing-dots i:nth-child(3) {
-          animation-delay: 0.3s;
-        }
-
-        @keyframes typingDot {
-          0%,
-          60%,
-          100% {
-            transform: translateY(0);
-            opacity: 0.4;
-          }
-
-          30% {
-            transform: translateY(-4px);
-            opacity: 1;
-          }
-        }
-
-        .empty-chat {
-          min-height: 60%;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-        }
-
-        .empty-orion {
-          display: grid;
-          place-items: center;
-          width: 55px;
-          height: 55px;
-          margin-bottom: 13px;
-          border-radius: 50%;
-          color: #7c3aed;
-          background: #f4effb;
-          box-shadow:
-            0 0 22px
-              rgba(124, 58, 237, 0.16);
-          font-size: 31px;
-        }
-
-        .empty-chat h3 {
-          margin: 0 0 5px;
-          color: #33283c;
-          font-size: 17px;
-        }
-
-        .empty-chat p {
-          margin: 0;
-          color: #918895;
-          font-size: 12px;
-        }
-
-        .composer-area {
-          position: fixed;
-          z-index: 20;
-          left: 50%;
-          bottom: 13px;
-          width: min(
-            760px,
-            calc(100% - 28px)
-          );
-          transform: translateX(-50%);
-        }
-
-        .error-message {
-          margin-bottom: 7px;
-          padding:
-            7px 11px;
-          border-radius: 9px;
-          background: #fff3f5;
-          color: #b4234d;
-          font-size: 11px;
-          text-align: center;
-        }
-
-        .composer-shell {
-          display: flex;
-          align-items: flex-end;
-          gap: 6px;
-          min-height: 54px;
-          padding:
-            7px 8px
-            7px 10px;
-          border: 1px solid
-            rgba(124, 58, 237, 0.15);
-          border-radius: 17px;
-          background: rgba(
-            255,
-            255,
-            255,
-            0.94
-          );
-          box-shadow:
-            0 10px 35px
-              rgba(70, 45, 100, 0.12),
-            0 0 22px
-              rgba(124, 58, 237, 0.06);
-          backdrop-filter: blur(16px);
-        }
-
-        .composer-shell textarea {
-          flex: 1;
-          min-width: 0;
-          max-height: 120px;
-          resize: none;
-          padding:
-            8px 3px;
-          border: 0;
-          outline: 0;
-          background: transparent;
-          color: #29212f;
-          font-size: 13px;
-          line-height: 1.5;
-        }
-
-        .composer-shell textarea::placeholder {
-          color: #a29aa9;
-        }
-
-        .composer-icon,
-        .send-button {
-          flex: 0 0 auto;
-          display: grid;
-          place-items: center;
-          width: 38px;
-          height: 38px;
-          border-radius: 12px;
-          cursor: pointer;
-        }
-
-        .composer-icon {
-          background: #f4effa;
-          color: #6d28d9;
-          font-size: 17px;
-        }
-
-        .composer-icon.listening {
-          background: #ede4fb;
-          box-shadow:
-            0 0 0 4px
-              rgba(124, 58, 237, 0.08);
-        }
-
-        .composer-icon:disabled,
-        .send-button:disabled {
-          opacity: 0.42;
-          cursor: not-allowed;
-        }
-
-        .send-button {
-          background: #6d28d9;
-          color: white;
-          font-size: 21px;
-          box-shadow:
-            0 5px 15px
-              rgba(109, 40, 217, 0.22);
-        }
-
-        .composer-credit {
-          margin-top: 5px;
-          color: #9a929f;
-          font-size: 9px;
-          text-align: center;
-          letter-spacing: 0.03em;
-        }
-
-        @media (max-width: 620px) {
-          .topbar {
-            height: 62px;
-            padding: 0 15px;
-          }
-
-          .home-screen {
-            width: calc(
-              100% - 24px
-            );
-            padding-top: 37px;
-          }
-
-          .hero-orion-mark {
-            width: 68px;
-            height: 68px;
-            font-size: 40px;
-          }
-
-          .hero-title {
-            font-size: 30px;
-          }
-
-          .home-actions {
-            grid-template-columns:
-              1fr;
-          }
-
-          .quick-grid {
-            grid-template-columns:
-              1fr;
-          }
-
-          .mode-row {
-            gap: 5px;
-          }
-
-          .mode-button {
-            padding:
-              7px 10px;
-            font-size: 10px;
-          }
-
-          .chat-screen {
-            width: calc(
-              100% - 18px
-            );
-            height: calc(
-              100vh - 138px
-            );
-          }
-
-          .messages-container {
-            padding:
-              5px 1px
-              95px;
-          }
-
-          .message-content {
-            max-width: 88%;
-          }
-
-          .message-text {
-            font-size: 13px;
-          }
-
-          .composer-area {
-            width: calc(
-              100% - 18px
-            );
-            bottom: 8px;
-          }
-
-          .composer-shell {
-            min-height: 51px;
-            border-radius: 15px;
-          }
-
-          .composer-icon,
-          .send-button {
-            width: 36px;
-            height: 36px;
-          }
-        }
-
-        @media (max-height: 700px) {
-          .home-screen {
-            padding-top: 25px;
-          }
-
-          .hero-logo {
-            margin-bottom: 11px;
-          }
-
-          .powered-credit {
-            margin-bottom: 18px;
-          }
-
-          .home-actions {
-            margin-bottom: 18px;
-          }
-
-          .mode-section {
-            margin-bottom: 16px;
-          }
-        }
-      `}</style>
-    </main>
-);
+      </main>
+    );
+}const styles = `
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100%;
+    font-family:
+      Inter,
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      sans-serif;
+    background: #ffffff;
+    color: #151522;
+  }
+
+  body {
+    overflow-x: hidden;
+  }
+
+  button,
+  textarea,
+  input {
+    font: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  .orion-app {
+    position: relative;
+    min-height: 100vh;
+    overflow: hidden;
+    background:
+      radial-gradient(
+        circle at 50% 0%,
+        rgba(124, 92, 255, 0.08),
+        transparent 32%
+      ),
+      #ffffff;
+  }
+
+  .orion-glow {
+    position: fixed;
+    width: 280px;
+    height: 280px;
+    border-radius: 50%;
+    filter: blur(90px);
+    pointer-events: none;
+    opacity: 0.18;
+  }
+
+  .glow-one {
+    top: -120px;
+    left: -100px;
+    background: #8b5cf6;
+  }
+
+  .glow-two {
+    right: -120px;
+    bottom: -100px;
+    background: #38bdf8;
+  }
+
+  .topbar {
+    position: relative;
+    z-index: 5;
+    width: 100%;
+    height: 68px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 22px;
+    border-bottom: 1px solid
+      rgba(30, 30, 60, 0.07);
+    background: rgba(255, 255, 255, 0.86);
+    backdrop-filter: blur(18px);
+  }
+
+  .brand-button {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    border: 0;
+    background: transparent;
+    color: #171326;
+    padding: 6px;
+  }
+
+  .brand-orbit {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: #7c3aed;
+    font-size: 22px;
+    box-shadow:
+      0 0 14px rgba(124, 58, 237, 0.35),
+      inset 0 0 10px
+        rgba(56, 189, 248, 0.18);
+  }
+
+  .brand-text {
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+  }
+
+  .top-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .top-button,
+  .new-chat-button {
+    border: 1px solid
+      rgba(30, 30, 60, 0.1);
+    background: rgba(255, 255, 255, 0.9);
+    color: #373044;
+    border-radius: 12px;
+    transition: 0.2s ease;
+  }
+
+  .top-button {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+  }
+
+  .top-button svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+  }
+
+  .top-button:hover,
+  .new-chat-button:hover {
+    border-color: rgba(124, 58, 237, 0.3);
+    box-shadow:
+      0 4px 18px
+      rgba(124, 58, 237, 0.1);
+  }
+
+  .new-chat-button {
+    padding: 9px 13px;
+    font-size: 13px;
+    font-weight: 650;
+  }
+
+  .search-panel {
+    position: relative;
+    z-index: 4;
+    width: min(620px, calc(100% - 32px));
+    margin: 12px auto 0;
+  }
+
+  .search-panel input {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solidrgba(30, 30, 60, 0.12);
+    border-radius: 14px;
+    outline: none;
+    background: #ffffff;
+    box-shadow:
+      0 8px 30px
+      rgba(40, 30, 80, 0.08);
+  }
+
+  .search-panel input:focus {
+    border-color: rgba(124, 58, 237, 0.45);
+  }
+
+  .home-screen {
+    position: relative;
+    z-index: 1;
+    width: min(900px, calc(100% - 28px));
+    min-height: calc(100vh - 68px);
+    margin: 0 auto;
+    padding: 58px 0 30px;
+  }
+
+  .hero {
+    text-align: center;
+  }
+
+  .hero-logo {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 18px;
+    display: grid;
+    place-items: center;
+    border-radius: 24px;
+    color: #7c3aed;
+    font-size: 40px;
+    background:
+      linear-gradient(
+        145deg,
+        rgba(124, 58, 237, 0.1),
+        rgba(56, 189, 248, 0.08)
+      );
+    box-shadow:
+      0 0 35px
+      rgba(124, 58, 237, 0.22);
+  }
+
+  .namaste {
+    margin: 0 0 9px;
+    color: #6d5c86;
+    font-size: 14px;
+  }
+
+  .hero h1 {
+    margin: 0;
+    font-size: clamp(30px, 6vw, 52px);
+    line-height: 1.1;
+    letter-spacing: -0.04em;
+  }
+
+  .hero h1 span {
+    color: #7442d8;
+  }
+
+  .tagline {
+    margin: 13px 0 4px;
+    color: #625b6f;
+    font-size: 16px;
+  }
+
+  .credit,
+  .composer-credit {
+    color: #8a8195;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+  }
+
+  .credit {
+    margin: 8px 0 0;
+  }
+
+    .home-actions {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin: 34px auto 20px;
+    max-width: 680px;
+  }
+
+  .action-card {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    text-align: left;
+    padding: 17px;
+    border: 1px solid
+      rgba(80, 60, 120, 0.1);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.85);
+    box-shadow:
+      0 8px 30px
+      rgba(70, 50, 110, 0.07);
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+
+  .action-card:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 12px 32px
+      rgba(90, 60, 150, 0.12);
+  }
+
+  .action-icon {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 13px;
+    background: #f4efff;
+    font-size: 20px;
+  }
+
+  .action-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .action-content strong {
+    color: #292235;
+    font-size: 14px;
+  }
+
+  .action-content small {
+    color: #81788d;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  .mode-row {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 12px auto 18px;
+  }
+
+  .mode-button {
+    border: 1px solid
+      rgba(70, 50, 110, 0.1);
+    border-radius: 999px;
+    padding: 8px 13px;
+    background: #fff;
+    color: #71687e;
+    font-size: 12px;
+    transition: 0.2s ease;
+  }
+
+  .mode-button.active {
+    color: #6536c5;
+    border-color:
+      rgba(124, 58, 237, 0.28);
+    background: #f6f1ff;
+    box-shadow:
+      0 4px 15px
+      rgba(124, 58, 237, 0.1);
+  }
+
+  .suggestions {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    max-width: 760px;
+    margin: 0 auto 20px;
+  }
+
+  .suggestion-button {
+    border: 1px solid
+      rgba(70, 50, 110, 0.09);
+    border-radius: 999px;
+    padding: 8px 12px;
+    background: #fff;
+    color: #62596d;
+    font-size: 11px;
+  }
+
+  .suggestion-button span {
+    margin-right: 5px;
+    color: #7c3aed;
+  }
+
+  .suggestion-button:hover {
+    border-color:
+      rgba(124, 58, 237, 0.28);
+    color: #6034bd;
+  }
+  .composer {
+    width: min(760px, 100%);
+    margin: 8px auto 0;
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 9px;
+    border: 1px solid
+      rgba(70, 50, 110, 0.12);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow:
+      0 10px 35px
+      rgba(60, 40, 100, 0.09);
+  }
+
+  .composer textarea {
+    flex: 1;
+    min-width: 0;
+    max-height: 150px;
+    resize: none;
+    overflow-y: auto;
+    border: 0;
+    outline: 0;
+    padding: 9px 6px;
+    background: transparent;
+    color: #24202d;
+    line-height: 1.45;
+  }
+
+  .composer textarea::placeholder {
+    color: #9b94a3;
+  }
+
+  .icon-button,
+  .send-button {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    border: 0;
+    transition: 0.2s ease;
+  }
+
+  .icon-button {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    background: #f5f1fb;
+    color: #6d3dc8;
+  }
+
+  .icon-button svg {
+    width: 19px;
+    height: 19px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+  }
+
+  .icon-button.listening {
+    background: #eee3ff;
+    box-shadow:
+      0 0 0 4px
+      rgba(124, 58, 237, 0.08);
+  }
+
+  .send-button {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    background: #7040d2;
+    color: #fff;
+    font-size: 21px;
+    line-height: 1;
+  }
+
+  .send-button:disabled,
+  .icon-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .send-button:not(:disabled):hover {
+    transform: translateY(-1px);
+    box-shadow:
+      0 5px 18px
+      rgba(112, 64, 210, 0.25);
+  }
+
+  .composer-credit {
+    margin: 9px 0 0;
+    text-align: center;
+  }  .chat-screen {
+    position: relative;
+    z-index: 1;
+    width: min(850px, calc(100% - 24px));
+    height: calc(100vh - 68px);
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    padding: 18px 0 12px;
+  }
+
+  .messages-container {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 8px 8px 20px;
+    scroll-behavior: smooth;
+  }
+
+  .message {
+    display: flex;
+    gap: 10px;
+    margin: 0 auto 22px;
+    max-width: 820px;
+    animation: messageIn 0.2s ease;
+  }
+
+  .user-message {
+    justify-content: flex-end;
+  }
+
+  .assistant-message {
+    justify-content: flex-start;
+  }
+
+  .message-content {
+    max-width: min(720px, 88%);
+    color: #292531;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  .user-message .message-content {
+    padding: 10px 15px;
+    border-radius: 18px 18px 5px 18px;
+    background: #f1ebff;
+    color: #34294a;
+  }
+
+  .assistant-avatar {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: #7442d8;
+    background: #f4efff;
+    box-shadow:
+      0 0 14px
+      rgba(124, 58, 237, 0.15);
+  }
+
+  .message-content p {
+    margin: 0 0 9px;
+  }
+
+  .message-content p:last-child {
+    margin-bottom: 0;
+  }
+
+  .message-content h2,
+  .message-content h3,
+  .message-content h4 {
+    margin: 14px 0 7px;
+    color: #241d31;
+  }
+
+  .message-content code {
+    padding: 2px 5px;
+    border-radius: 5px;
+    background: #f3f0f6;
+    font-size: 0.9em;
+  }
+
+  .message-content pre {
+    overflow-x: auto;
+    margin: 12px 0;
+    padding: 13px;
+    border-radius: 12px;
+    background: #f5f3f7;
+  }
+
+  .message-content pre code {
+    padding: 0;
+    background: transparent;
+  }  .thinking {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 24px;
+  }
+
+  .thinking span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #8a68c9;
+    animation: thinkingDot 1.2s infinite ease-in-out;
+  }
+
+  .thinking span:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+
+  .thinking span:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+
+  .stop-button {
+    display: block;
+    margin: 0 auto 8px;
+    padding: 7px 12px;
+    border: 1px solid rgba(120, 80, 180, 0.16);
+    border-radius: 999px;
+    background: #fff;
+    color: #7040c8;
+    font-size: 11px;
+  }
+
+  .chat-hint {
+    margin: 3px 0 8px;
+    text-align: center;
+    color: #aaa2b0;
+    font-size: 10px;
+  }
+
+  .no-results {
+    padding: 40px 10px;
+    text-align: center;
+    color: #99919f;
+    font-size: 13px;
+  }
+
+  .error-message {
+    width: min(760px, calc(100% - 24px));
+    margin: 8px auto;
+    padding: 9px 12px;
+    border-radius: 10px;
+    background: #fff3f3;
+    color: #b44b4b;
+    font-size: 12px;
+    text-align: center;
+  }
+
+  .mode-description {
+    width: min(760px, calc(100% - 24px));
+    margin: 5px auto 12px;
+    text-align: center;
+    color: #9a929f;
+    font-size: 10px;
+  }
+
+  @keyframes thinkingDot {
+    0%,
+    60%,
+    100% {
+      transform: translateY(0);
+      opacity: 0.45;
+    }
+
+    30% {
+      transform: translateY(-4px);
+      opacity: 1;
+    }
+  }
+
+  @keyframes messageIn {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @media (max-width: 700px) {
+    .topbar {
+      height: 62px;
+      padding: 0 13px;
+    }
+
+    .brand-text {
+      font-size: 14px;
+    }
+
+    .new-chat-button {
+      padding: 8px 10px;
+      font-size: 11px;
+    }
+
+    .home-screen {
+      width: min(100% - 20px, 600px);
+      min-height: calc(100vh - 62px);
+      padding: 42px 0 22px;
+    }
+
+    .hero-logo {
+      width: 62px;
+      height: 62px;
+      font-size: 34px;
+    }
+
+    .hero h1 {
+      font-size: 32px;
+    }
+
+    .home-actions {
+      grid-template-columns: 1fr;
+      margin-top: 27px;
+    }
+
+    .mode-row {
+      gap: 6px;
+    }
+
+    .mode-button {
+      padding: 7px 10px;
+      font-size: 11px;
+    }
+
+    .suggestions {
+      justify-content: flex-start;
+    }
+
+    .suggestion-button {
+      font-size: 10px;
+    }
+
+    .chat-screen {
+      width: calc(100% - 12px);
+      height: calc(100vh - 62px);
+      padding-top: 10px;
+    }
+
+    .messages-container {
+      padding: 6px 4px 16px;
+    }
+
+    .message-content {
+      max-width: 88%;
+      font-size: 14px;
+    }
+
+    .composer {
+      border-radius: 17px;
+    }
+
+    .composer textarea {
+      font-size: 14px;
+    }
+
+    .mode-description {
+      margin-bottom: 8px;
+    }
+  }
+   @media (max-width: 430px) {
+    .hero h1 {
+      font-size: 29px;
+    }
+
+    .message-content {
+      max-width: 91%;
+    }
+
+    .composer {
+      padding: 7px;
+    }
+
+    .icon-button,
+    .send-button {
+      width: 35px;
+      height: 35px;
+    }
+  }
+`;
+
+  return (
+    <>
+      <style>{styles}</style>
+    </>
+  );
 }
+
+export default Home; 
