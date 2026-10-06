@@ -717,7 +717,6 @@ export default function Home() {
       setInput(event.target.value);
     }, []);
 
-  //   const startVoice = useCallback(() => {
     if (loading) {
       return;
     }
@@ -1034,7 +1033,7 @@ export default function Home() {
   const showHome =
     !hasMessages;
 
-  //   return (
+ return (
     <main className="orion-app">
       <div className="orion-bg-glow glow-one" />
       <div className="orion-bg-glow glow-two" />
@@ -2423,6 +2422,5 @@ export default function Home() {
         }
       `}</style>
     </main>
+);
 }
-       
-      
