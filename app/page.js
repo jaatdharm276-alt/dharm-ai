@@ -829,7 +829,7 @@ export default function Home() {
       }
     };
 
-    try {
+        try {
       recognition.start();
     } catch (err) {
       console.error(
