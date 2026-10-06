@@ -240,6 +240,20 @@ const CREATOR_KEYWORDS = [
   "dovloper",
   "developer",
   "creator kaun",
+  "who designed you",
+"who built you",
+"who made orion ai",
+"who designed orion ai",
+"who built orion ai",
+"who made dharm ai",
+"who designed dharm ai",
+"who built dharm ai",
+"designed you",
+"built you",
+"design kisne kiya",
+"design kisne ki",
+"kisne design kiya",
+"kisne design ki",
 ];
 
 function isCreatorQuestion(message) {
