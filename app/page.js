@@ -793,42 +793,7 @@ export default function Home() {
         setInput(transcript);
       }
     };
-
-    recognition.onerror = (event) => {
-      console.error(
-        "Speech recognition error:",
-        event.error
-      );
-
-      if (
-        event.error ===
-        "not-allowed"
-      ) {
-        setError(
-          "Microphone permission allow karein."
-        );
-      } else if (
-        event.error !==
-        "aborted"
-      ) {
-        setError(
-          "Voice input mein problem aa gayi."
-        );
-      }
-
-      setListening(false);
-    };
-
-    recognition.onend = () => {
-      setListening(false);
-      recognitionRef.current = null;
-
-      if (finalText.trim()) {
-        setInput(finalText.trim());
-      }
-    };
-
-        
+  
   const startVoice = useCallback(() => {
     if (loading) {
       return;
@@ -1379,8 +1344,7 @@ export default function Home() {
             rows={1}
             disabled={loading}
           />
-
-          <button
+                        <button
             type="button"
             className={
               listening
@@ -1389,12 +1353,52 @@ export default function Home() {
             }
             onClick={startVoice}
             disabled={loading}
-            aria-label="Voice input"
-            title="Voice input"
+            aria-label={
+              listening
+                ? "Stop voice input"
+                : "Voice input"
+            }
+            title={
+              listening
+                ? "Stop voice input"
+                : "Voice input"
+            }
           >
-            🎙️
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M12 15.5C14.21 15.5 16 13.71 16 11.5V6.5C16 4.29 14.21 2.5 12 2.5C9.79 2.5 8 4.29 8 6.5V11.5C8 13.71 9.79 15.5 12 15.5Z"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M19 11.5C19 15.37 15.87 18.5 12 18.5C8.13 18.5 5 15.37 5 11.5"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+              <path
+                d="M12 18.5V21.5"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+              <path
+                d="M9 21.5H15"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+            </svg>
           </button>
-
           <button
             type="button"
             className="send-button"
