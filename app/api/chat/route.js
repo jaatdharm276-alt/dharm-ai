@@ -203,19 +203,44 @@ function buildSystemPrompt(
   ].join("\n");
 }
 const CREATOR_KEYWORDS = [
+const CREATOR_KEYWORDS = [
   "creator",
-  "kisne banaya",
-  "kiske dwara banaya",
+  "created you",
   "who made you",
   "who created you",
   "who developed you",
   "who is your developer",
-  "developer kaun hai",
-  "tumhara developer kaun hai",
+
+  "kisne banaya",
+  "kisne banayi",
+  "kisne banaye",
+  "kisne develop",
+  "develop kisne",
+  "developer kaun",
+  "developer kon",
+  "tumhara developer",
+  "tumhari developer",
   "tumhe kisne banaya",
+  "tumhe kisne develop",
+  "aapko kisne banaya",
+  "aapko kisne develop",
+  "aapki kisne banaya",
+  "aapko kisne banayi",
+
+  "banane wala kaun",
+  "banane wale kaun",
+  "banaya kisne",
+  "banaya kon",
+  "banaya kaun",
+
+  "malik kaun",
+  "malik kon",
+  "owner kaun",
+  "owner kon",
+
   "dovloper",
   "developer",
-  "owner kaun hai",
+  "creator kaun",
 ];
 
 function isCreatorQuestion(message) {
