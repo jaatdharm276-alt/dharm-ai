@@ -6,14 +6,23 @@ export const dynamic = "force-dynamic";
 const GROQ_API_URL =
   "https://api.groq.com/openai/v1/chat/completions";
 
-const MODEL =
-  "openai/gpt-oss-120b";
+const MODEL = "openai/gpt-oss-120b";
 
 const MAX_HISTORY = 20;
-
 const MAX_TOKENS = 6000;
-
 const TEMPERATURE = 0.4;
+
+const CREATOR_NAME = "Dharmraj Jat";
+const ORIGINAL_PROJECT = "Dharm AI";
+const CURRENT_BRAND = "ORION AI";
+
+const ALLOWED_TASK_MODES = new Set([
+  "chat",
+  "study",
+  "work",
+  "content",
+  "agent",
+]);
 
 function getText(content) {
   if (typeof content === "string") {
@@ -55,14 +64,9 @@ function safeHistory(messages) {
     )
     .map((message) => ({
       role: message.role,
-      content: cleanText(
-        getText(message.content)
-      ),
+      content: cleanText(getText(message.content)),
     }))
-    .filter(
-      (message) =>
-        message.content.length > 0
-    )
+    .filter((message) => message.content.length > 0)
     .slice(-MAX_HISTORY);
 }
 
@@ -84,40 +88,37 @@ function getTaskInstruction(taskMode) {
       "Task ko understand karo, internally plan banao, required steps execute karo, result verify karo aur phir final answer do.",
   };
 
-  return (
-    instructions[taskMode] ||
-    instructions.chat
-  );
+  return instructions[taskMode] || instructions.chat;
 }
 
 function getIndiaDateTime() {
-  return new Intl.DateTimeFormat(
-    "en-IN",
-    {
-      timeZone: "Asia/Kolkata",
-      dateStyle: "full",
-      timeStyle: "long",
-    }
-  ).format(new Date());
+  return new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    dateStyle: "full",
+    timeStyle: "long",
+  }).format(new Date());
 }
 
-function createErrorResponse(
-  message,
-  status = 500
-) {
+function createErrorResponse(message, status = 500) {
   return NextResponse.json(
-    {
-      error: message,
-    },
-    {
-      status,
-    }
+    { error: message },
+    { status }
   );
 }
-const CORE_SYSTEM_PROMPT = `
-You are ORION AI, an advanced AI assistant created for thoughtful,
-useful and reliable assistance.
 
+const CORE_SYSTEM_PROMPT = `
+You are ${CURRENT_BRAND}, an advanced AI assistant from the ${ORIGINAL_PROJECT} project.
+
+IDENTITY AND PROJECT:
+- Your current brand/name is ${CURRENT_BRAND}.
+- ${ORIGINAL_PROJECT} is the original project/foundation from which ${CURRENT_BRAND} is being developed and evolved.
+- The creator, owner and developer of the project is ${CREATOR_NAME}.
+- When relevant, preserve the credit: "${CURRENT_BRAND} — Powered by ${ORIGINAL_PROJECT}".
+- Do not replace ${CURRENT_BRAND} with only "${ORIGINAL_PROJECT}" when referring to the current AI.
+- If asked who created, owns, designed or developed you/project, answer accurately using these project facts.
+- Do not invent additional people, companies or ownership details.
+
+CORE BEHAVIOR:
 Your goal is NOT to merely generate the first plausible answer.
 
 For every request, internally follow this process:
@@ -157,17 +158,13 @@ For every request, internally follow this process:
      expose private internal reasoning.
 
 GENERAL RULES:
-
 - Be accurate before being impressive.
 - Do not hallucinate.
-- Do not claim that you browsed the web unless an actual web tool
-  was used.
-- Do not claim that you executed an external action unless it was
-  actually executed.
+- Do not claim that you browsed the web unless an actual web tool was used.
+- Do not claim that you executed an external action unless it was actually executed.
 - Do not claim to have memory that is not available.
 - If information is missing, ask for it when necessary.
-- If the request can be answered safely with available information,
-  answer directly.
+- If the request can be answered safely with available information, answer directly.
 - Preserve useful context from previous messages.
 - Avoid unnecessary repetition.
 - Use headings, bullets and numbered steps when they improve clarity.
@@ -175,20 +172,21 @@ GENERAL RULES:
 - For Hindi/Hinglish questions, respond naturally in Hindi/Hinglish.
 - For technical questions, provide practical and precise guidance.
 - For complex tasks, prioritize structured problem solving.
+- Do not claim that an unavailable tool or capability exists.
+- Do not claim image generation, web browsing, code execution or autonomous
+  external actions unless the application actually provides that capability.
 
 IMPORTANT:
 The internal reasoning process must remain private.
 Never output hidden chain-of-thought, internal deliberations,
 private scratch work, or token-by-token reasoning.
 
-ORION AI should behave as an AGI-oriented assistant architecture,
-but must NOT claim to be true AGI unlessthat has actually been
+${CURRENT_BRAND} should behave as an AGI-oriented assistant architecture,
+but must NOT claim to be true AGI unless that has actually been
 demonstrated and verified.
 `;
 
-function buildSystemPrompt(
-  taskMode
-) {
+function buildSystemPrompt(taskMode) {
   const taskInstruction =
     getTaskInstruction(taskMode);
 
@@ -202,67 +200,52 @@ function buildSystemPrompt(
     getIndiaDateTime(),
   ].join("\n");
 }
+
 const CREATOR_KEYWORDS = [
-  "creator",
-  "created you",
-  "who made you",
   "who created you",
+  "who made you",
   "who developed you",
   "who is your developer",
-
+  "who designed you",
+  "who built you",
+  "who made orion ai",
+  "who designed orion ai",
+  "who built orion ai",
+  "who made dharm ai",
+  "who designed dharm ai",
+  "who built dharm ai",
+  "creator kaun",
+  "developer kaun",
+  "developer kon",
+  "tumhara developer",
+  "tumhe kisne banaya",
+  "tumhe kisne develop",
+  "aapko kisne banaya",
+  "aapko kisne develop",
   "kisne banaya",
   "kisne banayi",
   "kisne banaye",
   "kisne develop",
   "develop kisne",
-  "developer kaun",
-  "developer kon",
-  "tumhara developer",
-  "tumhari developer",
-  "tumhe kisne banaya",
-  "tumhe kisne develop",
-  "aapko kisne banaya",
-  "aapko kisne develop",
-  "aapki kisne banaya",
-  "aapko kisne banayi",
-
+  "design kisne kiya",
+  "design kisne ki",
+  "kisne design kiya",
+  "kisne design ki",
   "banane wala kaun",
   "banane wale kaun",
   "banaya kisne",
   "banaya kon",
   "banaya kaun",
-
-  "malik kaun",
-  "malik kon",
   "owner kaun",
   "owner kon",
-
+  "malik kaun",
+  "malik kon",
   "dovloper",
-  "developer",
-  "creator kaun",
-  "who designed you",
-"who built you",
-"who made orion ai",
-"who designed orion ai",
-"who built orion ai",
-"who made dharm ai",
-"who designed dharm ai",
-"who built dharm ai",
-"designed you",
-"built you",
-"design kisne kiya",
-"design kisne ki",
-"kisne design kiya",
-"kisne design ki",
-];
+];function isCreatorQuestion(message) {
+  const text = cleanText(message).toLowerCase();
 
-function isCreatorQuestion(message) {
-  const text = cleanText(message)
-    .toLowerCase();
-
-  return CREATOR_KEYWORDS.some(
-    (keyword) =>
-      text.includes(keyword)
+  return CREATOR_KEYWORDS.some((keyword) =>
+    text.includes(keyword)
   );
 }
 
@@ -279,48 +262,51 @@ function getCreatorResponse(message) {
 
   if (asksAboutDharmAI && !asksAboutOrion) {
     return [
-      "Dharm AI ko Dharmraj Jat ne banaya hai.",
+      `${ORIGINAL_PROJECT} ko ${CREATOR_NAME} ne banaya hai.`,
       "",
-      "Dharm AI original project hai, jisse ORION AI ko develop aur evolve kiya ja raha hai.",
+      `${ORIGINAL_PROJECT} original project hai, jisse ${CURRENT_BRAND} ko develop aur evolve kiya ja raha hai.`,
       "",
-      "Dharmraj Jat hi Dharm AI aur ORION AI dono ke creator hain.",
+      `${CREATOR_NAME} hi ${ORIGINAL_PROJECT} aur ${CURRENT_BRAND} dono ke creator, owner aur developer hain.`,
     ].join("\n");
   }
 
   if (asksAboutOrion) {
     return [
-      "ORION AI, Dharm AI project se develop aur evolve kiya ja raha hai.",
+      `${CURRENT_BRAND}, ${ORIGINAL_PROJECT} project se develop aur evolve kiya ja raha hai.`,
       "",
-      "ORION AI ka foundation Dharm AI project hai.",
+      `${CURRENT_BRAND} ka foundation ${ORIGINAL_PROJECT} project hai.`,
       "",
-      "Dharmraj Jat hi Dharm AI aur ORION AI dono ke creator hain.",
+      `${CREATOR_NAME} hi ${ORIGINAL_PROJECT} aur ${CURRENT_BRAND} ke creator, owner aur developer hain.`,
     ].join("\n");
   }
 
   return [
-    "Main ORION AI hoon.",
+    `Main ${CURRENT_BRAND} hoon.`,
     "",
-    "Mujhe Dharm AI project se develop aur evolve kiya ja raha hai.",
+    `Mujhe ${ORIGINAL_PROJECT} project se develop aur evolve kiya ja raha hai.`,
     "",
-    "Dharm AI aur ORION AI dono ke creator Dharmraj Jat hain.",
+    `${CREATOR_NAME} ${ORIGINAL_PROJECT} aur ${CURRENT_BRAND} ke creator, owner aur developer hain.`,
   ].join("\n");
 }
 
 function detectSpecialRequest(message) {
-  const text = cleanText(message)
-    .toLowerCase();
+  const text = cleanText(message).toLowerCase();
 
-  if (isCreatorQuestion(text)) {
+  if (
+    isCreatorQuestion(text) ||
+    text.includes("who are you") ||
+    text.includes("tum kaun ho") ||
+    text.includes("aap kaun ho") ||
+    text.includes("what is your name") ||
+    text.includes("your name")
+  ) {
     return "creator";
   }
 
   return null;
 }
 
-function normalizeMessages(
-  history,
-  userMessage
-) {
+function normalizeMessages(history, userMessage) {
   const messages = [];
 
   for (const message of history) {
@@ -331,9 +317,17 @@ function normalizeMessages(
       continue;
     }
 
+    const content = cleanText(
+      getText(message.content)
+    );
+
+    if (!content) {
+      continue;
+    }
+
     messages.push({
       role: message.role,
-      content: message.content,
+      content,
     });
   }
 
@@ -365,11 +359,9 @@ function buildGroqPayload({
       ),
     ],
 
-    temperature:
-      TEMPERATURE,
+    temperature: TEMPERATURE,
 
-    max_tokens:
-      MAX_TOKENS,
+    max_tokens: MAX_TOKENS,
 
     stream: true,
   };
@@ -377,16 +369,14 @@ function buildGroqPayload({
 
 function getGroqHeaders() {
   return {
-    "Content-Type":
-      "application/json",
+    "Content-Type": "application/json",
 
     Authorization:
       `Bearer ${process.env.GROQ_API_KEY}`,
   };
 }
-function createStreamFromGroq(
-  response
-) {
+
+function createStreamFromGroq(response) {
   const encoder =
     new TextEncoder();
 
@@ -459,8 +449,7 @@ function createStreamFromGroq(
               const content =
                 parsed
                   ?.choices?.[0]
-                  ?.delta
-                  ?.content;
+                  ?.delta?.content;
 
               if (content) {
                 controller.enqueue(
@@ -480,7 +469,7 @@ function createStreamFromGroq(
                 );
               }
             } catch {
-              // Ignore incomplete SSE data.
+              // Ignore incomplete SSE chunks.
             }
           }
         }
@@ -510,8 +499,7 @@ function createStreamFromGroq(
                 const content =
                   parsed
                     ?.choices?.[0]
-                    ?.delta
-                    ?.content;
+                    ?.delta?.content;
 
                 if (content) {
                   controller.enqueue(
@@ -551,11 +539,7 @@ function createStreamFromGroq(
       }
     },
   });
-}
-
-function createTextStream(
-  text
-) {
+            }function createTextStream(text) {
   const encoder =
     new TextEncoder();
 
@@ -593,6 +577,7 @@ function streamResponse(stream) {
     stream,
     {
       status: 200,
+
       headers: {
         "Content-Type":
           "text/event-stream; charset=utf-8",
@@ -609,6 +594,7 @@ function streamResponse(stream) {
     }
   );
 }
+
 function validateEnvironment() {
   const apiKey =
     process.env.GROQ_API_KEY;
@@ -616,6 +602,7 @@ function validateEnvironment() {
   if (!apiKey) {
     return {
       ok: false,
+
       error:
         "GROQ_API_KEY is not configured.",
     };
@@ -698,9 +685,17 @@ function getRequestData(body) {
   const message =
     cleanText(body?.message);
 
-  const taskMode =
+  let taskMode =
     cleanText(body?.taskMode) ||
     "chat";
+
+  if (
+    !ALLOWED_TASK_MODES.has(
+      taskMode
+    )
+  ) {
+    taskMode = "chat";
+  }
 
   const history =
     safeHistory(
@@ -712,68 +707,6 @@ function getRequestData(body) {
     taskMode,
     history,
   };
-}
-
-function createThinkingMessage(
-  taskMode
-) {
-  if (taskMode === "agent") {
-    return "Understanding the task and planning the best approach...";
-  }
-
-  return "Understanding your request...";
-}
-
-function shouldUseSpecialResponse(
-  message
-) {
-  return Boolean(
-    detectSpecialRequest(
-      message
-    )
-  );
-}
-function getResponseMode(
-  message,
-  taskMode
-) {
-  const text =
-    cleanText(message)
-      .toLowerCase();
-
-  if (taskMode === "agent") {
-    return "agent";
-  }
-
-  if (
-    text.includes("plan") ||
-    text.includes("planning") ||
-    text.includes("roadmap") ||
-    text.includes("steps") ||
-    text.includes("kaise")
-  ) {
-    return "planning";
-  }
-
-  if (
-    text.includes("code") ||
-    text.includes("coding") ||
-    text.includes("javascript") ||
-    text.includes("react") ||
-    text.includes("next.js")
-  ) {
-    return "technical";
-  }
-
-  if (
-    text.includes("compare") ||
-    text.includes("difference") ||
-    text.includes("vs")
-  ) {
-    return "analysis";
-  }
-
-  return "direct";
 }
 
 function buildAgentInstruction() {
@@ -853,6 +786,53 @@ For comparison or analytical requests:
 `;
 }
 
+function getResponseMode(
+  message,
+  taskMode
+) {
+  const text =
+    cleanText(message)
+      .toLowerCase();
+
+  if (
+    taskMode === "agent"
+  ) {
+    return "agent";
+  }
+
+  if (
+    text.includes("plan") ||
+    text.includes("planning") ||
+    text.includes("roadmap") ||
+    text.includes("steps") ||
+    text.includes("kaise")
+  ) {
+    return "planning";
+  }
+
+  if (
+    text.includes("code") ||
+    text.includes("coding") ||
+    text.includes("javascript") ||
+    text.includes("react") ||
+    text.includes("next.js") ||
+    text.includes("bug") ||
+    text.includes("error")
+  ) {
+    return "technical";
+  }
+
+  if (
+    text.includes("compare") ||
+    text.includes("difference") ||
+    text.includes("vs")
+  ) {
+    return "analysis";
+  }
+
+  return "direct";
+}
+
 function getModeInstruction(
   responseMode
 ) {
@@ -872,9 +852,7 @@ function getModeInstruction(
     default:
       return "";
   }
-}
-
-function buildFinalSystemPrompt(
+}function buildFinalSystemPrompt(
   taskMode,
   userMessage
 ) {
@@ -888,9 +866,13 @@ function buildFinalSystemPrompt(
     buildSystemPrompt(
       taskMode
     ),
+
     "",
+
     `RESPONSE MODE: ${responseMode}`,
+
     "",
+
     getModeInstruction(
       responseMode
     ),
@@ -898,6 +880,7 @@ function buildFinalSystemPrompt(
     .filter(Boolean)
     .join("\n");
 }
+
 async function handleChatRequest(
   body
 ) {
@@ -925,7 +908,9 @@ async function handleChatRequest(
   ) {
     return streamResponse(
       createTextStream(
-       getCreatorResponse(message)
+        getCreatorResponse(
+          message
+        )
       )
     );
   }
@@ -940,7 +925,9 @@ async function handleChatRequest(
     await callGroq({
       systemPrompt:
         finalSystemPrompt,
+
       history,
+
       userMessage:
         message,
     });
