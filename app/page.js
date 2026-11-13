@@ -3,6 +3,7 @@
 import OrionMemoryPanel from "./orion-memory-panel";
 import { normalizeMemories } from "../lib/orion-memory.mjs";
 import { extractSources } from "../lib/orion-sources.mjs";
+import { escapeHtml } from "../lib/orion-html.mjs";
 
 import {
   useCallback,
@@ -105,12 +106,7 @@ function getText(content) {
   return content?.text || "";
 }
 
-function escapeHtml(value) {
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
+
 
 function renderInline(value) {
   return escapeHtml(value)
