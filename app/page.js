@@ -129,106 +129,50 @@ function renderInline(value) {
 
 function formatMessage(content) {
   const source = getText(content);
-
-  if (!source.trim()) {
-    return "";
-  }
-
+  if (!source.trim()) return "";
   const lines = source.split("\n");
   const output = [];
-
-  let inCode = false;
-  let codeLines = [];
-
+  let inCode = false, codeLines = [], listType = null, tableRows = [];
+  const closeList = () => { if (listType) output.push(listType === "ol" ? "</ol>" : "</ul>"); listType = null; };
+  const closeTable = () => {
+    if (!tableRows.length) return;
+    const rows = tableRows.filter((row) => row.trim());
+    const cells = (row) => row.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim());
+    if (rows.length) {
+      const header = cells(rows[0]);
+      const bodyRows = rows.slice(1).filter((row) => !/^\|?\s*:?-{3,}/.test(row));
+      output.push('<div class="response-table-wrap"><table class="response-table"><thead><tr>' + header.map((cell) => '<th>' + renderInline(cell) + '</th>').join("") + '</tr></thead><tbody>' + bodyRows.map((row) => '<tr>' + cells(row).map((cell) => '<td>' + renderInline(cell) + '</td>').join("") + '</tr>').join("") + '</tbody></table></div>');
+    }
+    tableRows = [];
+  };
   for (const rawLine of lines) {
     const line = rawLine.trim();
-
-    if (line.startsWith("```")) {
-      if (inCode) {
-        output.push(
-          `<pre><code>${escapeHtml(
-            codeLines.join("\n")
-          )}</code></pre>`
-        );
-
-        codeLines = [];
-      }
-
-      inCode = !inCode;
-      continue;
+    if (line.startsWith(String.fromCharCode(96).repeat(3))) {
+      closeList(); closeTable();
+      if (inCode) { output.push('<div class="response-code-card"><div class="response-code-label">CODE</div><pre><code>' + escapeHtml(codeLines.join("\n")) + '</code></pre></div>'); codeLines = []; }
+      inCode = !inCode; continue;
     }
-
-    if (inCode) {
-      codeLines.push(rawLine);
-      continue;
+    if (inCode) { codeLines.push(rawLine); continue; }
+    if (!line) { closeList(); closeTable(); continue; }
+    if (line.includes("|") && /^\|?[\s:|-]+\|/.test(line)) { closeList(); tableRows.push(line); continue; }
+    if (tableRows.length && line.includes("|")) { tableRows.push(line); continue; }
+    closeTable();
+    if (line.startsWith("### ")) { closeList(); output.push('<h4 class="response-heading response-heading-violet">' + renderInline(line.slice(4)) + '</h4>'); continue; }
+    if (line.startsWith("## ")) { closeList(); output.push('<h3 class="response-heading response-heading-blue">' + renderInline(line.slice(3)) + '</h3>'); continue; }
+    if (line.startsWith("# ")) { closeList(); output.push('<h2 class="response-heading response-heading-main">' + renderInline(line.slice(2)) + '</h2>'); continue; }
+    if (line.startsWith("> ")) { closeList(); output.push('<blockquote class="response-callout">' + renderInline(line.slice(2)) + '</blockquote>'); continue; }
+    const unordered = /^[-*]\s+/.test(line), ordered = /^\d+\.\s+/.test(line);
+    if (unordered || ordered) {
+      const nextType = ordered ? "ol" : "ul";
+      if (listType !== nextType) { closeList(); output.push(nextType === "ol" ? '<ol class="response-list response-list-numbered">' : '<ul class="response-list">'); listType = nextType; }
+      output.push('<li>' + renderInline(line.replace(ordered ? /^\d+\.\s+/ : /^[-*]\s+/, "")) + '</li>'); continue;
     }
-
-    if (!line) {
-      output.push("<br />");
-      continue;
-    }
-
-    if (line.startsWith("### ")) {
-      output.push(
-        `<h4>${renderInline(
-          line.slice(4)
-        )}</h4>`
-      );
-      continue;
-    }
-
-    if (line.startsWith("## ")) {
-      output.push(
-        `<h3>${renderInline(
-          line.slice(3)
-        )}</h3>`
-      );
-      continue;
-    }
-
-    if (line.startsWith("# ")) {
-      output.push(
-        `<h2>${renderInline(
-          line.slice(2)
-        )}</h2>`
-      );
-      continue;
-    }
-
-    if (/^[-*]\s+/.test(line)) {
-      output.push(
-        `<li>${renderInline(
-          line.replace(/^[-*]\s+/, "")
-        )}</li>`
-      );
-      continue;
-    }
-
-    if (/^\d+\.\s+/.test(line)) {
-      output.push(
-        `<li>${renderInline(
-          line.replace(/^\d+\.\s+/, "")
-        )}</li>`
-      );
-      continue;
-    }
-
-    output.push(
-      `<p>${renderInline(line)}</p>`
-    );
+    closeList(); output.push('<p>' + renderInline(line) + '</p>');
   }
-
-  if (inCode && codeLines.length) {
-    output.push(
-      `<pre><code>${escapeHtml(
-        codeLines.join("\n")
-      )}</code></pre>`
-    );
-  }
-
+  closeList(); closeTable();
+  if (inCode && codeLines.length) output.push('<div class="response-code-card"><div class="response-code-label">CODE</div><pre><code>' + escapeHtml(codeLines.join("\n")) + '</code></pre></div>');
   return output.join("");
 }
-
 function Home() {
   const [messages, setMessages] = useState([]);
   const [historyReady, setHistoryReady] = useState(false);
@@ -2048,5 +1992,45 @@ function Home() {
       height: 35px;
     }
   }
+
+  /* ORION visual response system v1 */
+  .brand-text { color:#123a78; text-shadow:0 0 18px rgba(39,145,255,.24); }
+  .brand-orbit,.hero-logo { color:#087eea; background:linear-gradient(135deg,#e9f6ff,#f1edff); box-shadow:0 0 30px rgba(24,137,255,.2); }
+  .hero h1 span { color:#087eea; text-shadow:0 0 22px rgba(24,137,255,.2); }
+  .action-card,.composer { border-color:rgba(35,125,220,.16); box-shadow:0 10px 34px rgba(21,82,150,.08); }
+  .mode-button.active { color:#075fb9; border-color:rgba(15,126,235,.34); background:linear-gradient(135deg,#eaf6ff,#f4f0ff); }
+  .send-button { background:linear-gradient(135deg,#087fe8,#6552db); box-shadow:0 5px 16px rgba(20,111,220,.22); }
+  .icon-button { color:#0875d1; background:#edf6ff; }
+  .assistant-avatar { color:#087eea; background:linear-gradient(135deg,#e7f5ff,#f2edff); }
+  .message-content { color:#25344c; }
+  .message-content .response-heading { display:flex; align-items:center; gap:9px; margin:20px 0 10px; padding:9px 12px; border-radius:12px; font-size:1.02em; line-height:1.4; font-weight:800; }
+  .response-heading-main { color:#0758a6; background:linear-gradient(90deg,#e8f5ff,#f5f2ff); border-left:4px solid #1388ed; }
+  .response-heading-blue { color:#096bbd; background:#edf7ff; border-left:4px solid #28a0ef; }
+  .response-heading-violet { color:#6840b5; background:#f5f0ff; border-left:4px solid #9470e8; }
+  .response-list { margin:8px 0 13px; padding-left:23px; }
+  .response-list li { margin:6px 0; padding-left:3px; }
+  .response-list li::marker { color:#1685df; font-weight:800; }
+  .response-list-numbered li::marker { color:#7047ca; }
+  .response-callout { margin:12px 0; padding:12px 14px; border-left:4px solid #13a0c9; border-radius:8px 13px 13px 8px; background:linear-gradient(100deg,#eaf8ff,#f3f0ff); color:#245276; }
+  .response-table-wrap { width:100%; overflow-x:auto; margin:13px 0; border:1px solid #d9eaff; border-radius:12px; }
+  .response-table { width:100%; border-collapse:collapse; min-width:280px; font-size:.9em; }
+  .response-table th { padding:10px; text-align:left; color:#075ca8; background:#eaf5ff; }
+  .response-table td { padding:9px 10px; border-top:1px solid #e5edf7; }
+  .response-table tr:nth-child(even) td { background:#fafcff; }
+  .response-code-card { margin:13px 0; overflow:hidden; border:1px solid #d7e6f8; border-radius:13px; background:#f6f9ff; }
+  .response-code-label { padding:6px 12px; color:#176ab7; background:#e9f3ff; font-size:10px; font-weight:800; letter-spacing:.12em; }
+  .message-content .response-code-card pre { margin:0; border-radius:0; background:#f6f9ff; color:#25344c; }
+  .message-content code { color:#6945b6; background:#f1edfb; }
+  .activity-feed { border-color:#d8eaff; background:linear-gradient(100deg,#f0f8ff,#f8f5ff); color:#52677f; }
+  .thinking span { background:#1688e8; }
+  @media (max-width:640px) {
+    .home-screen { width:min(100% - 22px,560px); padding-top:30px; }
+    .home-actions { gap:9px; margin-top:24px; }
+    .action-card { padding:12px 10px; gap:9px; border-radius:15px; }
+    .chat-screen { height:calc(100dvh - 62px); width:calc(100% - 12px); padding-top:10px; }
+    .message-content { max-width:92%; font-size:14px; }
+    .message-content .response-heading { margin-top:16px; padding:8px 10px; }
+  }
+
 `;
 export default Home; 
