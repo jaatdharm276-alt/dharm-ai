@@ -228,6 +228,7 @@ function formatMessage(content) {
 
 function Home() {
   const [messages, setMessages] = useState([]);
+  const [historyReady, setHistoryReady] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
@@ -298,6 +299,39 @@ function Home() {
     shouldFollowRef.current =
       distanceFromBottom < 120;
   }, []);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("orion-ai-chat-history-v1");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setMessages(parsed.slice(-100).filter((item) =>
+            item &&
+            typeof item.id === "string" &&
+            (item.role === "user" || item.role === "assistant") &&
+            typeof item.content === "string"
+          ));
+        }
+      }
+    } catch (storageError) {
+      console.warn("ORION history could not be restored:", storageError);
+    } finally {
+      setHistoryReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!historyReady) return;
+    try {
+      window.localStorage.setItem(
+        "orion-ai-chat-history-v1",
+        JSON.stringify(messages.slice(-100))
+      );
+    } catch (storageError) {
+      console.warn("ORION history could not be saved:", storageError);
+    }
+  }, [messages, historyReady]);
 
   useEffect(() => {
     if (!hasMessages) {
