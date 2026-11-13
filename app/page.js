@@ -1376,7 +1376,7 @@ function Home() {
   .search-panel input {
     width: 100%;
     padding: 12px 15px;
-    border: 1px solidrgba(30, 30, 60, 0.12);
+    border: 1px solid rgba(30, 30, 60, 0.12);
     border-radius: 14px;
     outline: none;
     background: #ffffff;
