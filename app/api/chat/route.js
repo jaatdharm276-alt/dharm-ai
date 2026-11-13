@@ -957,6 +957,11 @@ export async function POST(
   request
 ) {
   try {
+    const contentType = request.headers.get("content-type") || "";
+    if (!contentType.toLowerCase().includes("application/json")) {
+      return createErrorResponse("Content-Type must be application/json.", 415);
+    }
+
     const contentLength = Number(request.headers.get("content-length") || 0);
     if (contentLength > MAX_REQUEST_BYTES) {
       return createErrorResponse("Request body is too large.", 413);
@@ -985,9 +990,13 @@ export async function POST(
       error
     );
 
+    if (error?.name === "AbortError") {
+      return createErrorResponse("Request was cancelled.", 499);
+    }
+
+    // Keep upstream provider details in server logs; do not expose them to clients.
     return createErrorResponse(
-      error?.message ||
-        "ORION AI request failed.",
+      "ORION AI could not complete the request. Please try again.",
       500
     );
   }
