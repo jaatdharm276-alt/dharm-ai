@@ -368,6 +368,32 @@ function Home() {
       .slice(2, 9)}`;
   }, []);
 
+  const downloadChat = useCallback(() => {
+    const transcript = messages
+      .filter((message) =>
+        message.role === "user" || message.role === "assistant"
+      )
+      .map((message) => {
+        const speaker = message.role === "user" ? "You" : "ORION AI";
+        return `${speaker}:\n${getText(message.content)}`;
+      })
+      .join("\n\n");
+
+    if (!transcript.trim()) return;
+
+    const blob = new Blob([transcript], {
+      type: "text/plain;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `orion-ai-chat-${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }, [messages]);
+
   const startNewChat = useCallback(() => {
     if (abortRef.current) {
       abortRef.current.abort();
@@ -903,6 +929,20 @@ function Home() {
                   r="6.5"
                 />
                 <path d="m16 16 5 5" />
+              </svg>
+            </button>
+          )}
+
+          {hasMessages && (
+            <button
+              className="top-button"
+              onClick={downloadChat}
+              type="button"
+              aria-label="Download chat"
+              title="Download chat"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v3h16v-3" />
               </svg>
             </button>
           )}
