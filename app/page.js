@@ -476,8 +476,13 @@ function Home() {
       abortRef.current = controller;
 
       try {
+        const endpoint =
+          taskMode === "agent"
+            ? "/api/agent"
+            : "/api/chat";
+
         const response = await fetch(
-          "/api/chat",
+          endpoint,
           {
             method: "POST",
             headers: {
