@@ -5,6 +5,7 @@ import { convertUnits } from "../../../lib/orion-units.mjs";
 import { analyzeText } from "../../../lib/orion-text.mjs";
 import { getExternalSearchPolicy } from "../../../lib/orion-cost-policy.mjs";
 import { fetchWithRetry } from "../../../lib/orion-retry.mjs";
+import { runSpecialistsInParallel } from "../../../lib/orion-agent-coordination.mjs";
 import { createRateLimiter, getClientIdentifier } from "../../../lib/orion-rate-limit.mjs";
 
 export const runtime = "nodejs";
@@ -252,13 +253,11 @@ async function executeTool(name, args, context) {
     }
     if (context.delegations + roles.length > MAX_DELEGATIONS) return { error: "Specialist delegation limit reached for this task." };
     context.delegations += roles.length;
-    const results = await Promise.all(roles.map(async (role) => {
-      try {
-        return await runSpecialist(role, args.task, context.objective, context.signal);
-      } catch (error) {
-        return { role, error: error?.name === "AbortError" ? "Specialist cancelled." : "Specialist analysis failed." };
-      }
-    }));
+    const results = await runSpecialistsInParallel(
+      roles,
+      args.task,
+      (role, task) => runSpecialist(role, task, context.objective, context.signal),
+    );
     return { mode: "parallel", requested: roles.length, completed: results.filter((item) => typeof item.findings === "string").length, results };
   }
   return { error: "Tool is not available." };
