@@ -336,7 +336,34 @@ async function runAgent(body, signal) {
     toolCalls: 0,
   };
 
+  async function verifyAndFinalize(draft) {
+    const verification = await runSpecialist(
+      "verifier",
+      `Check this proposed answer against the objective and the tool evidence in the conversation. Flag factual gaps, unsupported claims, missed requirements, and safety issues. If it is sound, say so briefly.\n\nProposed answer:\n${String(draft).slice(0, 6500)}`,
+      message,
+      signal,
+    );
+    const revised = await callModel([
+      ...messages,
+      { role: "assistant", content: String(draft).slice(0, 6500) },
+      { role: "system", content: `Independent verification findings:\n${verification.findings}\n\nProduce the final user-facing answer. Correct any identified errors, preserve valid source URLs, and clearly state unresolved uncertainty. Do not mention hidden reasoning.` },
+    ], { temperature: 0.15, max_tokens: 3500 }, signal);
+    return String(revised.content || draft).trim();
+  }
+
   try {
+    // Brain stage 1: make an explicit plan before tool execution.
+    const plan = await runSpecialist(
+      "planner",
+      "Break the objective into a short ordered execution plan. Identify which available tools or specialists are genuinely needed, dependencies, risks, and completion checks. Do not execute anything or invent unavailable capabilities.",
+      message,
+      signal,
+    );
+    messages.push({
+      role: "system",
+      content: `ORION BRAIN PLAN (internal task guidance; do not expose hidden reasoning):\n${plan.findings}\nFollow this plan where useful, adapt if tool evidence changes the approach, and never claim an unexecuted step is complete.`,
+    });
+
     for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
       const assistant = await callModel(messages, {
         tools: TOOL_DEFINITIONS,
@@ -347,7 +374,8 @@ async function runAgent(body, signal) {
       const calls = Array.isArray(assistant.tool_calls) ? assistant.tool_calls : [];
       if (!calls.length) {
         const answer = String(assistant.content || "").trim();
-        return streamResponse(answer || "Task complete nahi ho saka. Kripya request ko thoda aur specific karein.");
+        const verifiedAnswer = await verifyAndFinalize(answer || "Task complete nahi ho saka. Kripya request ko thoda aur specific karein.");
+        return streamResponse(verifiedAnswer);
       }
 
       messages.push({
@@ -388,7 +416,8 @@ async function runAgent(body, signal) {
       { role: "system", content: "Tool budget is exhausted. Give the best verified answer from the evidence already collected. Clearly state any unavailable capability." },
     ], { temperature: 0.2, max_tokens: 3500 }, signal);
 
-    return streamResponse(String(final.content || "Agent task limit reached. Please narrow the task."));
+    const verifiedAnswer = await verifyAndFinalize(String(final.content || "Agent task limit reached. Please narrow the task."));
+    return streamResponse(verifiedAnswer);
   } catch (error) {
     if (error?.name === "AbortError") return errorResponse("Request was cancelled.", 499);
     console.error("ORION AGENT ERROR:", error);
