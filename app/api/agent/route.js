@@ -354,10 +354,10 @@ function runAgent(body, signal) {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
-      const emit = (payload) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\\n\\n`));
+      const emit = (payload) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
       const emitStatus = (stage, detail) => emit({ orion_status: { stage, detail, timestamp: Date.now() } });
       const emitText = (text) => {
-        const chunks = String(text).match(/[\\s\\S]{1,72}/g) || [""];
+        const chunks = String(text).match(/[\s\S]{1,72}/g) || [""];
         for (const chunk of chunks) emit({ choices: [{ delta: { content: chunk } }] });
       };
       (async () => {
