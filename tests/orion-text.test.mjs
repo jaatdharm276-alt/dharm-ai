@@ -5,7 +5,7 @@ import { analyzeText, MAX_ANALYZED_TEXT_CHARS } from "../lib/orion-text.mjs";
 test("analyzes English text counts and reading time", () => {
   assert.deepEqual(analyzeText("Hello world.\nThis is ORION!"), {
     characters: 27,
-    charactersWithoutWhitespace: 22,
+    charactersWithoutWhitespace: 23,
     words: 5,
     sentences: 2,
     lines: 2,
