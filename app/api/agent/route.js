@@ -416,12 +416,30 @@ function runAgent(body, signal) {
         const toolLabels = { get_india_datetime: "भारत का वर्तमान समय देख रहा हूँ", calculate: "गणना कर रहा हूँ", search_web: "वेब पर जानकारी खोज रहा हूँ", delegate_specialist: "Specialist agent से विश्लेषण करवा रहा हूँ" };
         emitStatus("tool", toolLabels[toolName] || "एक उपलब्ध टूल चला रहा हूँ");
         let result;
+        let toolArgs = {};
         try {
-          const args = JSON.parse(call.function?.arguments || "{}");
-          result = await executeTool(call.function?.name, args, context);
+          toolArgs = JSON.parse(call.function?.arguments || "{}");
+          result = await executeTool(call.function?.name, toolArgs, context);
         } catch (toolError) {
           result = { error: toolError?.message || "Tool execution failed." };
         }
+
+        const toolName = call.function?.name;
+        const completionLabels = {
+          get_india_datetime: "भारत का वर्तमान समय सफलतापूर्वक मिल गया",
+          calculate: "गणना पूरी हुई",
+          search_web: result?.available === false
+            ? "वेब खोज उपलब्ध नहीं है — सर्वर पर search key configured नहीं है"
+            : "वेब खोज पूरी हुई",
+          delegate_specialist: "Specialist agent का विश्लेषण मिल गया",
+        };
+        const toolFailed = Boolean(result?.error);
+        emitStatus(
+          toolFailed ? "tool_error" : "tool_completed",
+          toolFailed
+            ? `${toolName || "Tool"} पूरा नहीं हो सका: ${String(result.error).slice(0, 180)}`
+            : (completionLabels[toolName] || "टूल का काम पूरा हुआ"),
+        );
 
         messages.push({
           role: "tool",
