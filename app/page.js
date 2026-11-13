@@ -124,6 +124,10 @@ function renderInline(value) {
     .replace(
       /`([^`]+)`/g,
       "<code>$1</code>"
+    )
+    .replace(
+      /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+      '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
     );
 }
 
@@ -162,6 +166,14 @@ function formatMessage(content) {
     if (line.startsWith("## ")) { closeList(); output.push('<h3 class="response-heading response-heading-blue">' + renderInline(line.slice(3)) + '</h3>'); continue; }
     if (line.startsWith("# ")) { closeList(); output.push('<h2 class="response-heading response-heading-main">' + renderInline(line.slice(2)) + '</h2>'); continue; }
     if (line.startsWith("> ")) { closeList(); output.push('<blockquote class="response-callout">' + renderInline(line.slice(2)) + '</blockquote>'); continue; }
+    if (/^(---|___|\*\*\*)$/.test(line)) { closeList(); output.push('<hr class="response-divider" />'); continue; }
+    const taskItem = /^[-*] \[([ xX])\] \s*(.*)$/.exec(line);
+    if (taskItem) {
+      if (listType !== "ul") { closeList(); output.push('<ul class="response-list response-task-list">'); listType = "ul"; }
+      const checked = taskItem[1].toLowerCase() === "x";
+      output.push('<li class="response-task-item"><span class="response-task-check' + (checked ? ' checked' : '') + '">' + (checked ? '✓' : '') + '</span>' + renderInline(taskItem[2]) + '</li>');
+      continue;
+    }
     const unordered = /^[-*]\s+/.test(line), ordered = /^\d+\.\s+/.test(line);
     if (unordered || ordered) {
       const nextType = ordered ? "ol" : "ul";
@@ -1952,6 +1964,13 @@ function Home() {
   .response-code-label { padding:6px 12px; color:#176ab7; background:#e9f3ff; font-size:10px; font-weight:800; letter-spacing:.12em; }
   .message-content .response-code-card pre { margin:0; border-radius:0; background:#f6f9ff; color:#25344c; }
   .message-content code { color:#6945b6; background:#f1edfb; }
+  .message-content a { color:#087bc9; text-decoration:underline; text-decoration-color:rgba(8,123,201,.35); text-underline-offset:3px; overflow-wrap:anywhere; }
+  .message-content a:hover { color:#6545c5; text-decoration-color:currentColor; }
+  .response-divider { height:1px; margin:17px 0; border:0; background:linear-gradient(90deg,transparent,#cbdff2,transparent); }
+  .response-task-list { list-style:none; padding-left:2px; }
+  .response-task-item { display:flex; align-items:flex-start; gap:9px; }
+  .response-task-check { width:17px; height:17px; flex:0 0 17px; display:inline-grid; place-items:center; margin-top:2px; border:1.5px solid #9bb6d1; border-radius:5px; color:white; font-size:11px; }
+  .response-task-check.checked { border-color:#1ca66b; background:#1ca66b; }
   .activity-feed { border-color:#d8eaff; background:linear-gradient(100deg,#f0f8ff,#f8f5ff); color:#52677f; }
   .thinking span { background:#1688e8; }
   @media (max-width:640px) {
