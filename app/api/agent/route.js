@@ -424,7 +424,6 @@ function runAgent(body, signal) {
           result = { error: toolError?.message || "Tool execution failed." };
         }
 
-        const toolName = call.function?.name;
         const completionLabels = {
           get_india_datetime: "भारत का वर्तमान समय सफलतापूर्वक मिल गया",
           calculate: "गणना पूरी हुई",
