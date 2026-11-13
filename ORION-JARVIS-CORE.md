@@ -10,6 +10,7 @@ ORION JARVIS CORE is the bounded agentic execution layer for ORION AI. It is ins
 - **Tool loop:** The server can request tools, execute them, return tool results to the model, and repeat within a bounded budget.
 - **Specialist agents:** Planner, research analyst, coder, security reviewer and verifier. These are role-specialized model calls, not separate independently hosted models.
 - **Built-in tools:** India date/time, restricted arithmetic parser, optional read-only public web search, and specialist delegation.
+- **Memory v2:** Users can pin important notes for cross-topic context; unpinned notes are selected by lightweight English/Hindi keyword overlap with the current request. This is relevance filtering, not semantic/vector search or automatic memory extraction. Memory remains local to the current browser profile.
 - **Safety:** Request-size limits, server-side API keys, bounded tool/search/delegation counts, untrusted search-result handling, no arbitrary shell/code execution, and no side-effecting device/account tools.
 
 ## Environment setup
