@@ -2,6 +2,7 @@
 
 import OrionMemoryPanel from "./orion-memory-panel";
 import { normalizeMemories } from "../lib/orion-memory.mjs";
+import { extractSources } from "../lib/orion-sources.mjs";
 
 import {
   useCallback,
@@ -1037,6 +1038,7 @@ function Home() {
                           </div>
                         )}
                         {message.content ? (
+                          <>
                           <div
                             dangerouslySetInnerHTML={{
                               __html:
@@ -1045,6 +1047,25 @@ function Home() {
                                 ),
                             }}
                           />
+                          {message.role === "assistant" && extractSources(message.content).length > 0 && (
+                            <section className="source-results" aria-label="Search sources">
+                              <div className="source-results-heading">
+                                <span className="source-results-icon">↗</span>
+                                <div><strong>Sources & references</strong><small>Links included in this answer</small></div>
+                                <span className="source-count">{extractSources(message.content).length}</span>
+                              </div>
+                              <div className="source-results-grid">
+                                {extractSources(message.content).map((source) => (
+                                  <a className="source-result-card" href={source.url} target="_blank" rel="noopener noreferrer" key={source.url}>
+                                    <span className="source-domain">{source.domain}</span>
+                                    <strong>{source.title}</strong>
+                                    <span className="source-open">Open source ↗</span>
+                                  </a>
+                                ))}
+                              </div>
+                            </section>
+                          )}
+                          </>
                         ) : loading &&
                           message.id ===
                             messages[
@@ -1982,6 +2003,22 @@ function Home() {
     .message-content .response-heading { margin-top:16px; padding:8px 10px; }
   }
 
+
+  /* ORION search results cards v1 */
+  .source-results { margin:16px 0 4px; padding:13px; border:1px solid #d9e9f8; border-radius:16px; background:linear-gradient(145deg,#f8fcff,#fbf9ff); }
+  .source-results-heading { display:flex; align-items:center; gap:9px; margin-bottom:11px; }
+  .source-results-icon { width:30px; height:30px; display:grid; place-items:center; border-radius:10px; background:#e8f4ff; color:#087bc9; font-size:17px; font-weight:800; }
+  .source-results-heading div { display:flex; flex:1; flex-direction:column; gap:2px; }
+  .source-results-heading strong { color:#173b63; font-size:12px; }
+  .source-results-heading small { color:#8293a8; font-size:10px; }
+  .source-count { min-width:22px; height:22px; display:grid; place-items:center; border-radius:999px; background:#eaf4ff; color:#187ac2; font-size:10px; font-weight:800; }
+  .source-results-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .source-result-card { min-width:0; display:flex; flex-direction:column; gap:5px; padding:10px 11px; border:1px solid #e0ebf6; border-radius:12px; background:#fff; text-decoration:none!important; transition:border-color .18s ease,transform .18s ease,box-shadow .18s ease; }
+  .source-result-card:hover { border-color:#acd3f3; transform:translateY(-1px); box-shadow:0 6px 16px rgba(30,105,170,.08); }
+  .source-domain { overflow:hidden; color:#1680c9; font-size:9px; font-weight:800; letter-spacing:.04em; text-overflow:ellipsis; white-space:nowrap; }
+  .source-result-card strong { display:-webkit-box; overflow:hidden; color:#263d59; font-size:11px; line-height:1.4; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
+  .source-open { color:#8295aa; font-size:9px; }
+  @media(max-width:480px) { .source-results { padding:10px; } .source-results-grid { grid-template-columns:1fr; } .source-result-card { padding:9px 10px; } }
 
   /* ORION dashboard v2 - responsive glass interface */
   .orion-app { background: radial-gradient(ellipse at 50% -10%,rgba(28,145,255,.13),transparent 44%),radial-gradient(ellipse at 100% 45%,rgba(134,83,255,.08),transparent 36%),#f7fbff; }
