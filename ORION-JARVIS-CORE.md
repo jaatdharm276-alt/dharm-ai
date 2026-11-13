@@ -34,7 +34,7 @@ Never commit `.env.local` or real API keys. The repository ignores local environ
 
 ## Not yet integrated
 
-This first agentic foundation does **not** yet provide persistent cross-session memory, Android system-level control, camera/hand-gesture/sensor input, smart-home control, file-system writes, account actions, or unattended background automation. Those require dedicated storage, Android companion/native permissions, provider integrations, and explicit approval/audit flows. The current web app must not claim these actions are available.
+The current agentic foundation includes **user-managed local memory v1**: up to 12 short notes are stored in the current browser profile, can be reviewed/deleted by the user, and are sent as reference context with Chat and Agent requests. It does not sync across devices or browsers and does not automatically extract memories. Android system-level control, camera/hand-gesture/sensor input, smart-home control, file-system writes, account actions, and unattended background automation are not yet integrated. Those require dedicated storage, Android companion/native permissions, provider integrations, and explicit approval/audit flows. The current web app must not claim these actions are available.
 
 ## Validation
 
