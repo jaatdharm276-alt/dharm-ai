@@ -454,6 +454,7 @@ function Home() {
         id: assistantId,
         role: "assistant",
         content: "",
+        activity: [],
       };
 
       const nextMessages = [
@@ -535,6 +536,16 @@ function Home() {
         let buffer = "";
         let fullAnswer = "";
 
+        const updateActivity = (activity) => {
+          setMessages((current) =>
+            current.map((message) =>
+              message.id === assistantId
+                ? { ...message, activity: [...(message.activity || []), activity].slice(-8) }
+                : message
+            )
+          );
+        };
+
         const updateAssistant = (
           content
         ) => {
@@ -602,6 +613,10 @@ function Home() {
             try {
               const parsed =
                 JSON.parse(data);
+
+              if (parsed?.orion_status) {
+                updateActivity(parsed.orion_status);
+              }
 
               const delta =
                 parsed?.choices?.[0]
@@ -1096,6 +1111,16 @@ function Home() {
                       )}
 
                       <div className="message-content">
+                        {taskMode === "agent" && message.activity?.length > 0 && (
+                          <div className="activity-feed" aria-live="polite">
+                            {message.activity.map((item, index) => (
+                              <div className="activity-item" key={`${item.timestamp}-${index}`}>
+                                <span className={item.stage === "complete" ? "activity-mark complete" : "activity-mark"} />
+                                <span>{item.detail}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         {message.content ? (
                           <div
                             dangerouslySetInnerHTML={{
@@ -1769,7 +1794,42 @@ function Home() {
   .message-content pre code {
     padding: 0;
     background: transparent;
-  }  .thinking {
+  }  .activity-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    border: 1px solid rgba(124, 58, 237, 0.12);
+    border-radius: 12px;
+    background: rgba(248, 245, 255, 0.78);
+    color: #746b80;
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  .activity-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .activity-mark {
+    width: 7px;
+    height: 7px;
+    flex: 0 0 7px;
+    margin-top: 4px;
+    border-radius: 50%;
+    background: #9b7be0;
+    box-shadow: 0 0 8px rgba(124, 58, 237, 0.28);
+  }
+
+  .activity-mark.complete {
+    background: #26996a;
+    box-shadow: 0 0 8px rgba(38, 153, 106, 0.22);
+  }
+
+  .thinking {
     display: flex;
     align-items: center;
     gap: 5px;
