@@ -145,7 +145,8 @@ function formatMessage(content) {
     }
     tableRows = [];
   };
-  for (const rawLine of lines) {
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+    const rawLine = lines[lineIndex];
     const line = rawLine.trim();
     if (line.startsWith(String.fromCharCode(96).repeat(3))) {
       closeList(); closeTable();
@@ -154,7 +155,7 @@ function formatMessage(content) {
     }
     if (inCode) { codeLines.push(rawLine); continue; }
     if (!line) { closeList(); closeTable(); continue; }
-    if (line.includes("|") && /^\|?[\s:|-]+\|/.test(line)) { closeList(); tableRows.push(line); continue; }
+    if (line.includes("|") && /^\|?[\s:|-]+\|?$/.test((lines[lineIndex + 1] || "").trim())) { closeList(); tableRows.push(line, lines[++lineIndex].trim()); continue; }
     if (tableRows.length && line.includes("|")) { tableRows.push(line); continue; }
     closeTable();
     if (line.startsWith("### ")) { closeList(); output.push('<h4 class="response-heading response-heading-violet">' + renderInline(line.slice(4)) + '</h4>'); continue; }
