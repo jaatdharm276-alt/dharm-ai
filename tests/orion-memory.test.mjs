@@ -16,3 +16,27 @@ test("limits memory count and each memory length", () => {
 test("assigns safe fallback ids", () => {
   assert.equal(normalizeMemories([{ id: {}, text: "Remember this" }])[0].id, "memory-1");
 });
+
+import { createMemoryBackup, parseMemoryBackup, MAX_MEMORY_BACKUP_BYTES } from "../lib/orion-memory.mjs";
+
+test("exports and restores a versioned memory backup", () => {
+  const backup = createMemoryBackup([{ text: "Use Hindi" }], "2026-01-01T00:00:00.000Z");
+  assert.equal(backup.format, "orion-memory-backup");
+  assert.equal(backup.version, 1);
+  assert.deepEqual(parseMemoryBackup(JSON.stringify(backup)), [{ id: "memory-1", text: "Use Hindi" }]);
+});
+
+test("rejects malformed and unsupported backup files", () => {
+  assert.throws(() => parseMemoryBackup("{broken"), /valid JSON/);
+  assert.throws(() => parseMemoryBackup(JSON.stringify({ format: "other", version: 1, memories: [] })), /supported ORION/);
+  assert.throws(() => parseMemoryBackup(JSON.stringify({ format: "orion-memory-backup", version: 99, memories: [] })), /supported ORION/);
+});
+
+test("rejects oversized backup files", () => {
+  assert.throws(() => parseMemoryBackup("x".repeat(MAX_MEMORY_BACKUP_BYTES + 1)), /too large/);
+});
+
+test("filters invalid entries during restore", () => {
+  const raw = JSON.stringify({ format: "orion-memory-backup", version: 1, memories: [{ text: "Keep this" }, null, { text: " " }] });
+  assert.deepEqual(parseMemoryBackup(raw), [{ id: "memory-1", text: "Keep this" }]);
+});
