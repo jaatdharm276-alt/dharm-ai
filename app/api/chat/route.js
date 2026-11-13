@@ -9,6 +9,9 @@ const GROQ_API_URL =
 const MODEL = "openai/gpt-oss-120b";
 
 const MAX_HISTORY = 20;
+const MAX_MESSAGE_CHARS = 12000;
+const MAX_HISTORY_ITEM_CHARS = 8000;
+const MAX_REQUEST_BYTES = 128 * 1024;
 const MAX_TOKENS = 6000;
 const TEMPERATURE = 0.4;
 
@@ -64,7 +67,7 @@ function safeHistory(messages) {
     )
     .map((message) => ({
       role: message.role,
-      content: cleanText(getText(message.content)),
+      content: cleanText(getText(message.content)).slice(0, MAX_HISTORY_ITEM_CHARS),
     }))
     .filter((message) => message.content.length > 0)
     .slice(-MAX_HISTORY);
@@ -617,6 +620,7 @@ async function callGroq({
   systemPrompt,
   history,
   userMessage,
+  signal,
 }) {
   const environment =
     validateEnvironment();
@@ -648,6 +652,7 @@ async function callGroq({
         ),
 
         cache: "no-store",
+        signal,
       }
     );
 
@@ -882,7 +887,8 @@ function getModeInstruction(
 }
 
 async function handleChatRequest(
-  body
+  body,
+  requestSignal
 ) {
   const {
     message,
@@ -894,6 +900,13 @@ async function handleChatRequest(
     return createErrorResponse(
       "Message is required.",
       400
+    );
+  }
+
+  if (message.length > MAX_MESSAGE_CHARS) {
+    return createErrorResponse(
+      `Message is too long. Maximum ${MAX_MESSAGE_CHARS} characters are allowed.`,
+      413
     );
   }
 
@@ -930,6 +943,7 @@ async function handleChatRequest(
 
       userMessage:
         message,
+      signal: requestSignal,
     });
 
   return streamResponse(
@@ -943,21 +957,28 @@ export async function POST(
   request
 ) {
   try {
-    let body;
-
-    try {
-      body =
-        await request.json();
-    } catch {
-      return createErrorResponse(
-        "Invalid JSON request.",
-        400
-      );
+    const contentLength = Number(request.headers.get("content-length") || 0);
+    if (contentLength > MAX_REQUEST_BYTES) {
+      return createErrorResponse("Request body is too large.", 413);
     }
 
-    return await handleChatRequest(
-      body
-    );
+    const rawBody = await request.text();
+    if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BYTES) {
+      return createErrorResponse("Request body is too large.", 413);
+    }
+
+    let body;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return createErrorResponse("Invalid JSON request.", 400);
+    }
+
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return createErrorResponse("Invalid request body.", 400);
+    }
+
+    return await handleChatRequest(body, request.signal);
   } catch (error) {
     console.error(
       "ORION API ERROR:",
