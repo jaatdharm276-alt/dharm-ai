@@ -1,5 +1,8 @@
 "use client";
 
+import OrionMemoryPanel from "./orion-memory-panel";
+import { normalizeMemories } from "../lib/orion-memory.mjs";
+
 import {
   useCallback,
   useEffect,
@@ -229,6 +232,8 @@ function formatMessage(content) {
 function Home() {
   const [messages, setMessages] = useState([]);
   const [historyReady, setHistoryReady] = useState(false);
+  const [memories, setMemories] = useState([]);
+  const [memoryReady, setMemoryReady] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
@@ -320,6 +325,26 @@ function Home() {
       setHistoryReady(true);
     }
   }, []);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("orion-ai-memory-v1");
+      if (saved) setMemories(normalizeMemories(JSON.parse(saved)));
+    } catch (storageError) {
+      console.warn("ORION memory could not be restored:", storageError);
+    } finally {
+      setMemoryReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!memoryReady) return;
+    try {
+      window.localStorage.setItem("orion-ai-memory-v1", JSON.stringify(normalizeMemories(memories)));
+    } catch (storageError) {
+      console.warn("ORION memory could not be saved:", storageError);
+    }
+  }, [memories, memoryReady]);
 
   useEffect(() => {
     if (!historyReady) return;
@@ -496,6 +521,7 @@ function Home() {
               taskMode,
               messages:
                 buildHistory(nextMessages),
+              memories: normalizeMemories(memories),
             }),
           }
         );
@@ -685,6 +711,7 @@ function Home() {
       taskMode,
       createId,
       buildHistory,
+      memories,
       scrollToBottom,
     ]
   );
@@ -882,6 +909,7 @@ function Home() {
         </button>
 
         <div className="top-actions">
+          <OrionMemoryPanel memories={memories} onChange={setMemories} />
           {hasMessages && (
             <button
               className="top-button"
