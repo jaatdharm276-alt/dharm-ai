@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { selectRelevantMemories } from "../../../lib/orion-memory.mjs";
 import { calculateSafely } from "../../../lib/orion-tools.mjs";
 import { convertUnits } from "../../../lib/orion-units.mjs";
+import { analyzeText } from "../../../lib/orion-text.mjs";
 import { getExternalSearchPolicy } from "../../../lib/orion-cost-policy.mjs";
 import { createRateLimiter, getClientIdentifier } from "../../../lib/orion-rate-limit.mjs";
 
@@ -55,6 +56,21 @@ const TOOL_DEFINITIONS = [
           to: { type: "string", description: "Target unit, for example m, lb, F, MB" },
         },
         required: ["value", "from", "to"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "analyze_text",
+      description: "Analyze text offline and return character, word, sentence, line counts, and estimated reading time. No external API is used.",
+      parameters: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "Text to analyze (up to 50,000 characters)" },
+        },
+        required: ["text"],
         additionalProperties: false,
       },
     },
@@ -200,6 +216,7 @@ async function executeTool(name, args, context) {
   if (name === "get_india_datetime") return { timezone: "Asia/Kolkata", current: indiaDateTime() };
   if (name === "calculate") return calculateSafely(args.expression);
   if (name === "convert_units") return convertUnits(args.value, args.from, args.to);
+  if (name === "analyze_text") return analyzeText(args.text);
   if (name === "search_web") {
     if (context.searchCalls >= MAX_SEARCH_CALLS) return { error: "Search-call limit reached for this task." };
     context.searchCalls += 1;
