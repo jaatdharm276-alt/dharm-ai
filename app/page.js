@@ -908,151 +908,81 @@ function Home() {
       )}
 
       {!hasMessages ? (
-        <section className="home-screen">
-          <div className="hero">
-            <div className="hero-logo">
-              ✦
-            </div>
-
-            <p className="namaste">
-              🙏 Namaste
-            </p>
-
-            <h1>
-              Welcome to{" "}
-              <span>ORION AI</span>
-            </h1>
-
-            <p className="tagline">
-              Your Intelligent Companion
-            </p>
-
-            <p className="credit">
-              Powered by Dharm AI
-            </p>
-          </div>
-          <div className="home-actions">
-            {visibleHomeActions.map((action) => (
-              <button
-                key={action.id}
-                className="action-card"
-                onClick={() =>
-                  handleHomeAction(action)
-                }
-                type="button"
-              >
-                <span className="action-icon">
-                  {action.icon}
-                </span>
-
-                <span className="action-content">
-                  <strong>{action.title}</strong>
-                  <small>
-                    {action.description}
-                  </small>
-                </span>
-              </button>
-            ))}
+        <section className="home-screen home-dashboard">
+          <div className="dashboard-hero">
+            <div className="hero-orbit"><span>✦</span></div>
+            <p className="namaste">🙏 NAMASTE, WELCOME</p>
+            <h1>Your ideas, <span>in motion.</span></h1>
+            <p className="tagline">Ask anything. Build anything. ORION is ready.</p>
+            <p className="credit">Powered by <strong>Dharm AI</strong> · Created by Dharmraj jat</p>
           </div>
 
-          <div className="mode-row">
-            {TASK_MODES.map((mode) => (
-              <button
-                key={mode.id}
-                type="button"
-                className={
-                  taskMode === mode.id
-                    ? "mode-button active"
-                    : "mode-button"
-                }
-                onClick={() =>
-                  setTaskMode(mode.id)
-                }
-              >
-                <span>{mode.icon}</span>
-                {mode.label}
-              </button>
-            ))}
-          </div>
-          <div className="suggestions">
-            {visibleSuggestions.map(
-              (suggestion) => (
-                <button
-                  key={suggestion}
-                  type="button"
-                  className="suggestion-button"
-                  onClick={() =>
-                    handleSuggestion(
-                      suggestion
-                    )
-                  }
-                >
-                  <span>✦</span>
-                  {suggestion}
-                </button>
-              )
-            )}
-          </div>
-          <form
-            className="composer"
-            onSubmit={handleSubmit}
-          >
+          <form className="composer dashboard-composer" onSubmit={handleSubmit}>
+            <span className="composer-spark">✧</span>
             <textarea
               ref={composerRef}
               value={input}
-              onChange={(event) =>
-                setInput(event.target.value)
-              }
+              onChange={(event) => setInput(event.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask ORION AI anything..."
+              placeholder="Ask ORION anything…"
               rows={1}
               disabled={loading}
             />
-
-            <button
-              type="button"
-              className={
-                listening
-                  ? "icon-button listening"
-                  : "icon-button"
-              }
-              onClick={startVoice}
-              disabled={loading}
-              aria-label="Voice input"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <rect
-                  x="9"
-                  y="3"
-                  width="6"
-                  height="12"
-                  rx="3"
-                />
-                <path d="M5 11a7 7 0 0 0 14 0" />
-                <path d="M12 18v3" />
-                <path d="M9 21h6" />
-              </svg>
+            <button type="button" className={listening ? "icon-button listening" : "icon-button"} onClick={startVoice} disabled={loading} aria-label="Voice input">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" /></svg>
             </button>
-
-            <button
-              type="submit"
-              className="send-button"
-              disabled={
-                !input.trim() || loading
-              }
-              aria-label="Send message"
-            >
-              ↑
-            </button>
+            <button type="submit" className="send-button" disabled={!input.trim() || loading} aria-label="Send message">↑</button>
           </form>
+          <p className="composer-credit">Press Enter to send · Shift + Enter for a new line</p>
 
-          <p className="composer-credit">
-            Powered by Dharm AI
-          </p>
-          </section>
+          <div className="dashboard-section-heading">
+            <div><span className="section-kicker">EXPLORE ORION</span><h2>What would you like to do?</h2></div>
+            <span className="online-pill"><i /> Ready</span>
+          </div>
+
+          <div className="feature-grid">
+            <button type="button" className="feature-tile tile-search" onClick={() => { setTaskMode("chat"); composerRef.current?.focus(); }}>
+              <span className="tile-icon">⌕</span><strong>Ask anything</strong><small>Answers, ideas & explanations</small><span className="tile-arrow">↗</span>
+            </button>
+            <button type="button" className="feature-tile tile-agent" onClick={() => { setTaskMode("agent"); handleHomeAction({prompt:"Help me plan and execute a useful task step by step."}); }}>
+              <span className="tile-icon">✧</span><strong>Agent mode</strong><small>Plan, tools & task execution</small><span className="tile-arrow">↗</span>
+            </button>
+            <button type="button" className="feature-tile tile-memory" onClick={() => document.querySelector('[aria-label="Manage ORION memory"]')?.click()}>
+              <span className="tile-icon">▱</span><strong>Smart memory</strong><small>Saved notes & useful context</small><span className="tile-arrow">↗</span>
+            </button>
+            <button type="button" className="feature-tile tile-study" onClick={() => { setTaskMode("study"); composerRef.current?.focus(); }}>
+              <span className="tile-icon">⌘</span><strong>Study & learn</strong><small>Simple step-by-step learning</small><span className="tile-arrow">↗</span>
+            </button>
+            <button type="button" className="feature-tile tile-create" onClick={() => { setTaskMode("content"); composerRef.current?.focus(); }}>
+              <span className="tile-icon">✎</span><strong>Create content</strong><small>Writing, ideas & drafts</small><span className="tile-arrow">↗</span>
+            </button>
+            <button type="button" className="feature-tile tile-work" onClick={() => { setTaskMode("work"); composerRef.current?.focus(); }}>
+              <span className="tile-icon">⌁</span><strong>Get work done</strong><small>Plans, code & productivity</small><span className="tile-arrow">↗</span>
+            </button>
+          </div>
+
+          <div className="dashboard-bottom">
+            <div className="quick-prompts">
+              <div className="dashboard-section-heading compact"><div><span className="section-kicker">GET STARTED</span><h2>Try asking</h2></div></div>
+              <div className="suggestions">
+                {["Explain AI in simple words","Give me a business idea","Help me write a project plan","Summarize the Bhagavad Gita"].map((suggestion) => (
+                  <button key={suggestion} type="button" className="suggestion-button" onClick={() => handleSuggestion(suggestion)}><span>✦</span>{suggestion}</button>
+                ))}
+              </div>
+            </div>
+            <div className="mode-panel">
+              <span className="section-kicker">RESPONSE MODE</span>
+              <div className="mode-row">
+                {TASK_MODES.map((mode) => (
+                  <button key={mode.id} type="button" className={taskMode === mode.id ? "mode-button active" : "mode-button"} onClick={() => setTaskMode(mode.id)}>
+                    <span>{mode.icon}</span>{mode.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="dashboard-footer"><span>✦ ORION AI</span><span>Intelligent companion · <strong>Powered by Dharm AI</strong></span></div>
+        </section>
         ) : (
           <section className="chat-screen">
             <div
@@ -2031,6 +1961,76 @@ function Home() {
     .chat-screen { height:calc(100dvh - 62px); width:calc(100% - 12px); padding-top:10px; }
     .message-content { max-width:92%; font-size:14px; }
     .message-content .response-heading { margin-top:16px; padding:8px 10px; }
+  }
+
+
+  /* ORION dashboard v2 - responsive glass interface */
+  .orion-app { background: radial-gradient(ellipse at 50% -10%,rgba(28,145,255,.13),transparent 44%),radial-gradient(ellipse at 100% 45%,rgba(134,83,255,.08),transparent 36%),#f7fbff; }
+  .home-dashboard { width:min(1000px,calc(100% - 36px)); padding:36px 0 28px; }
+  .dashboard-hero { text-align:center; padding:8px 12px 20px; }
+  .hero-orbit { width:76px;height:76px;margin:0 auto 15px;display:grid;place-items:center;border-radius:26px;background:linear-gradient(145deg,#e5f5ff,#eeeaff);border:1px solid rgba(35,143,242,.22);box-shadow:0 0 0 7px rgba(40,145,245,.045),0 12px 34px rgba(45,117,208,.16); }
+  .hero-orbit span { font-size:43px;color:#147de0;text-shadow:0 0 22px rgba(26,145,255,.55); }
+  .dashboard-hero .namaste { color:#1879c8;font-size:11px;font-weight:800;letter-spacing:.18em; }
+  .dashboard-hero h1 { margin:5px 0 0;font-size:clamp(32px,6vw,54px);letter-spacing:-.055em;color:#122c52; }
+  .dashboard-hero h1 span { color:#1689e8;background:linear-gradient(90deg,#0788e9,#7955e8);background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent; }
+  .dashboard-hero .tagline { margin:10px 0 5px;color:#5d718b;font-size:15px; }
+  .dashboard-hero .credit { color:#75869b;font-size:11px; }
+  .dashboard-hero .credit strong { color:#087acb; }
+  .dashboard-composer { width:min(760px,100%);margin:12px auto 0;padding:10px 11px 10px 15px;border:1px solid #cfe4f8;border-radius:22px;background:rgba(255,255,255,.94);box-shadow:0 12px 36px rgba(27,104,177,.12),0 0 0 5px rgba(42,145,229,.035); }
+  .composer-spark { align-self:center;color:#278de2;font-size:22px; }
+  .dashboard-composer textarea { font-size:15px; }
+  .dashboard-composer .send-button { border-radius:15px; }
+  .dashboard-section-heading { display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:34px 2px 14px; }
+  .dashboard-section-heading h2 { margin:4px 0 0;color:#17365c;font-size:19px;letter-spacing:-.025em; }
+  .section-kicker { color:#2784c9;font-size:9px;font-weight:850;letter-spacing:.17em; }
+  .online-pill { display:flex;align-items:center;gap:7px;padding:7px 11px;border:1px solid #d4efdf;border-radius:999px;background:#f0fff5;color:#25814d;font-size:10px;font-weight:750; }
+  .online-pill i { width:7px;height:7px;border-radius:50%;background:#24bd70;box-shadow:0 0 9px #54db92; }
+  .feature-grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px; }
+  .feature-tile { position:relative;min-height:132px;display:flex;flex-direction:column;align-items:flex-start;gap:7px;padding:16px;text-align:left;border:1px solid #deebf7;border-radius:19px;background:rgba(255,255,255,.9);box-shadow:0 7px 22px rgba(28,78,132,.055);transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease; }
+  .feature-tile:hover { transform:translateY(-3px);box-shadow:0 13px 28px rgba(31,99,167,.12);border-color:#b7d9f5; }
+  .tile-icon { width:37px;height:37px;display:grid;place-items:center;border-radius:12px;background:#eaf5ff;color:#1685df;font-size:23px;font-weight:800; }
+  .feature-tile strong { color:#19385d;font-size:14px; }
+  .feature-tile small { color:#78899d;font-size:10px;line-height:1.4; }
+  .tile-arrow { position:absolute;right:14px;top:16px;color:#8aa9c7;font-size:17px; }
+  .tile-agent .tile-icon { color:#7654df;background:#f1edff; }
+  .tile-memory .tile-icon { color:#0d9b91;background:#e8faf7; }
+  .tile-study .tile-icon { color:#b87912;background:#fff6e5; }
+  .tile-create .tile-icon { color:#d25c9a;background:#fff0f7; }
+  .tile-work .tile-icon { color:#27885a;background:#eaf9ef; }
+  .dashboard-bottom { display:grid;grid-template-columns:1.15fr .85fr;gap:14px;margin-top:18px; }
+  .quick-prompts,.mode-panel { min-width:0;padding:14px 15px;border:1px solid #e0ebf6;border-radius:18px;background:rgba(255,255,255,.76); }
+  .dashboard-section-heading.compact { margin:0 0 10px; }
+  .dashboard-section-heading.compact h2 { font-size:15px; }
+  .quick-prompts .suggestions { justify-content:flex-start;margin:0;gap:7px; }
+  .quick-prompts .suggestion-button { padding:7px 10px;border-color:#e0eafa;background:#fafdff;font-size:10px; }
+  .mode-panel .mode-row { justify-content:flex-start;margin:10px 0 0;gap:6px; }
+  .mode-panel .mode-button { padding:7px 10px;font-size:10px; }
+  .dashboard-footer { display:flex;justify-content:space-between;gap:12px;margin:24px 3px 0;padding-top:14px;border-top:1px solid #e2edf7;color:#8a9bad;font-size:10px; }
+  .dashboard-footer span:first-child { color:#147acb;font-weight:850;letter-spacing:.12em; }
+  .dashboard-footer strong { color:#287bb7; }
+  @media(max-width:700px) {
+    .home-dashboard { width:calc(100% - 24px);padding:25px 0 22px; }
+    .dashboard-hero { padding-bottom:12px; }
+    .hero-orbit { width:64px;height:64px;border-radius:22px; }
+    .hero-orbit span { font-size:36px; }
+    .dashboard-hero h1 { font-size:34px; }
+    .dashboard-hero .tagline { font-size:12px; }
+    .dashboard-composer { border-radius:18px; }
+    .dashboard-section-heading { margin-top:26px; }
+    .dashboard-section-heading h2 { font-size:17px; }
+    .feature-grid { grid-template-columns:repeat(2,minmax(0,1fr));gap:9px; }
+    .feature-tile { min-height:120px;padding:13px;border-radius:16px; }
+    .feature-tile strong { font-size:13px; }
+    .feature-tile small { font-size:9px; }
+    .dashboard-bottom { grid-template-columns:1fr;gap:10px;margin-top:12px; }
+    .quick-prompts,.mode-panel { padding:12px; }
+    .dashboard-footer { flex-direction:column;align-items:center;text-align:center;margin-top:18px; }
+  }
+  @media(max-width:360px) {
+    .home-dashboard { width:calc(100% - 18px); }
+    .feature-grid { gap:7px; }
+    .feature-tile { padding:11px; }
+    .dashboard-hero h1 { font-size:30px; }
   }
 
 `;
