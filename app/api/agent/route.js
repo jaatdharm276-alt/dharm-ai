@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { selectRelevantMemories } from "../../../lib/orion-memory.mjs";
 import { calculateSafely } from "../../../lib/orion-tools.mjs";
+import { createRateLimiter, getClientIdentifier } from "../../../lib/orion-rate-limit.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,6 +15,7 @@ const MAX_TOOL_ROUNDS = 5;
 const MAX_TOOL_CALLS = 8;
 const MAX_SEARCH_CALLS = 2;
 const MAX_DELEGATIONS = 3;
+const agentRateLimiter = createRateLimiter({ limit: 10, windowMs: 60_000 });
 
 const TOOL_DEFINITIONS = [
   {
@@ -403,6 +405,14 @@ function runAgent(body, signal) {
 
 export async function POST(request) {
   try {
+    const rate = agentRateLimiter.check(getClientIdentifier(request.headers));
+    if (!rate.allowed) {
+      return NextResponse.json(
+        { error: "Too many agent requests. Please wait before trying again." },
+        { status: 429, headers: { "Retry-After": String(Math.ceil(rate.retryAfterMs / 1000)) } },
+      );
+    }
+
     const contentType = request.headers.get("content-type") || "";
     if (!contentType.toLowerCase().includes("application/json")) {
       return errorResponse("Content-Type must be application/json.", 415);
