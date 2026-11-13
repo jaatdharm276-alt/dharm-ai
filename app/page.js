@@ -4,6 +4,7 @@ import OrionMemoryPanel from "./orion-memory-panel";
 import { normalizeMemories } from "../lib/orion-memory.mjs";
 import { extractSources } from "../lib/orion-sources.mjs";
 import { escapeHtml } from "../lib/orion-html.mjs";
+import { formatChatTranscript } from "../lib/orion-export.mjs";
 
 import {
   useCallback,
@@ -346,6 +347,24 @@ function Home() {
       .toString(36)
       .slice(2, 9)}`;
   }, []);
+
+  const downloadChat = useCallback(() => {
+    const transcript = formatChatTranscript(messages);
+    if (!transcript) return;
+
+    const blob = new Blob(["\\uFEFF", transcript], {
+      type: "text/plain;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `orion-ai-chat-${new Date().toISOString().slice(0, 10)}.txt`;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }, [messages]);
 
   const startNewChat = useCallback(() => {
     if (abortRef.current) {
@@ -885,6 +904,20 @@ function Home() {
                   r="6.5"
                 />
                 <path d="m16 16 5 5" />
+              </svg>
+            </button>
+          )}
+
+          {hasMessages && (
+            <button
+              className="top-button"
+              onClick={downloadChat}
+              type="button"
+              aria-label="Download chat"
+              title="Download chat"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v3h16v-3" />
               </svg>
             </button>
           )}
