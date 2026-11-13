@@ -4,6 +4,7 @@ import { calculateSafely } from "../../../lib/orion-tools.mjs";
 import { convertUnits } from "../../../lib/orion-units.mjs";
 import { analyzeText } from "../../../lib/orion-text.mjs";
 import { getExternalSearchPolicy } from "../../../lib/orion-cost-policy.mjs";
+import { fetchWithRetry } from "../../../lib/orion-retry.mjs";
 import { createRateLimiter, getClientIdentifier } from "../../../lib/orion-rate-limit.mjs";
 
 export const runtime = "nodejs";
@@ -135,7 +136,7 @@ async function searchWeb(query, signal) {
     };
   }
 
-  const response = await fetch("https://api.tavily.com/search", {
+  const response = await fetchWithRetry("https://api.tavily.com/search", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -166,7 +167,7 @@ async function callModel(messages, options = {}, signal) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error("GROQ_API_KEY is not configured.");
 
-  const response = await fetch(GROQ_API_URL, {
+  const response = await fetchWithRetry(GROQ_API_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
