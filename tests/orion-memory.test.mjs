@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeMemories, MAX_MEMORY_ITEMS, MAX_MEMORY_CHARS, createMemoryBackup, parseMemoryBackup, MAX_MEMORY_BACKUP_BYTES } from "../lib/orion-memory.mjs";
+import { normalizeMemories, selectRelevantMemories, MAX_MEMORY_ITEMS, MAX_MEMORY_CHARS, createMemoryBackup, parseMemoryBackup, MAX_MEMORY_BACKUP_BYTES } from "../lib/orion-memory.mjs";
 
 test("normalizes, trims, and deduplicates saved memories", () => {
   assert.deepEqual(normalizeMemories([{ id: "a", text: "  I prefer Hindi. " }, { text: "i prefer hindi." }]), [{ id: "a", text: "I prefer Hindi." }]);
@@ -27,12 +27,26 @@ test("ensures every normalized memory has a unique non-empty id", () => {
   assert.equal(new Set(ids).size, ids.length);
   assert.ok(ids.every(Boolean));
 });
-
+test("preserves pinned state through normalization and backup", () => {
+  assert.deepEqual(normalizeMemories([{ id: "a", text: "Use Hindi", pinned: true }]), [{ id: "a", text: "Use Hindi", pinned: true }]);
+});
+test("selects matching memories and always includes pinned notes", () => {
+  const memories = [
+    { id: "a", text: "I prefer Hindi replies" },
+    { id: "b", text: "My project is ORION AI" },
+    { id: "c", text: "I use an Android phone", pinned: true },
+    { id: "d", text: "I like short answers" },
+  ];
+  assert.deepEqual(selectRelevantMemories(memories, "Tell me about my ORION AI project").map((item) => item.id), ["c", "b"]);
+});
+test("does not inject unrelated unpinned memories", () => {
+  assert.deepEqual(selectRelevantMemories([{ text: "I prefer Hindi" }], "Explain photosynthesis"), []);
+});
 test("exports and restores a versioned memory backup", () => {
-  const backup = createMemoryBackup([{ text: "Use Hindi" }], "2026-01-01T00:00:00.000Z");
+  const backup = createMemoryBackup([{ text: "Use Hindi", pinned: true }], "2026-01-01T00:00:00.000Z");
   assert.equal(backup.format, "orion-memory-backup");
   assert.equal(backup.version, 1);
-  assert.deepEqual(parseMemoryBackup(JSON.stringify(backup)), [{ id: "memory-1", text: "Use Hindi" }]);
+  assert.deepEqual(parseMemoryBackup(JSON.stringify(backup)), [{ id: "memory-1", text: "Use Hindi", pinned: true }]);
 });
 test("rejects malformed and unsupported backup files", () => {
   assert.throws(() => parseMemoryBackup("{broken"), /valid JSON/);
