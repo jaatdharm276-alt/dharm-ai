@@ -947,7 +947,7 @@ function Home() {
             <button type="button" className="feature-tile tile-agent" onClick={() => { setTaskMode("agent"); handleHomeAction({prompt:"Help me plan and execute a useful task step by step."}); }}>
               <span className="tile-icon">✧</span><strong>Agent mode</strong><small>Plan, tools & task execution</small><span className="tile-arrow">↗</span>
             </button>
-            <button type="button" className="feature-tile tile-memory" onClick={() => { document.querySelector("[data-orion-memory]")?.scrollIntoView({behavior:"smooth",block:"center"}); }}>
+            <button type="button" className="feature-tile tile-memory" onClick={() => document.querySelector('[aria-label="Manage ORION memory"]')?.click()}>
               <span className="tile-icon">▱</span><strong>Smart memory</strong><small>Saved notes & useful context</small><span className="tile-arrow">↗</span>
             </button>
             <button type="button" className="feature-tile tile-study" onClick={() => { setTaskMode("study"); composerRef.current?.focus(); }}>
