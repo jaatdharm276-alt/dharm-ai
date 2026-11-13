@@ -296,7 +296,7 @@ function streamResponse(text) {
   });
 }
 
-async function runAgent(body, signal) {
+function runAgent(body, signal) {
   const message = typeof body.message === "string" ? body.message.trim() : "";
   if (!message) return errorResponse("Message is required.", 400);
   if (message.length > MAX_MESSAGE_CHARS) return errorResponse("Message is too long.", 413);
@@ -351,20 +351,34 @@ async function runAgent(body, signal) {
     return String(revised.content || draft).trim();
   }
 
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    start(controller) {
+      const emit = (payload) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\\n\\n`));
+      const emitStatus = (stage, detail) => emit({ orion_status: { stage, detail, timestamp: Date.now() } });
+      const emitText = (text) => {
+        const chunks = String(text).match(/[\\s\\S]{1,72}/g) || [""];
+        for (const chunk of chunks) emit({ choices: [{ delta: { content: chunk } }] });
+      };
+      (async () => {
   try {
+    emitStatus("understanding", "आपके सवाल को समझ रहा हूँ");
     // Brain stage 1: make an explicit plan before tool execution.
+    emitStatus("planning", "काम की योजना और चरण तय कर रहा हूँ");
     const plan = await runSpecialist(
       "planner",
       "Break the objective into a short ordered execution plan. Identify which available tools or specialists are genuinely needed, dependencies, risks, and completion checks. Do not execute anything or invent unavailable capabilities.",
       message,
       signal,
     );
+    emitStatus("planning_done", "काम की योजना तैयार है");
     messages.push({
       role: "system",
       content: `ORION BRAIN PLAN (internal task guidance; do not expose hidden reasoning):\n${plan.findings}\nFollow this plan where useful, adapt if tool evidence changes the approach, and never claim an unexecuted step is complete.`,
     });
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
+      emitStatus("reasoning", "अगला सही कदम और ज़रूरी टूल चुन रहा हूँ");
       const assistant = await callModel(messages, {
         tools: TOOL_DEFINITIONS,
         temperature: 0.25,
@@ -374,8 +388,11 @@ async function runAgent(body, signal) {
       const calls = Array.isArray(assistant.tool_calls) ? assistant.tool_calls : [];
       if (!calls.length) {
         const answer = String(assistant.content || "").trim();
+        emitStatus("verification", "जवाब और उपलब्ध सबूतों की जाँच कर रहा हूँ");
         const verifiedAnswer = await verifyAndFinalize(answer || "Task complete nahi ho saka. Kripya request ko thoda aur specific karein.");
-        return streamResponse(verifiedAnswer);
+        emitStatus("complete", "जाँच पूरी — जवाब तैयार है");
+        emitText(verifiedAnswer);
+        return;
       }
 
       messages.push({
@@ -395,6 +412,9 @@ async function runAgent(body, signal) {
         }
 
         context.toolCalls += 1;
+        const toolName = call.function?.name;
+        const toolLabels = { get_india_datetime: "भारत का वर्तमान समय देख रहा हूँ", calculate: "गणना कर रहा हूँ", search_web: "वेब पर जानकारी खोज रहा हूँ", delegate_specialist: "Specialist agent से विश्लेषण करवा रहा हूँ" };
+        emitStatus("tool", toolLabels[toolName] || "एक उपलब्ध टूल चला रहा हूँ");
         let result;
         try {
           const args = JSON.parse(call.function?.arguments || "{}");
@@ -416,13 +436,29 @@ async function runAgent(body, signal) {
       { role: "system", content: "Tool budget is exhausted. Give the best verified answer from the evidence already collected. Clearly state any unavailable capability." },
     ], { temperature: 0.2, max_tokens: 3500 }, signal);
 
+    emitStatus("verification", "मिले हुए नतीजों की अंतिम जाँच कर रहा हूँ");
     const verifiedAnswer = await verifyAndFinalize(String(final.content || "Agent task limit reached. Please narrow the task."));
-    return streamResponse(verifiedAnswer);
+    emitStatus("complete", "जाँच पूरी — जवाब तैयार है");
+    emitText(verifiedAnswer);
   } catch (error) {
-    if (error?.name === "AbortError") return errorResponse("Request was cancelled.", 499);
-    console.error("ORION AGENT ERROR:", error);
-    return errorResponse("ORION JARVIS CORE could not complete the task. Please try again.", 500);
+    if (error?.name === "AbortError") {
+      emitStatus("cancelled", "काम रोक दिया गया");
+    } else {
+      console.error("ORION AGENT ERROR:", error);
+      emitStatus("error", "काम पूरा नहीं हो सका");
+      emitText("ORION JARVIS CORE काम पूरा नहीं कर सका। कृपया दोबारा कोशिश करें।");
+    }
+  } finally {
+    emit({ done: true });
+    controller.close();
   }
+      })();
+    },
+  });
+  return new Response(stream, {
+    status: 200,
+    headers: { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform", Connection: "keep-alive", "X-Accel-Buffering": "no" },
+  });
 }
 
 export async function POST(request) {
