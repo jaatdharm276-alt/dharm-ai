@@ -1038,6 +1038,7 @@ function Home() {
                           </div>
                         )}
                         {message.content ? (
+                          <>
                           <div
                             dangerouslySetInnerHTML={{
                               __html:
@@ -1064,6 +1065,7 @@ function Home() {
                               </div>
                             </section>
                           )}
+                          </>
                         ) : loading &&
                           message.id ===
                             messages[
