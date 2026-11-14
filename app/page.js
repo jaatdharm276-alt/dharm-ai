@@ -184,6 +184,21 @@ function formatMessage(content) {
   if (inCode && codeLines.length) output.push('<div class="response-code-card"><div class="response-code-label">CODE</div><pre><code>' + escapeHtml(codeLines.join("\n")) + '</code></pre></div>');
   return output.join("");
 }
+function getAgentProgress(activity = [], complete = false) {
+  if (complete) return 100;
+  const progressByStage = {
+    understanding: 10,
+    planning: 22,
+    planning_done: 35,
+    planning_fallback: 35,
+    reasoning: 48,
+    tool: 68,
+    verification: 90,
+    partial_recovery: 90,
+  };
+  return Math.max(4, ...activity.map((item) => progressByStage[item.stage] || 0));
+}
+
 function Home() {
   const [messages, setMessages] = useState([]);
   const [historyReady, setHistoryReady] = useState(false);
@@ -1094,14 +1109,26 @@ function Home() {
                           </div>
                         )}
                         {taskMode === "agent" && message.activity?.length > 0 && (
-                          <div className="activity-feed" aria-live="polite">
-                            <div className="activity-feed-heading"><span>◈</span> Live task progress</div>
-                            {message.activity.map((item, index) => (
-                              <div className="activity-item" key={`${item.timestamp || index}-${index}`}>
-                                <span className={item.stage === "complete" ? "activity-mark complete" : item.stage === "tool_error" || item.stage === "partial_recovery" ? "activity-mark warning" : "activity-mark"} />
-                                <span>{item.detail}</span>
-                              </div>
-                            ))}
+                          <div className="activity-feed agent-progress-card" aria-live="polite">
+                            <div className="activity-feed-heading"><span>◈</span><strong>Analysis Progress</strong><b>{getAgentProgress(message.activity, Boolean(message.content && !loading))}%</b></div>
+                            <div className="agent-progress-track"><span style={{ width: `${getAgentProgress(message.activity, Boolean(message.content && !loading))}%` }} /></div>
+                            <div className="agent-stage-list">
+                              {[
+                                ["understanding", "Understanding request"],
+                                ["planning_done", "Planning & task steps"],
+                                ["tool", "Tool execution"],
+                                ["verification", "Verification"],
+                              ].map(([stage, label]) => {
+                                const seen = message.activity.some((item) => item.stage === stage || (stage === "planning_done" && item.stage === "planning_fallback"));
+                                const later = message.activity.some((item) => ({understanding: ["planning","planning_done","planning_fallback","reasoning","tool","verification"], planning_done: ["reasoning","tool","verification"], tool: ["verification"], verification: []}[stage] || []).includes(item.stage));
+                                const done = seen || later || Boolean(message.content && !loading);
+                                const active = !done && message.activity.length > 0 && stage === (message.activity[message.activity.length - 1]?.stage === "understanding" ? "understanding" : message.activity[message.activity.length - 1]?.stage === "planning" ? "planning_done" : message.activity[message.activity.length - 1]?.stage === "reasoning" ? "tool" : "verification");
+                                return <div className="agent-stage-row" key={stage}><span className={done ? "agent-stage-check done" : active ? "agent-stage-check active" : "agent-stage-check"}>{done ? "✓" : active ? "◌" : ""}</span><span>{label}</span><strong>{done ? "Done" : active ? "In progress" : "Waiting"}</strong></div>;
+                              })}
+                            </div>
+                            <div className="agent-activity-log">
+                              {message.activity.slice(-5).map((item, index) => <div className="activity-item" key={`${item.timestamp || index}-${index}`}><span className={item.stage === "tool_error" || item.stage === "partial_recovery" || item.stage === "planning_fallback" ? "activity-mark warning" : "activity-mark"} /><span>{item.detail}</span></div>)}
+                            </div>
                           </div>
                         )}
                         {message.content ? (
@@ -2367,6 +2394,21 @@ function Home() {
     .home-dashboard .dashboard-footer span { font-size:9px; }
   }
 
+
+  .agent-progress-card{padding:13px 14px;border:1px solid rgba(79,171,210,.35);border-radius:17px;background:linear-gradient(135deg,#f0fbff 0%,#f6f2ff 100%);box-shadow:0 0 22px rgba(54,157,210,.10),inset 0 1px 0 rgba(255,255,255,.9)}
+  .agent-progress-card .activity-feed-heading{display:flex;align-items:center;gap:8px;margin-bottom:10px;color:#123d79;font-size:13px}
+  .agent-progress-card .activity-feed-heading b{margin-left:auto;color:#6c35d4;font-size:15px}
+  .agent-progress-track{height:10px;overflow:hidden;margin:0 0 11px;border-radius:999px;background:#e6ddfa;box-shadow:inset 0 1px 3px rgba(58,47,120,.08)}
+  .agent-progress-track span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#7652e8,#168fe7,#17b9cf);box-shadow:0 0 14px rgba(28,147,226,.35);transition:width .35s ease}
+  .agent-stage-list{display:grid;gap:0}
+  .agent-stage-row{display:grid;grid-template-columns:20px 1fr auto;align-items:center;gap:8px;padding:7px 0;border-top:1px solid rgba(142,164,197,.19);color:#3e526d;font-size:11px}
+  .agent-stage-row strong{color:#71849c;font-size:9px;font-weight:750}
+  .agent-stage-check{width:17px;height:17px;display:grid;place-items:center;border:1.5px solid #aebbd0;border-radius:50%;color:#fff;font-size:10px}
+  .agent-stage-check.done{border-color:#1da66c;background:#1da66c;box-shadow:0 0 9px rgba(29,166,108,.22)}
+  .agent-stage-check.active{border-color:#398fe2;color:#398fe2;animation:agentPulse 1.2s ease-in-out infinite}
+  .agent-activity-log{margin-top:7px;padding-top:5px;border-top:1px solid rgba(142,164,197,.22)}
+  .agent-activity-log .activity-item{font-size:10px}
+  @keyframes agentPulse{50%{box-shadow:0 0 0 4px rgba(57,143,226,.13)}}
 
 
 `;
