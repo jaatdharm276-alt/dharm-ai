@@ -662,24 +662,18 @@ async function callGroq({
     );
 
   if (!response.ok) {
-    let errorMessage =
-      `Groq API error (${response.status})`;
-
-    try {
-      const data =
-        await response.json();
-
-      errorMessage =
-        data?.error?.message ||
-        data?.message ||
-        errorMessage;
-    } catch {
-      // Keep fallback error.
-    }
-
-    throw new Error(
-      errorMessage
-    );
+    const detail = await response.text().catch(() => "");
+    console.error("ORION Groq provider error:", response.status, detail.slice(0, 1000));
+    const error = new Error("Groq provider request failed.");
+    error.providerStatus = response.status;
+    error.code = response.status === 401 || response.status === 403
+      ? "GROQ_AUTH_REJECTED"
+      : response.status === 429
+        ? "GROQ_RATE_LIMITED"
+        : response.status >= 500
+          ? "GROQ_PROVIDER_UNAVAILABLE"
+          : "GROQ_PROVIDER_HTTP_ERROR";
+    throw error;
   }
 
   if (!response.body) {
@@ -1011,10 +1005,14 @@ export async function POST(
       return createErrorResponse("Request was cancelled.", 499);
     }
 
-    // Keep upstream provider details in server logs; do not expose them to clients.
-    return createErrorResponse(
-      "ORION AI could not complete the request. Please try again.",
-      500
-    );
+    const safeErrors = {
+      GROQ_KEY_MISSING: "ORION AI service is not configured yet. The server is missing its Groq API key.",
+      GROQ_AUTH_REJECTED: "ORION AI could not authenticate with its AI provider. The server API key needs to be checked.",
+      GROQ_RATE_LIMITED: "The AI provider is temporarily rate-limiting requests. Please wait a little and try again.",
+      GROQ_PROVIDER_UNAVAILABLE: "The AI provider is temporarily unavailable. Please try again shortly.",
+      GROQ_PROVIDER_HTTP_ERROR: "The AI provider rejected the request. Please try again later.",
+    };
+    const safeMessage = safeErrors[error?.code] || "ORION AI could not complete the request. Please try again.";
+    return createErrorResponse(safeMessage, error?.providerStatus === 429 ? 429 : 500);
   }
 }
