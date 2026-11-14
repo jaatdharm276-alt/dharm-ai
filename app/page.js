@@ -186,9 +186,9 @@ function formatMessage(content) {
   if (inCode && codeLines.length) output.push('<div class="response-code-card"><div class="response-code-label">CODE</div><pre><code>' + escapeHtml(codeLines.join("\n")) + '</code></pre></div>');
   return output.join("");
 }
-function getAgentProgress(activity = []) {
+function getAgentProgress(activity = [], complete = false) {
   const latestStage = activity[activity.length - 1]?.stage;
-  if (latestStage === "complete") return 100;
+  if (complete && latestStage === "complete") return 100;
   if (latestStage === "partial_recovery") return 85;
   if (latestStage === "tool_error") return 60;
   const progress = {
@@ -228,6 +228,8 @@ function Home() {
 
   const messagesRef = useRef(null);
   const scrollAnimationFrameRef = useRef(null);
+  const programmaticScrollRef = useRef(false);
+  const programmaticScrollTimerRef = useRef(null);
   const composerRef = useRef(null);
   const abortRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -272,7 +274,15 @@ function Home() {
 
       // Move a small distance each frame. Recompute the target as streamed
       // text and activity updates change the message height.
-      current.scrollTop += Math.min(34, Math.max(2, distance * 0.18));
+      programmaticScrollRef.current = true;
+      current.scrollTop += Math.min(18, Math.max(1, distance * 0.14));
+      if (programmaticScrollTimerRef.current !== null) {
+        window.clearTimeout(programmaticScrollTimerRef.current);
+      }
+      programmaticScrollTimerRef.current = window.setTimeout(() => {
+        programmaticScrollRef.current = false;
+        programmaticScrollTimerRef.current = null;
+      }, 100);
       scrollAnimationFrameRef.current = window.requestAnimationFrame(step);
     };
 
@@ -281,7 +291,7 @@ function Home() {
 
   const handleMessageScroll = useCallback(() => {
     const container = messagesRef.current;
-    if (!container) return;
+    if (!container || programmaticScrollRef.current) return;
 
     const distanceFromBottom =
       container.scrollHeight - container.scrollTop - container.clientHeight;
@@ -297,6 +307,9 @@ function Home() {
   useEffect(() => () => {
     if (scrollAnimationFrameRef.current !== null) {
       window.cancelAnimationFrame(scrollAnimationFrameRef.current);
+    }
+    if (programmaticScrollTimerRef.current !== null) {
+      window.clearTimeout(programmaticScrollTimerRef.current);
     }
   }, []);
 
@@ -1196,7 +1209,7 @@ function Home() {
                           const toolStarted = stages.some((stage) => ["tool", "tool_completed", "tool_error", "verification", "complete", "partial_recovery"].includes(stage));
                           const toolDone = stages.includes("tool_completed");
                           const verifying = stages.includes("verification");
-                          const progress = getAgentProgress(message.activity);
+                          const progress = getAgentProgress(message.activity, completed && !loading);
                           return (
                           <div className="activity-feed agent-progress-card" aria-live="polite">
                             <div className="activity-feed-heading"><span>▥</span><strong>Analysis Progress</strong><b>{progress}%</b></div>
