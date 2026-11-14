@@ -1122,23 +1122,7 @@ function Home() {
             <img className="orion-reference-robot" src="/orion-hero.svg" alt="ORION AI companion" />
           </section>
 
-          <form className="composer dashboard-composer" onSubmit={handleSubmit}>
-            <span className="composer-spark">✧</span>
-            <textarea
-              ref={composerRef}
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask ORION anything…"
-              rows={1}
-              disabled={loading}
-            />
-            <button type="button" className={listening ? "icon-button listening" : "icon-button"} onClick={startVoice} disabled={loading} aria-label={listening ? "Stop voice input" : "Start voice input"} aria-pressed={listening} title={listening ? "Listening… tap to stop" : "Speak in Hindi"}>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" /></svg>
-            </button>
-            <button type="submit" className="send-button" disabled={!input.trim() || loading} aria-label="Send message">↑</button>
-          </form>
-          <p className="composer-credit">Press Enter to send · Shift + Enter for a new line</p>
+
 
           <div className="dashboard-section-heading">
             <div><span className="section-kicker">EXPLORE ORION</span><h2>What would you like to do?</h2></div>
@@ -1165,6 +1149,24 @@ function Home() {
               <span className="tile-icon">▦</span><strong>Tools</strong><small>Quick actions & utilities</small><span className="tile-arrow">↗</span>
             </button>
           </div>
+
+          <form className="composer dashboard-composer" onSubmit={handleSubmit}>
+            <span className="composer-spark">✧</span>
+            <textarea
+              ref={composerRef}
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask ORION anything…"
+              rows={1}
+              disabled={loading}
+            />
+            <button type="button" className={listening ? "icon-button listening" : "icon-button"} onClick={startVoice} disabled={loading} aria-label={listening ? "Stop voice input" : "Start voice input"} aria-pressed={listening} title={listening ? "Listening… tap to stop" : "Speak in Hindi"}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" /></svg>
+            </button>
+            <button type="submit" className="send-button" disabled={!input.trim() || loading} aria-label="Send message">↑</button>
+          </form>
+          <p className="composer-credit">Press Enter to send · Shift + Enter for a new line</p>
 
           <section className="home-quick-actions" id="orion-home-tools" aria-label="Quick actions">
             <div className="home-section-title"><span>✦</span><strong>Quick Actions</strong></div>
