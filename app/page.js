@@ -605,6 +605,7 @@ function Home() {
         id: createId(),
         role: "user",
         content: messageText,
+        createdAt: Date.now(),
       };
 
       const assistantId = createId();
@@ -614,6 +615,7 @@ function Home() {
         role: "assistant",
         content: "",
         activity: [],
+        createdAt: Date.now(),
       };
 
       const nextMessages = [
@@ -1259,13 +1261,12 @@ function Home() {
                         {message.content ? (
                           <>
                           <div
+                            className="message-rendered-content"
                             dangerouslySetInnerHTML={{
-                              __html:
-                                formatMessage(
-                                  message.content
-                                ),
+                              __html: formatMessage(message.content),
                             }}
                           />
+                          {loading && message.role === "assistant" && message.id === messages[messages.length - 1]?.id && <span className="streaming-cursor" aria-label="ORION is writing" />}
                           {message.role === "assistant" && extractSources(message.content).length > 0 && (
                             <section className="source-results" aria-label="Search sources">
                               <div className="source-results-heading">
@@ -1296,6 +1297,7 @@ function Home() {
                             <span />
                           </div>
                         ) : null}
+                        <div className="message-timestamp">{new Date(message.createdAt || Date.now()).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</div>
                       </div>
                     </article>
                   )
@@ -2606,6 +2608,24 @@ const styles = `
   .history-session small,.history-empty{color:#8294a8;font-size:10px}
   .history-empty{padding:10px}
   @keyframes historyDrawerIn{from{opacity:.65;transform:translateX(-14px)}to{opacity:1;transform:translateX(0)}}
+
+  .message{animation:orionMessageIn .22s ease-out both}
+  .user-message{justify-content:flex-end}
+  .user-message .message-content{position:relative;max-width:min(84%,620px);padding:12px 15px 8px;border:1px solid #c4e0f8;border-radius:18px 18px 5px 18px;background:linear-gradient(135deg,#eaf6ff,#f4f1ff);box-shadow:0 5px 16px rgba(36,119,190,.08)}
+  .assistant-message{align-items:flex-start;gap:9px}
+  .assistant-avatar{width:30px;height:30px;flex:0 0 30px;display:grid;place-items:center;border-radius:50%;font-size:19px;box-shadow:0 0 15px rgba(39,143,225,.2)}
+  .assistant-message .message-content{position:relative;min-width:0;max-width:min(92%,760px);padding:13px 15px 8px;border:1px solid #d8e8f7;border-radius:17px;background:linear-gradient(145deg,#fff,#f8fbff);box-shadow:0 6px 20px rgba(30,89,145,.07)}
+  .assistant-message-heading{display:flex;align-items:center;gap:8px;margin-bottom:9px;padding-bottom:8px;border-bottom:1px solid #e7f0f8;color:#174c7e;font-size:12px}
+  .message-timestamp{margin-top:7px;color:#91a2b4;font-size:9px;text-align:right}
+  .streaming-cursor{display:inline-block;width:6px;height:17px;margin-left:3px;vertical-align:-3px;border-radius:2px;background:#1686e5;animation:orionCursorBlink .85s steps(2,start) infinite}
+  .thinking{display:flex;align-items:center;gap:5px;min-height:22px}
+  .thinking span{width:6px;height:6px;border-radius:50%;background:#1686e5;animation:orionThinking 1s ease-in-out infinite}
+  .thinking span:nth-child(2){animation-delay:.15s}.thinking span:nth-child(3){animation-delay:.3s}
+  @keyframes orionCursorBlink{to{opacity:0}}
+  @keyframes orionThinking{0%,60%,100%{opacity:.35;transform:translateY(0)}30%{opacity:1;transform:translateY(-4px)}}
+  @keyframes orionMessageIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+  @media(max-width:700px){.assistant-message .message-content{max-width:calc(100% - 39px);padding:11px 12px 7px}.user-message .message-content{max-width:88%}.assistant-avatar{width:27px;height:27px;flex-basis:27px}}
+
 
   .history-search{display:flex;align-items:center;gap:9px;margin-top:12px;padding:10px 12px;border:1px solid #d5e4f4;border-radius:13px;background:#fff;color:#6c829b}
   .history-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:#244563;font-size:13px}
