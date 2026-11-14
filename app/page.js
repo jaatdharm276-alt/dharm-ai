@@ -566,7 +566,7 @@ function Home() {
               message: messageText,
               taskMode: effectiveTaskMode,
               messages:
-                buildHistory(nextMessages),
+                buildHistory(messages),
               memories: normalizeMemories(memories),
             }),
           }
