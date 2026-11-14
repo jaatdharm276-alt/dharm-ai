@@ -610,9 +610,8 @@ function validateEnvironment() {
   if (!apiKey) {
     return {
       ok: false,
-
-      error:
-        "GROQ_API_KEY is not configured.",
+      code: "GROQ_KEY_MISSING",
+      error: "GROQ_API_KEY is not configured. Add it in Vercel Project Settings → Environment Variables for Production, then redeploy.",
     };
   }
 
@@ -631,9 +630,9 @@ async function callGroq({
     validateEnvironment();
 
   if (!environment.ok) {
-    throw new Error(
-      environment.error
-    );
+    const error = new Error(environment.error);
+    error.code = environment.code || "GROQ_KEY_MISSING";
+    throw error;
   }
 
   const payload =
