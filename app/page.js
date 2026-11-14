@@ -318,6 +318,8 @@ function Home() {
     } finally {
       setHistoryReady(true);
     }
+  }, []);
+
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem("orion-ai-memory-v1");
