@@ -2081,8 +2081,12 @@ function Home() {
   .orion-app { background: radial-gradient(ellipse at 50% -10%,rgba(28,145,255,.13),transparent 44%),radial-gradient(ellipse at 100% 45%,rgba(134,83,255,.08),transparent 36%),#f7fbff; }
   .home-dashboard { width:min(1000px,calc(100% - 36px)); padding:36px 0 calc(132px + env(safe-area-inset-bottom)); }
   /* Keep the home composer pinned to the bottom edge, like a native chat app. */
-  .home-dashboard .dashboard-composer { position:fixed; z-index:30; left:50%; bottom:calc(12px + env(safe-area-inset-bottom)); transform:translateX(-50%); width:min(760px,calc(100% - 28px)); margin:0; }
+  .home-dashboard .dashboard-composer { position:fixed; z-index:30; left:50%; bottom:calc(38px + env(safe-area-inset-bottom)); transform:translateX(-50%); width:min(760px,calc(100% - 28px)); margin:0; }
   .home-dashboard > .composer-credit { display:none; }
+  .home-dashboard .dashboard-footer { position:fixed; z-index:29; left:0; right:0; bottom:calc(5px + env(safe-area-inset-bottom)); justify-content:center; margin:0; padding:0 12px; border:0; background:transparent; text-align:center; }
+  .home-dashboard .dashboard-footer span:first-child { display:none; }
+  .home-dashboard .dashboard-footer span:last-child { color:#75869b; font-size:10px; white-space:nowrap; }
+  .home-dashboard .dashboard-footer strong { color:#287bb7; }
   .dashboard-hero { text-align:center; padding:8px 12px 20px; }
   .hero-orbit { width:76px;height:76px;margin:0 auto 15px;display:grid;place-items:center;border-radius:26px;background:linear-gradient(145deg,#e5f5ff,#eeeaff);border:1px solid rgba(35,143,242,.22);box-shadow:0 0 0 7px rgba(40,145,245,.045),0 12px 34px rgba(45,117,208,.16); }
   .hero-orbit span { font-size:43px;color:#147de0;text-shadow:0 0 22px rgba(26,145,255,.55); }
