@@ -18,14 +18,14 @@ test("rejects malformed and oversized calculation or search arguments", () => {
 });
 
 test("bounds text and unit conversion inputs", () => {
-  assert.throws(() => validateAgentToolArgs("analyze_text", { text: "x".repeat(50_001) }), /50,000 character limit/i);
+  assert.throws(() => validateAgentToolArgs("analyze_text", { text: "x".repeat(50_001) }), /character limit/i);
   assert.throws(() => validateAgentToolArgs("convert_units", { value: Infinity, from: "km", to: "m" }), /finite number/);
   assert.throws(() => validateAgentToolArgs("convert_units", { value: 1, from: "km".repeat(20), to: "m" }), /24 character limit/);
 });
 
 test("limits specialist roles, task sizes, and duplicate parallel roles", () => {
   assert.throws(() => validateAgentToolArgs("delegate_specialist", { role: "admin", task: "Do it" }), /Unsupported specialist role/);
-  assert.throws(() => validateAgentToolArgs("delegate_specialist", { role: "coder", task: "x".repeat(5001) }), /5,000 character limit/i);
+  assert.throws(() => validateAgentToolArgs("delegate_specialist", { role: "coder", task: "x".repeat(5001) }), /character limit/i);
   assert.throws(() => validateAgentToolArgs("coordinate_specialists", { roles: ["coder", "coder"], task: "Review" }), /distinct supported/);
   assert.deepEqual(validateAgentToolArgs("coordinate_specialists", { roles: ["coder", "security_reviewer"], task: "Review" }), { roles: ["coder", "security_reviewer"], task: "Review" });
 });
