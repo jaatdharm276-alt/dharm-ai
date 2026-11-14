@@ -166,9 +166,25 @@ async function searchWeb(query, signal) {
     ...request.init,
     cache: "no-store",
     signal,
+  }, {
+    maxRetries: 3,
+    baseDelayMs: 2000,
+    maxDelayMs: 15000,
   });
 
-  if (!response.ok) throw new Error("Web search provider returned an error.");
+  if (!response.ok) {
+    const providerDetail = await response.text().catch(() => "");
+    console.error("ORION web search provider error:", response.status, providerDetail.slice(0, 1200));
+    const error = new Error("Web search provider returned HTTP " + response.status + ".");
+    error.code = response.status === 401 || response.status === 403
+      ? "TAVILY_AUTH_OR_ACCESS_REJECTED"
+      : response.status === 429
+        ? "TAVILY_RATE_LIMITED"
+        : response.status >= 500
+          ? "TAVILY_PROVIDER_UNAVAILABLE"
+          : "TAVILY_PROVIDER_HTTP_ERROR";
+    throw error;
+  }
   const data = await response.json();
   return normalizeTavilySearchResults(data, {
     limit: SEARCH_POLICY.maxResults,
