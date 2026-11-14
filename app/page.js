@@ -913,10 +913,9 @@ function Home() {
         <section className="home-screen home-dashboard">
           <div className="dashboard-hero">
             <div className="hero-orbit"><span>✦</span></div>
-            <p className="namaste">🙏 NAMASTE, WELCOME</p>
+            <p className="namaste">🙏 NAMASTE, DHARM!</p>
             <h1>Your ideas, <span>in motion.</span></h1>
-            <p className="tagline">Ask anything. Build anything. ORION is ready.</p>
-            <p className="credit">Powered by <strong>Dharm AI</strong> · Created by Dharmraj jat</p>
+            <p className="tagline">Ask anything, plan anything, build with ORION AI.</p>
           </div>
 
           <form className="composer dashboard-composer" onSubmit={handleSubmit}>
@@ -963,26 +962,6 @@ function Home() {
             </button>
           </div>
 
-          <div className="dashboard-bottom">
-            <div className="quick-prompts">
-              <div className="dashboard-section-heading compact"><div><span className="section-kicker">GET STARTED</span><h2>Try asking</h2></div></div>
-              <div className="suggestions">
-                {["Explain AI in simple words","Give me a business idea","Help me write a project plan","Summarize the Bhagavad Gita"].map((suggestion) => (
-                  <button key={suggestion} type="button" className="suggestion-button" onClick={() => handleSuggestion(suggestion)}><span>✦</span>{suggestion}</button>
-                ))}
-              </div>
-            </div>
-            <div className="mode-panel">
-              <span className="section-kicker">RESPONSE MODE</span>
-              <div className="mode-row">
-                {TASK_MODES.map((mode) => (
-                  <button key={mode.id} type="button" className={taskMode === mode.id ? "mode-button active" : "mode-button"} onClick={() => setTaskMode(mode.id)}>
-                    <span>{mode.icon}</span>{mode.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
           <div className="dashboard-footer"><span><strong>Powered by Dharm AI</strong> · Created by Dharmraj jat</span></div>
         </section>
         ) : (
@@ -2149,6 +2128,46 @@ function Home() {
     .feature-tile { padding:11px; }
     .dashboard-hero h1 { font-size:30px; }
   }
+  /* ORION AI unified home + conversation interface */
+  .home-dashboard .dashboard-hero { padding:4px 10px 10px; }
+  .home-dashboard .hero-orbit { width:58px;height:58px;margin-bottom:9px;border-radius:19px; }
+  .home-dashboard .hero-orbit span { font-size:32px; }
+  .home-dashboard .namaste { margin:7px 0 4px;letter-spacing:.12em;font-size:10px; }
+  .home-dashboard .dashboard-hero h1 { font-size:clamp(27px,5vw,40px); }
+  .home-dashboard .dashboard-hero .tagline { margin:7px 0 0;font-size:12px; }
+  .home-dashboard .dashboard-section-heading { margin:17px 2px 9px; }
+  .home-dashboard .dashboard-section-heading h2 { font-size:16px; }
+  .home-dashboard .feature-grid { grid-template-columns:repeat(2,minmax(0,1fr));gap:9px; }
+  .home-dashboard .feature-tile { min-height:94px;padding:11px 12px;gap:5px;border-radius:16px; }
+  .home-dashboard .tile-icon { width:31px;height:31px;border-radius:10px;font-size:19px; }
+  .home-dashboard .feature-tile strong { font-size:12px; }
+  .home-dashboard .feature-tile small { font-size:9px;line-height:1.25; }
+  .home-dashboard .tile-arrow { top:11px;right:11px;font-size:14px; }
+  .home-dashboard .dashboard-footer { bottom:calc(7px + env(safe-area-inset-bottom)); }
+  .home-dashboard .dashboard-footer span:first-child { display:inline; }
+  .home-dashboard .dashboard-footer span:last-child { display:inline;color:#75869b;font-size:10px;white-space:nowrap; }
+  .home-dashboard .dashboard-composer { bottom:calc(42px + env(safe-area-inset-bottom)); }
+  .home-dashboard { padding-bottom:calc(148px + env(safe-area-inset-bottom)); }
+  .chat-screen { padding-bottom:calc(42px + env(safe-area-inset-bottom)); }
+  .message { animation:messageIn .24s ease-out both; }
+  .user-message .message-content { border:1px solid rgba(42,139,235,.3);background:linear-gradient(135deg,rgba(231,244,255,.98),rgba(239,237,255,.96));box-shadow:0 5px 22px rgba(36,130,225,.12),0 0 0 1px rgba(70,155,240,.05); }
+  .assistant-message .message-content { border:1px solid rgba(139,105,231,.25);background:linear-gradient(145deg,rgba(255,255,255,.98),rgba(247,244,255,.96));box-shadow:0 7px 25px rgba(113,80,205,.10),0 0 18px rgba(133,101,235,.06); }
+  .assistant-message .assistant-avatar { border:1px solid rgba(80,151,239,.25);box-shadow:0 0 17px rgba(69,144,240,.22),0 0 24px rgba(144,91,235,.12); }
+  .assistant-message .message-content h2,.assistant-message .message-content h3,.assistant-message .message-content h4 { text-shadow:0 0 15px rgba(125,92,220,.12); }
+  .activity-feed { border-color:rgba(22,166,202,.3);background:linear-gradient(110deg,#effbff,#f4f0ff);box-shadow:0 0 18px rgba(35,167,210,.08); }
+  .chat-search-button { box-shadow:0 4px 16px rgba(40,120,200,.10); }
+  @media(max-width:700px) {
+    .home-dashboard { padding-top:17px;padding-bottom:calc(148px + env(safe-area-inset-bottom)); }
+    .home-dashboard .dashboard-hero { padding-bottom:8px; }
+    .home-dashboard .hero-orbit { width:54px;height:54px; }
+    .home-dashboard .dashboard-hero h1 { font-size:29px; }
+    .home-dashboard .dashboard-hero .tagline { font-size:11px; }
+    .home-dashboard .feature-tile { min-height:90px;padding:10px; }
+    .home-dashboard .dashboard-composer { bottom:calc(42px + env(safe-area-inset-bottom)); }
+    .home-dashboard .dashboard-footer { bottom:calc(7px + env(safe-area-inset-bottom)); }
+    .chat-screen { padding-bottom:calc(48px + env(safe-area-inset-bottom)); }
+  }
+
 
 `;
 export default Home; 
