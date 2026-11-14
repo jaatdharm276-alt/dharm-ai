@@ -232,9 +232,15 @@ async function executeTool(name, args, context) {
   if (name === "convert_units") return convertUnits(args.value, args.from, args.to);
   if (name === "analyze_text") return analyzeText(args.text);
   if (name === "search_web") {
-    if (context.searchCalls >= MAX_SEARCH_CALLS) return { error: "Search-call limit reached for this task." };
+    if (context.searchCalls >= MAX_SEARCH_CALLS) {
+      return context.searchResults
+        ? { ...context.searchResults, reused: true, note: "Search budget already used; reused the verified results from the first search." }
+        : { error: "Search-call limit reached before any search results were collected." };
+    }
     context.searchCalls += 1;
-    return searchWeb(args.query, context.signal);
+    const results = await searchWeb(args.query, context.signal);
+    if (Array.isArray(results?.results) && results.results.length > 0) context.searchResults = results;
+    return results;
   }
   if (name === "delegate_specialist") {
     if (context.delegations >= MAX_DELEGATIONS) return { error: "Specialist delegation limit reached for this task." };
@@ -323,6 +329,8 @@ function runAgent(body, signal) {
     objective: message,
     signal,
     searchCalls: 0,
+    searchResults: null,
+    toolErrors: 0,
     delegations: 0,
     toolCalls: 0,
   };
@@ -414,8 +422,13 @@ function runAgent(body, signal) {
         lastDraft = answer;
         emitStatus("verification", "जवाब और उपलब्ध सबूतों की जाँच कर रहा हूँ");
         const verified = await verifyAndFinalize(answer || "Task complete nahi ho saka. Kripya request ko thoda aur specific karein.");
-        emitStatus(verified.partial ? "partial_recovery" : "complete", verified.partial ? "जाँच सेवा उपलब्ध नहीं थी — आंशिक जवाब सुरक्षित रखा है" : "जाँच पूरी — जवाब तैयार है");
-        emitText(verified.answer || verified);
+        if (context.toolErrors > 0) {
+          emitStatus("partial_recovery", "एक या अधिक जरूरी टूल विफल हुए — जवाब को पूर्ण सत्यापित नहीं माना गया");
+          emitText(buildPartialRecoveryAnswer({ draft: verified.answer || answer, toolResults: collectedToolResults, failureStage: "tool" }));
+        } else {
+          emitStatus(verified.partial ? "partial_recovery" : "complete", verified.partial ? "जाँच सेवा उपलब्ध नहीं थी — आंशिक जवाब सुरक्षित रखा है" : "जाँच पूरी — जवाब तैयार है");
+          emitText(verified.answer || verified);
+        }
         return;
       }
 
@@ -455,11 +468,12 @@ function runAgent(body, signal) {
           analyze_text: "टेक्स्ट का विश्लेषण पूरा हुआ",
           search_web: result?.available === false
             ? "वेब खोज बंद है — ORION_ENABLE_EXTERNAL_SEARCH=true की जरूरत है"
-            : "Tavily free/keyed web search पूरी हुई",
+            : (Array.isArray(result?.results) && result.results.length > 0 ? "Tavily web search returned verified sources" : "वेब खोज में कोई सत्यापित स्रोत नहीं मिला"),
           delegate_specialist: "Specialist agent का विश्लेषण मिल गया",
           coordinate_specialists: "Parallel specialist analyses मिल गए",
         };
-        const toolFailed = Boolean(result?.error);
+        const toolFailed = Boolean(result?.error) || (toolName === "search_web" && (!Array.isArray(result?.results) || result.results.length === 0));
+        if (toolFailed) context.toolErrors += 1;
         emitStatus(
           toolFailed ? "tool_error" : "tool_completed",
           toolFailed
@@ -494,8 +508,13 @@ function runAgent(body, signal) {
 
     emitStatus("verification", "मिले हुए नतीजों की अंतिम जाँच कर रहा हूँ");
     const verified = await verifyAndFinalize(lastDraft || "Agent task limit reached. Please narrow the task.");
-    emitStatus(verified.partial ? "partial_recovery" : "complete", verified.partial ? "जाँच सेवा उपलब्ध नहीं थी — आंशिक जवाब सुरक्षित रखा है" : "जाँच पूरी — जवाब तैयार है");
-    emitText(verified.answer || verified);
+    if (context.toolErrors > 0) {
+      emitStatus("partial_recovery", "एक या अधिक जरूरी टूल विफल हुए — जवाब को पूर्ण सत्यापित नहीं माना गया");
+      emitText(buildPartialRecoveryAnswer({ draft: verified.answer || lastDraft, toolResults: collectedToolResults, failureStage: "tool" }));
+    } else {
+      emitStatus(verified.partial ? "partial_recovery" : "complete", verified.partial ? "जाँच सेवा उपलब्ध नहीं थी — आंशिक जवाब सुरक्षित रखा है" : "जाँच पूरी — जवाब तैयार है");
+      emitText(verified.answer || verified);
+    }
   } catch (error) {
     if (error?.name === "AbortError") {
       emitStatus("cancelled", "काम रोक दिया गया");
