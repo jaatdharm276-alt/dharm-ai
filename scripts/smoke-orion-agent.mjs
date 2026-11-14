@@ -5,7 +5,12 @@ const timeout = setTimeout(() => controller.abort(), 150_000);
 try {
   const response = await fetch(endpoint, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+        ? { "x-vercel-protection-bypass": process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
+        : {}),
+    },
     body: JSON.stringify({
       message: "Use search_web to find the official National Portal of India (India.gov.in). Answer briefly and cite the exact source URL.",
       messages: [],
