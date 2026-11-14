@@ -21,7 +21,7 @@ test("answers English creator questions", () => {
 
 test("distinguishes Dharm AI project question", () => {
   const answer = getCreatorAnswer("Dharm AI ko kisne banaya?");
-  assert.match(answer, /Dharm AI ko Dharmraj Jat/);
+  assert.match(answer, /Dharm AI को Dharmraj Jat/);
 });
 
 test("does not intercept unrelated questions", () => {
