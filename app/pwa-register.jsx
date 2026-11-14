@@ -40,7 +40,10 @@ export default function PwaRegister() {
   if (installed || !installPrompt) return null;
 
   return (
+    <>
+    <style>{`@media (max-width: 700px) { .orion-install-prompt { display: none !important; } }`}</style>
     <button
+      className="orion-install-prompt"
       type="button"
       onClick={installApp}
       aria-label="Install ORION AI"
@@ -63,5 +66,6 @@ export default function PwaRegister() {
     >
       ↓ Install ORION AI
     </button>
+    </>
   );
 }

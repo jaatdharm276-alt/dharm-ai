@@ -225,6 +225,12 @@ function Home() {
   const [searchQuery, setSearchQuery] =
     useState("");
   const [composerToolsOpen, setComposerToolsOpen] = useState(false);
+  const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
+  const [historyQuery, setHistoryQuery] = useState("");
+  const [pinnedSessionIds, setPinnedSessionIds] = useState(() => {
+    if (typeof window === "undefined") return [];
+    try { return JSON.parse(window.localStorage.getItem("orion-ai-pinned-sessions-v1") || "[]"); } catch { return []; }
+  });
 
   const messagesRef = useRef(null);
   const scrollAnimationFrameRef = useRef(null);
@@ -423,6 +429,10 @@ function Home() {
   }, [memories, memoryReady]);
 
   useEffect(() => {
+    try { window.localStorage.setItem("orion-ai-pinned-sessions-v1", JSON.stringify(pinnedSessionIds)); } catch {}
+  }, [pinnedSessionIds]);
+
+  useEffect(() => {
     if (!historyReady) return;
     try {
       if (!messages.length || !activeSessionId) {
@@ -595,6 +605,7 @@ function Home() {
         id: createId(),
         role: "user",
         content: messageText,
+        createdAt: Date.now(),
       };
 
       const assistantId = createId();
@@ -604,6 +615,7 @@ function Home() {
         role: "assistant",
         content: "",
         activity: [],
+        createdAt: Date.now(),
       };
 
       const nextMessages = [
@@ -1059,6 +1071,7 @@ function Home() {
       <div className="orion-glow glow-two" />
 
       <header className="topbar orion-topbar">
+        <button className="history-toggle" onClick={() => setHistoryDrawerOpen(true)} type="button" aria-label="Open chat history" title="Chat history"><span>☰</span></button>
         {hasMessages && <button className="back-home-button" onClick={startNewChat} type="button" aria-label="Back to home">‹</button>}
         <button className="brand-button" onClick={startNewChat} type="button" aria-label="ORION AI Home">
           <span className="brand-orbit">✦</span>
@@ -1079,56 +1092,37 @@ function Home() {
         </div>
       </header>
 
+      {historyDrawerOpen && <div className="history-drawer-backdrop" onClick={() => setHistoryDrawerOpen(false)}>
+        <aside className="history-drawer" aria-label="Chat history" onClick={(event) => event.stopPropagation()}>
+          <div className="history-drawer-head"><strong>Chat history</strong><button type="button" onClick={() => setHistoryDrawerOpen(false)} aria-label="Close history">×</button></div>
+          <button type="button" className="history-new-chat" onClick={() => { startNewChat(); setHistoryQuery(""); setHistoryDrawerOpen(false); }}>＋ New chat</button>
+          <label className="history-search"><span>⌕</span><input value={historyQuery} onChange={(event) => setHistoryQuery(event.target.value)} placeholder="Search chats..." aria-label="Search chat history" /></label>
+          <div className="history-drawer-list">
+            {chatSessions.filter((session) => String(session.title || "").toLowerCase().includes(historyQuery.trim().toLowerCase())).length ? chatSessions.filter((session) => String(session.title || "").toLowerCase().includes(historyQuery.trim().toLowerCase())).sort((a, b) => Number(pinnedSessionIds.includes(b.id)) - Number(pinnedSessionIds.includes(a.id)) || (b.updatedAt || 0) - (a.updatedAt || 0)).map((session) => <div key={session.id} className={session.id === activeSessionId ? "history-session active" : "history-session"}>
+              <button type="button" className="history-session-open" onClick={() => { openChatSession(session); setHistoryDrawerOpen(false); }}>
+                <span className="history-session-icon">◷</span><span><strong>{session.title || "Conversation"}</strong><small>{session.mode === "agent" ? "Agent mode" : "Chat"} · {new Date(session.updatedAt || Date.now()).toLocaleDateString("en-IN")}</small></span>
+              </button>
+              <button type="button" className={pinnedSessionIds.includes(session.id) ? "history-pin pinned" : "history-pin"} aria-label={pinnedSessionIds.includes(session.id) ? "Unpin chat" : "Pin chat"} title={pinnedSessionIds.includes(session.id) ? "Unpin chat" : "Pin chat"} onClick={() => setPinnedSessionIds((ids) => ids.includes(session.id) ? ids.filter((id) => id !== session.id) : [...ids, session.id])}>⌖</button>
+            </div>) : <p className="history-empty">{historyQuery ? "No matching chats." : "Your conversations will appear here."}</p>}
+            {pinnedSessionIds.some((id) => chatSessions.some((session) => session.id === id)) && <div className="history-pinned-label">PINNED</div>}
+          </div>
+          <div className="history-drawer-bottom"><span>⚙ Settings</span><span>ⓘ Help & feedback</span></div>
+        </aside>
+      </div>}
+
       {!hasMessages ? (
         <section className="home-screen home-dashboard">
-          <section className="orion-cinematic-hero" aria-label="ORION AI Intelligent Companion">
-            <div className="orion-hero-art" aria-hidden="true"><img src="/orion-hero.svg" alt="" /></div>
-            <div className="orion-hero-shade" />
-            <div className="orion-hero-copy">
-              <div className="orion-hero-mark">✦</div>
-              <p className="orion-hero-eyebrow">🙏 NAMASTE · WELCOME TO</p>
-              <h1>ORION AI <span>✦</span></h1>
+          <section className="orion-reference-hero" aria-label="Welcome to ORION AI">
+            <div className="orion-reference-copy">
+              <p className="orion-hero-eyebrow">🙏 Namaste</p>
+              <h1>Welcome to <span>ORION AI ✦</span></h1>
               <p className="orion-hero-subtitle">Intelligent Companion</p>
               <p className="orion-hero-description">Think clearly. Create freely. Move forward.</p>
-              <div className="orion-brand-pill">Powered by Dharm AI</div>
-              <p className="orion-creator">Created by Dharmraj jat</p>
             </div>
-            <div className="orion-hero-status"><i /> READY TO HELP</div>
+            <img className="orion-reference-robot" src="/orion-hero.svg" alt="ORION AI companion" />
           </section>
 
-          <section className="public-overview" aria-label="ORION AI product overview">
-            <div className="public-overview-heading">
-              <div><span className="section-kicker">THE ORION EXPERIENCE</span><h2>One companion. Many possibilities.</h2></div>
-              <span className="public-live-indicator"><i /> LIVE</span>
-            </div>
-            <div className="public-progress-track" aria-hidden="true"><span /></div>
-            <div className="public-capability-grid">
-              <div className="public-capability"><span>✦</span><strong>AI Chat</strong><small>Answers & streaming</small><em>Available</em></div>
-              <div className="public-capability"><span>◉</span><strong>Agent Mode</strong><small>Planning & tools</small><em>Available</em></div>
-              <div className="public-capability"><span>▱</span><strong>Smart Memory</strong><small>Useful saved context</small><em>Available</em></div>
-              <div className="public-capability"><span>⌁</span><strong>Voice Input</strong><small>Speak naturally</small><em>Supported devices</em></div>
-              <div className="public-capability"><span>◎</span><strong>Web Research</strong><small>Sources & references</small><em>Available in Agent</em></div>
-              <div className="public-capability"><span>▣</span><strong>Mobile Experience</strong><small>Responsive app interface</small><em>Optimized</em></div>
-            </div>
-          </section>
 
-          <form className="composer dashboard-composer" onSubmit={handleSubmit}>
-            <span className="composer-spark">✧</span>
-            <textarea
-              ref={composerRef}
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask ORION anything…"
-              rows={1}
-              disabled={loading}
-            />
-            <button type="button" className={listening ? "icon-button listening" : "icon-button"} onClick={startVoice} disabled={loading} aria-label={listening ? "Stop voice input" : "Start voice input"} aria-pressed={listening} title={listening ? "Listening… tap to stop" : "Speak in Hindi"}>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" /></svg>
-            </button>
-            <button type="submit" className="send-button" disabled={!input.trim() || loading} aria-label="Send message">↑</button>
-          </form>
-          <p className="composer-credit">Press Enter to send · Shift + Enter for a new line</p>
 
           <div className="dashboard-section-heading">
             <div><span className="section-kicker">EXPLORE ORION</span><h2>What would you like to do?</h2></div>
@@ -1148,13 +1142,31 @@ function Home() {
             <button type="button" className="feature-tile tile-study" onClick={() => { setTaskMode("study"); composerRef.current?.focus(); }}>
               <span className="tile-icon">⌘</span><strong>Study & learn</strong><small>Simple step-by-step learning</small><span className="tile-arrow">↗</span>
             </button>
-            <button type="button" className="feature-tile tile-create" onClick={() => { setTaskMode("content"); composerRef.current?.focus(); }}>
-              <span className="tile-icon">✎</span><strong>Create content</strong><small>Writing, ideas & drafts</small><span className="tile-arrow">↗</span>
+            <button type="button" className="feature-tile tile-create" onClick={() => runQuickAction("agent", "Research this topic using available web search and cite sources.")}>
+              <span className="tile-icon">◎</span><strong>Web research</strong><small>Sources & references</small><span className="tile-arrow">↗</span>
             </button>
-            <button type="button" className="feature-tile tile-work" onClick={() => { setTaskMode("work"); composerRef.current?.focus(); }}>
-              <span className="tile-icon">⌁</span><strong>Get work done</strong><small>Plans, code & productivity</small><span className="tile-arrow">↗</span>
+            <button type="button" className="feature-tile tile-work" onClick={() => document.getElementById("orion-home-tools")?.scrollIntoView({ behavior: "smooth", block: "center" })}>
+              <span className="tile-icon">▦</span><strong>Tools</strong><small>Quick actions & utilities</small><span className="tile-arrow">↗</span>
             </button>
           </div>
+
+          <form className="composer dashboard-composer" onSubmit={handleSubmit}>
+            <span className="composer-spark">✧</span>
+            <textarea
+              ref={composerRef}
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask ORION anything…"
+              rows={1}
+              disabled={loading}
+            />
+            <button type="button" className={listening ? "icon-button listening" : "icon-button"} onClick={startVoice} disabled={loading} aria-label={listening ? "Stop voice input" : "Start voice input"} aria-pressed={listening} title={listening ? "Listening… tap to stop" : "Speak in Hindi"}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" /></svg>
+            </button>
+            <button type="submit" className="send-button" disabled={!input.trim() || loading} aria-label="Send message">↑</button>
+          </form>
+          <p className="composer-credit">Press Enter to send · Shift + Enter for a new line</p>
 
           <section className="home-quick-actions" id="orion-home-tools" aria-label="Quick actions">
             <div className="home-section-title"><span>✦</span><strong>Quick Actions</strong></div>
@@ -1166,33 +1178,11 @@ function Home() {
             </div>
           </section>
 
-          <section className="recent-chats" id="orion-recent-chats" aria-label="Recent chats">
-            <div className="home-section-title">
-              <span>◷</span><strong>Recent Chats</strong>
-            </div>
-            {chatSessions.length ? (
-              <div className="recent-chat-list">
-                {chatSessions.slice(0, 4).map((session) => (
-                  <button key={session.id} type="button" className="recent-chat-row" onClick={() => openChatSession(session)}>
-                    <span className="recent-chat-icon">▢</span>
-                    <span className="recent-chat-copy">
-                      <strong>{session.title || "Conversation"}</strong>
-                      <small>{session.mode === "agent" ? "Agent mode" : "Chat"} · {new Date(session.updatedAt || Date.now()).toLocaleDateString("en-IN")}</small>
-                    </span>
-                    <span className="recent-chat-arrow">›</span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="recent-chat-empty">Your recent conversations will appear here.</p>
-            )}
-          </section>
-
           <nav className="bottom-navigation" aria-label="Main navigation">
             <button type="button" className="active" onClick={startNewChat}><span>⌂</span>Home</button>
             <button type="button" onClick={() => document.getElementById("orion-home-features")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span>⌕</span>Explore</button>
             <button type="button" onClick={() => document.getElementById("orion-home-tools")?.scrollIntoView({ behavior: "smooth", block: "center" })}><span>✧</span>Tools</button>
-            <button type="button" onClick={() => document.getElementById("orion-recent-chats")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span>◷</span>History</button>
+            <button type="button" onClick={() => setHistoryDrawerOpen(true)}><span>◷</span>History</button>
             <button type="button" onClick={() => document.querySelector('[aria-label="Manage ORION memory"]')?.click()}><span>▦</span>More</button>
           </nav>
           <div className="dashboard-footer"><span><strong>Powered by Dharm AI</strong> · Created by Dharmraj jat</span></div>
@@ -1268,13 +1258,12 @@ function Home() {
                         {message.content ? (
                           <>
                           <div
+                            className="message-rendered-content"
                             dangerouslySetInnerHTML={{
-                              __html:
-                                formatMessage(
-                                  message.content
-                                ),
+                              __html: formatMessage(message.content),
                             }}
                           />
+                          {loading && message.role === "assistant" && message.id === messages[messages.length - 1]?.id && <span className="streaming-cursor" aria-label="ORION is writing" />}
                           {message.role === "assistant" && extractSources(message.content).length > 0 && (
                             <section className="source-results" aria-label="Search sources">
                               <div className="source-results-heading">
@@ -1305,6 +1294,7 @@ function Home() {
                             <span />
                           </div>
                         ) : null}
+                        <div className="message-timestamp">{new Date(message.createdAt || Date.now()).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</div>
                       </div>
                     </article>
                   )
@@ -2412,7 +2402,7 @@ const styles = `
   .home-dashboard .dashboard-section-heading { margin:17px 2px 9px; }
   .home-dashboard .dashboard-section-heading h2 { font-size:16px; }
   .home-dashboard .feature-grid { grid-template-columns:repeat(2,minmax(0,1fr));gap:9px; }
-  .home-dashboard .feature-tile { min-height:94px;padding:11px 12px;gap:5px;border-radius:16px; }
+  .home-dashboard .feature-tile { min-height:80px;padding:8px 10px;gap:4px;border-radius:15px; }
   .home-dashboard .tile-icon { width:31px;height:31px;border-radius:10px;font-size:19px; }
   .home-dashboard .feature-tile strong { font-size:12px; }
   .home-dashboard .feature-tile small { font-size:9px;line-height:1.25; }
@@ -2462,7 +2452,7 @@ const styles = `
   .brand-text { color:#15478c;text-shadow:0 0 14px rgba(41,143,231,.22); }
   .mode-pill { padding:7px 10px;border:1px solid #dce8f5;border-radius:999px;background:#f6faff;color:#47729c;font-size:10px;font-weight:800;white-space:nowrap; }
   .mode-pill.agent,.agent-live-pill { border-color:#c5ecd9;background:#effcf5;color:#138655;box-shadow:0 0 14px rgba(31,191,119,.1); }
-  .home-dashboard { width:min(1000px,calc(100% - 28px));padding:22px 0 calc(230px + env(safe-area-inset-bottom)); }
+  .home-dashboard { width:min(1000px,calc(100% - 28px));padding:22px 0 calc(190px + env(safe-area-inset-bottom)); }
   .home-dashboard .dashboard-hero { padding:8px 10px 13px;text-align:center; }
   .home-dashboard .hero-orbit { width:66px;height:66px;margin-bottom:10px;border-radius:22px;box-shadow:0 0 0 7px rgba(40,145,245,.045),0 0 34px rgba(45,117,208,.21); }
   .home-dashboard .hero-orbit span { font-size:37px; }
@@ -2473,10 +2463,10 @@ const styles = `
   .home-dashboard .dashboard-section-heading h2 { font-size:17px; }
   .home-dashboard .online-pill { box-shadow:0 0 14px rgba(45,194,120,.12); }
   .home-dashboard .feature-grid { grid-template-columns:repeat(2,minmax(0,1fr));gap:10px; }
-  .home-dashboard .feature-tile { min-height:105px;padding:12px;gap:5px;border-radius:17px;border-color:rgba(166,197,229,.55);background:rgba(255,255,255,.9);box-shadow:0 7px 22px rgba(31,106,180,.07),0 0 14px rgba(80,139,234,.045); }
-  .home-dashboard .tile-icon { width:34px;height:34px;border-radius:12px;box-shadow:0 0 14px currentColor;filter:saturate(1.08); }
-  .home-dashboard .feature-tile strong { color:#19385d;font-size:12px; }
-  .home-dashboard .feature-tile small { font-size:9px; }
+  .home-dashboard .feature-tile { min-height:84px;padding:9px 11px;gap:4px;border-radius:15px;border-color:rgba(166,197,229,.55);background:rgba(255,255,255,.9);box-shadow:0 7px 22px rgba(31,106,180,.07),0 0 14px rgba(80,139,234,.045); }
+  .home-dashboard .tile-icon { width:29px;height:29px;border-radius:10px;box-shadow:0 0 11px currentColor;filter:saturate(1.08); }
+  .home-dashboard .feature-tile strong { color:#19385d;font-size:11px; }
+  .home-dashboard .feature-tile small { font-size:8px; }
   .home-dashboard .tile-arrow { right:12px;top:12px; }
   .home-quick-actions,.recent-chats { margin:14px 0 0;padding:13px 14px;border:1px solid rgba(177,201,228,.55);border-radius:19px;background:rgba(255,255,255,.78);box-shadow:0 7px 24px rgba(32,108,174,.055); }
   .home-section-title { display:flex;align-items:center;gap:8px;margin-bottom:10px;color:#173d68;font-size:13px; }
@@ -2498,8 +2488,8 @@ const styles = `
   .bottom-navigation button { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:0;padding:3px 0;border:0;border-radius:12px;background:transparent;color:#71839a;font-size:9px;font-weight:650; }
   .bottom-navigation button span { font-size:19px;line-height:1.1; }
   .bottom-navigation button.active { color:#087bd3;background:linear-gradient(135deg,#e7f5ff,#f0edff); }
-  .home-dashboard .dashboard-composer { position:fixed;z-index:32;left:50%;bottom:calc(93px + env(safe-area-inset-bottom));transform:translateX(-50%);width:min(760px,calc(100% - 28px));margin:0;border:1px solid #cde4f8;border-radius:24px;background:rgba(255,255,255,.97);box-shadow:0 9px 32px rgba(24,112,186,.15),0 0 0 5px rgba(62,153,229,.045); }
-  .home-dashboard .dashboard-footer { position:fixed;z-index:32;left:0;right:0;bottom:calc(70px + env(safe-area-inset-bottom));justify-content:center;margin:0;padding:0 8px;border:0;background:transparent;text-align:center; }
+  .home-dashboard .dashboard-composer { position:fixed;z-index:32;left:50%;bottom:calc(72px + env(safe-area-inset-bottom));transform:translateX(-50%);width:min(760px,calc(100% - 28px));margin:0;border:1px solid #cde4f8;border-radius:21px;background:rgba(255,255,255,.98);box-shadow:0 9px 28px rgba(24,112,186,.13); }
+  .home-dashboard .dashboard-footer { display:none; }
   .home-dashboard .dashboard-footer span { color:#607d9d;font-size:10px;white-space:nowrap; }
   .home-dashboard .dashboard-footer strong { color:#166fb2; }
   .assistant-message { align-items:flex-start; }
@@ -2528,16 +2518,16 @@ const styles = `
     .top-button { width:34px;height:34px; }
     .new-chat-button { padding:8px 9px;font-size:10px; }
     .mode-pill { display:inline-flex;max-width:88px;overflow:hidden;padding:5px 7px;font-size:8px;text-overflow:ellipsis; }
-    .home-dashboard { width:calc(100% - 24px);padding:15px 0 calc(225px + env(safe-area-inset-bottom)); }
+    .home-dashboard { width:calc(100% - 24px);padding:15px 0 calc(180px + env(safe-area-inset-bottom)); }
     .home-dashboard .dashboard-hero { padding-bottom:8px; }
     .home-dashboard .hero-orbit { width:58px;height:58px; }
     .home-dashboard .dashboard-hero h1 { font-size:30px; }
     .home-dashboard .dashboard-hero .tagline { font-size:11px; }
     .home-dashboard .dashboard-section-heading { margin:13px 2px 8px; }
-    .home-dashboard .feature-tile { min-height:98px;padding:10px; }
+    .home-dashboard .feature-tile { min-height:78px;padding:8px 9px;gap:4px; }
     .home-quick-actions,.recent-chats { margin-top:11px;padding:11px 12px; }
-    .home-dashboard .dashboard-composer { bottom:calc(93px + env(safe-area-inset-bottom)); }
-    .home-dashboard .dashboard-footer { bottom:calc(70px + env(safe-area-inset-bottom)); }
+    .home-dashboard .dashboard-composer { bottom:calc(68px + env(safe-area-inset-bottom)); }
+    .home-dashboard .dashboard-footer { display:none; }
     .bottom-navigation { min-height:54px; }
     .chat-screen { width:calc(100% - 14px);height:calc(100dvh - 68px);padding-top:10px; }
     .assistant-message .assistant-card { padding:11px 12px; }
@@ -2598,6 +2588,98 @@ const styles = `
   .public-capability em{margin-top:5px;color:#13875b;font-size:8px;font-style:normal;font-weight:850}
   @keyframes orionMarkPulse{0%,100%{box-shadow:0 0 14px #148dff,0 0 25px rgba(49,160,255,.5)}50%{box-shadow:0 0 20px #54caff,0 0 42px rgba(49,160,255,.95)}}
   @keyframes orionStarPulse{0%,100%{opacity:.8;filter:drop-shadow(0 0 4px #68cfff)}50%{opacity:1;filter:drop-shadow(0 0 12px #68cfff)}}
+
+  /* Compact home layout and ChatGPT-style history drawer */
+  .history-toggle{width:36px;height:36px;flex:0 0 36px;display:grid;place-items:center;border:1px solid #dce9f7;border-radius:12px;background:#fff;color:#237ec2;font-size:19px;box-shadow:0 3px 12px rgba(35,112,180,.07)}
+  .history-drawer-backdrop{position:fixed;inset:0;z-index:100;display:flex;background:rgba(12,30,52,.34);backdrop-filter:blur(3px)}
+  .history-drawer{width:min(320px,86vw);height:100%;display:flex;flex-direction:column;padding:18px 13px calc(18px + env(safe-area-inset-bottom));border-right:1px solid #dce8f5;background:#f8fbff;box-shadow:12px 0 38px rgba(17,55,96,.18);animation:historyDrawerIn .2s ease-out}
+  .history-drawer-head{display:flex;align-items:center;justify-content:space-between;padding:4px 5px 15px;color:#183b63;font-size:17px}
+  .history-drawer-head button{width:32px;height:32px;border:0;border-radius:10px;background:#eaf3fc;color:#426b91;font-size:22px}
+  .history-new-chat{width:100%;padding:11px 13px;border:1px solid #cfe2f5;border-radius:13px;background:#fff;color:#176eb6;text-align:left;font-weight:750}
+  .history-drawer-list{display:flex;flex-direction:column;gap:6px;overflow-y:auto;margin-top:14px}
+  .history-session{display:flex;align-items:center;gap:10px;width:100%;padding:10px;border:1px solid transparent;border-radius:12px;background:transparent;text-align:left}
+  .history-session.active,.history-session:active{border-color:#cfe3f7;background:#eaf5ff}
+  .history-session-icon{width:30px;height:30px;flex:0 0 30px;display:grid;place-items:center;border-radius:10px;background:#e8f2fc;color:#2685ca}
+  .history-session>span:last-child{min-width:0;display:flex;flex-direction:column;gap:4px}
+  .history-session strong{overflow:hidden;color:#294766;font-size:12px;text-overflow:ellipsis;white-space:nowrap}
+  .history-session small,.history-empty{color:#8294a8;font-size:10px}
+  .history-empty{padding:10px}
+  @keyframes historyDrawerIn{from{opacity:.65;transform:translateX(-14px)}to{opacity:1;transform:translateX(0)}}
+
+  .message{animation:orionMessageIn .22s ease-out both}
+  .user-message{justify-content:flex-end}
+  .user-message .message-content{position:relative;max-width:min(84%,620px);padding:12px 15px 8px;border:1px solid #c4e0f8;border-radius:18px 18px 5px 18px;background:linear-gradient(135deg,#eaf6ff,#f4f1ff);box-shadow:0 5px 16px rgba(36,119,190,.08)}
+  .assistant-message{align-items:flex-start;gap:9px}
+  .assistant-avatar{width:30px;height:30px;flex:0 0 30px;display:grid;place-items:center;border-radius:50%;font-size:19px;box-shadow:0 0 15px rgba(39,143,225,.2)}
+  .assistant-message .message-content{position:relative;min-width:0;max-width:min(92%,760px);padding:13px 15px 8px;border:1px solid #d8e8f7;border-radius:17px;background:linear-gradient(145deg,#fff,#f8fbff);box-shadow:0 6px 20px rgba(30,89,145,.07)}
+  .assistant-message-heading{display:flex;align-items:center;gap:8px;margin-bottom:9px;padding-bottom:8px;border-bottom:1px solid #e7f0f8;color:#174c7e;font-size:12px}
+  .message-timestamp{margin-top:7px;color:#91a2b4;font-size:9px;text-align:right}
+  .streaming-cursor{display:inline-block;width:6px;height:17px;margin-left:3px;vertical-align:-3px;border-radius:2px;background:#1686e5;animation:orionCursorBlink .85s steps(2,start) infinite}
+  .thinking{display:flex;align-items:center;gap:5px;min-height:22px}
+  .thinking span{width:6px;height:6px;border-radius:50%;background:#1686e5;animation:orionThinking 1s ease-in-out infinite}
+  .thinking span:nth-child(2){animation-delay:.15s}.thinking span:nth-child(3){animation-delay:.3s}
+  @keyframes orionCursorBlink{to{opacity:0}}
+  @keyframes orionThinking{0%,60%,100%{opacity:.35;transform:translateY(0)}30%{opacity:1;transform:translateY(-4px)}}
+  @keyframes orionMessageIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+
+  /* Supplied reference: compact welcome, three-column cards and in-flow composer */
+  .orion-reference-hero{position:relative;display:flex;align-items:center;min-height:190px;margin:8px 0 18px;padding:18px;overflow:hidden;border:1px solid #d7e9f8;border-radius:22px;background:linear-gradient(115deg,#fff,#f3f9ff 64%,#e8f4ff);box-shadow:0 8px 24px rgba(28,105,170,.09)}
+  .orion-reference-copy{position:relative;z-index:1;width:70%;text-align:left}
+  .orion-reference-copy .orion-hero-eyebrow{margin:0 0 8px;color:#1677bd;font-size:13px;letter-spacing:.08em}
+  .orion-reference-copy h1{margin:0;color:#173e70;font-size:clamp(22px,5.5vw,34px);line-height:1.08;font-weight:900;letter-spacing:-.04em}
+  .orion-reference-copy h1 span{display:block;color:#155ca4}
+  .orion-reference-copy .orion-hero-subtitle{margin:6px 0;color:#1d3554;font-size:14px;letter-spacing:0}
+  .orion-reference-copy .orion-hero-description{max-width:230px;margin:8px 0 0;color:#526b86;font-size:11px;line-height:1.4}
+  .orion-reference-robot{position:absolute;right:3px;bottom:5px;width:34%;max-width:150px;height:88%;object-fit:contain;object-position:center bottom;filter:drop-shadow(0 8px 14px rgba(27,125,210,.24))}
+  .home-dashboard .feature-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .home-dashboard .feature-tile{min-height:96px;padding:10px 7px;align-items:center;text-align:center}
+  .home-dashboard .feature-tile small{font-size:9px;line-height:1.25}
+  .home-dashboard .tile-arrow{display:none}
+  .home-dashboard .dashboard-composer{position:relative;left:auto;bottom:auto;transform:none;width:100%;margin:14px 0 8px}
+  .home-dashboard{padding-bottom:calc(100px + env(safe-area-inset-bottom))}
+  .home-dashboard .dashboard-footer{display:flex;justify-content:center;margin:8px 0 0;padding:8px 0;border:0;text-align:center}
+  @media(max-width:700px){
+    .home-dashboard{width:calc(100% - 24px);padding:14px 0 calc(96px + env(safe-area-inset-bottom))}
+    .orion-reference-hero{min-height:175px;margin:6px 0 15px;padding:15px 13px;border-radius:19px}
+    .orion-reference-copy{width:72%}
+    .orion-reference-copy .orion-hero-eyebrow{font-size:11px}
+    .orion-reference-copy h1{font-size:25px}
+    .orion-reference-copy .orion-hero-subtitle{font-size:12px}
+    .orion-reference-copy .orion-hero-description{font-size:10px}
+    .orion-reference-robot{width:35%;right:0;max-width:128px}
+    .home-dashboard .dashboard-section-heading{margin:12px 2px 10px}
+    .home-dashboard .dashboard-section-heading h2{font-size:18px}
+    .home-dashboard .feature-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+    .home-dashboard .feature-tile{min-height:90px;padding:9px 5px;border-radius:14px}
+    .home-dashboard .tile-icon{width:32px;height:32px;margin:0 auto 3px}
+    .home-dashboard .feature-tile strong{font-size:11px}
+    .home-dashboard .feature-tile small{font-size:8px}
+    .home-dashboard .dashboard-composer{position:relative;left:auto;bottom:auto;transform:none;width:100%;margin:14px 0 8px}
+    .home-dashboard .dashboard-footer{display:flex;margin:6px 0 0;padding:7px 0;font-size:9px}
+    .home-dashboard .dashboard-footer span:last-child{white-space:normal}
+  }
+
+  @media(max-width:700px){.assistant-message .message-content{max-width:calc(100% - 39px);padding:11px 12px 7px}.user-message .message-content{max-width:88%}.assistant-avatar{width:27px;height:27px;flex-basis:27px}}
+
+
+  .history-search{display:flex;align-items:center;gap:9px;margin-top:12px;padding:10px 12px;border:1px solid #d5e4f4;border-radius:13px;background:#fff;color:#6c829b}
+  .history-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:#244563;font-size:13px}
+  .history-session{padding:6px 8px;gap:4px}
+  .history-session-open{display:flex;align-items:center;gap:9px;min-width:0;flex:1;border:0;background:transparent;text-align:left}
+  .history-session-open>span:last-child{min-width:0;display:flex;flex-direction:column;gap:4px}
+  .history-pin{width:30px;height:30px;flex:0 0 30px;border:0;border-radius:9px;background:transparent;color:#91a3b6}
+  .history-pin.pinned{background:#e4f2ff;color:#087bd1}
+  .history-pinned-label{padding:12px 8px 4px;color:#8196aa;font-size:10px;font-weight:800;letter-spacing:.12em}
+  .history-drawer-bottom{display:flex;flex-direction:column;gap:14px;margin-top:auto;padding:18px 10px 6px;border-top:1px solid #e0eaf4;color:#4c6681;font-size:12px;font-weight:650}
+  .assistant-card{border:1px solid #d8e8f7;border-radius:18px;background:linear-gradient(145deg,#fff,#f8fbff);box-shadow:0 7px 22px rgba(25,89,150,.07)}
+  .user-message .message-content{border:1px solid #c6e1fa;border-radius:18px 18px 5px 18px;background:linear-gradient(135deg,#eaf6ff,#f5f1ff);padding:12px 15px}
+  .assistant-message .message-content{padding:14px 16px}
+  .source-results{margin-top:14px;padding-top:12px;border-top:1px solid #e0edf8}
+  .source-result-card{border:1px solid #d7e7f7;border-radius:12px;background:#fff}
+  @media(max-width:700px){.feature-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.home-dashboard .feature-tile{min-height:94px;padding:9px 7px;align-items:center;text-align:center}.home-dashboard .feature-tile strong{font-size:11px}.home-dashboard .feature-tile small{font-size:8px;line-height:1.25}.home-dashboard .tile-arrow{display:none}.history-drawer{width:min(340px,88vw)}.orion-topbar .brand-copy small{display:none}.orion-topbar .top-actions{gap:4px}.orion-topbar .new-chat-button{padding:7px 8px;font-size:10px}.chat-screen{padding-bottom:12px}}
+
+  @media(max-width:700px){.history-toggle{width:32px;height:32px;flex-basis:32px}.orion-topbar{gap:5px}.home-dashboard .feature-tile{min-height:76px}.home-dashboard .tile-icon{width:27px;height:27px}.home-dashboard .dashboard-composer{bottom:calc(66px + env(safe-area-inset-bottom));}}
+
   @keyframes orionSpectrum{to{background-position:200% 0}}
   @media(max-width:700px){.orion-cinematic-hero{min-height:280px;margin:0 0 14px;border-radius:21px}.orion-hero-art img{object-position:38% center}.orion-hero-shade{background:linear-gradient(90deg,rgba(3,12,29,.08),rgba(3,12,29,.5) 35%,rgba(3,12,29,.82) 100%),linear-gradient(0deg,rgba(2,10,25,.68),transparent 48%)}.orion-hero-copy{width:64%;margin-right:2%;padding:26px 7px}.orion-hero-copy h1{font-size:clamp(34px,10vw,48px)}.orion-hero-subtitle{font-size:14px}.orion-hero-description{font-size:10px}.orion-brand-pill{padding:7px 13px;font-size:11px}.orion-creator{font-size:10px}.orion-hero-status{top:10px;right:10px;padding:6px 8px;font-size:8px}.public-overview{padding:13px;border-radius:18px}.public-capability-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.public-capability{padding:9px;grid-template-columns:30px 1fr;column-gap:7px}.public-capability>span{width:30px;height:30px;font-size:17px}.public-capability strong{font-size:10px}.public-capability small{font-size:8px}}
   @media(prefers-reduced-motion:reduce){.orion-hero-mark,.orion-hero-copy h1 span,.public-progress-track span{animation:none!important}.public-capability{transition:none}}
