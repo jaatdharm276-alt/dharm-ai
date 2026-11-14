@@ -1304,7 +1304,9 @@ function Home() {
       </main>
 </>
 );
-}const styles = `
+}
+
+const styles = `
   * {
     box-sizing: border-box;
   }
