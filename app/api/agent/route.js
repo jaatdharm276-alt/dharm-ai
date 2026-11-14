@@ -9,6 +9,7 @@ import { fetchWithRetry } from "../../../lib/orion-retry.mjs";
 import { runSpecialistsInParallel } from "../../../lib/orion-agent-coordination.mjs";
 import { buildPartialRecoveryAnswer } from "../../../lib/orion-agent-recovery.mjs";
 import { createRateLimiter, getClientIdentifier } from "../../../lib/orion-rate-limit.mjs";
+import { getCreatorAnswer } from "../../../lib/orion-identity.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -355,15 +356,36 @@ function streamResponse(text) {
 }
 
 function runAgent(body, signal) {
-  if (!process.env.GROQ_API_KEY) {
-    return errorResponse(
-      "ORION Agent Mode is not configured yet. Add GROQ_API_KEY in Vercel Project Settings → Environment Variables, then redeploy.",
-      503,
-    );
-  }
   const message = typeof body.message === "string" ? body.message.trim() : "";
   if (!message) return errorResponse("Message is required.", 400);
   if (message.length > MAX_MESSAGE_CHARS) return errorResponse("Message is too long.", 413);
+
+  // Identity questions are deterministic project facts and must work even
+  // when the external Groq provider is temporarily unavailable.
+  const creatorAnswer = getCreatorAnswer(message);
+  if (creatorAnswer) {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        const chunks = creatorAnswer.match(/[\\s\\S]{1,72}/gu) || [""];
+        for (const chunk of chunks) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: chunk } }] })}\\n\\n`));
+        }
+        controller.enqueue(encoder.encode("data: [DONE]\\n\\n"));
+        controller.close();
+      },
+    });
+    return new Response(stream, {
+      headers: { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform", Connection: "keep-alive" },
+    });
+  }
+
+  if (!process.env.GROQ_API_KEY) {
+    return errorResponse(
+      "ORION Agent Mode is not configured: GROQ_API_KEY is missing from Vercel Production Environment Variables. Add the key and redeploy.",
+      503,
+    );
+  }
 
   const memories = selectRelevantMemories(body.memories, message);
   const history = Array.isArray(body.messages)
