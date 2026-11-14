@@ -886,31 +886,6 @@ function Home() {
           {hasMessages && (
             <button
               className="top-button"
-              onClick={() =>
-                setSearchOpen(
-                  (value) => !value
-                )
-              }
-              type="button"
-              aria-label="Search chat"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <circle
-                  cx="11"
-                  cy="11"
-                  r="6.5"
-                />
-                <path d="m16 16 5 5" />
-              </svg>
-            </button>
-          )}
-
-          {hasMessages && (
-            <button
-              className="top-button"
               onClick={downloadChat}
               type="button"
               aria-label="Download chat"
@@ -933,21 +908,6 @@ function Home() {
           )}
         </div>
       </header>
-
-      {searchOpen && hasMessages && (
-        <div className="search-panel">
-          <input
-            value={searchQuery}
-            onChange={(event) =>
-              setSearchQuery(
-                event.target.value
-              )
-            }
-            placeholder="Search this chat..."
-            autoFocus
-          />
-        </div>
-      )}
 
       {!hasMessages ? (
         <section className="home-screen home-dashboard">
@@ -1127,10 +1087,35 @@ function Home() {
                   ORION AI · {activeTask.label}
                 </div>
               )}
+            {searchOpen && hasMessages && (
+              <div className="search-panel search-panel-bottom">
+                <input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search this chat..."
+                  aria-label="Search this chat"
+                  autoFocus
+                />
+              </div>
+            )}
             <form
               className="composer chat-composer"
               onSubmit={handleSubmit}
             >
+              {hasMessages && (
+                <button
+                  type="button"
+                  className="icon-button search-bottom-button"
+                  onClick={() => setSearchOpen((value) => !value)}
+                  aria-label="Search chat"
+                  title="Search chat"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="11" cy="11" r="6.5" />
+                    <path d="m16 16 5 5" />
+                  </svg>
+                </button>
+              )}
               <textarea
                 ref={composerRef}
                 value={input}
@@ -1366,6 +1351,20 @@ function Home() {
     z-index: 4;
     width: min(620px, calc(100% - 32px));
     margin: 12px auto 0;
+  }
+  .search-panel-bottom {
+    flex: 0 0 auto;
+    width: 100%;
+    margin: 0 auto 8px;
+  }
+  .search-bottom-button svg {
+    width: 19px;
+    height: 19px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
   .search-panel input {
