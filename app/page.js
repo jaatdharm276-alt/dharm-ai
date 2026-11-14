@@ -983,7 +983,7 @@ function Home() {
               </div>
             </div>
           </div>
-          <div className="dashboard-footer"><span>✦ ORION AI</span><span>Intelligent companion · <strong>Powered by Dharm AI</strong></span></div>
+          <div className="dashboard-footer"><span><strong>Powered by Dharm AI</strong> · Created by Dharmraj jat</span></div>
         </section>
         ) : (
           <section className="chat-screen">
@@ -1182,9 +1182,6 @@ function Home() {
           </div>
         )}
 
-        <div className="mode-description">
-          {TASK_INSTRUCTIONS[taskMode]}
-        </div>
       </main>
 </>
 );
