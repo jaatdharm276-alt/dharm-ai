@@ -187,9 +187,21 @@ function formatMessage(content) {
   return output.join("");
 }
 function getAgentProgress(activity = [], complete = false) {
-  if (complete) return 100;
-  const progress = { understanding: 10, planning: 22, planning_done: 35, planning_fallback: 35, reasoning: 48, tool: 68, verification: 90, partial_recovery: 90 };
-  return Math.max(4, ...activity.map((item) => progress[item.stage] || 0));
+  const latestStage = activity[activity.length - 1]?.stage;
+  if (complete && latestStage === "complete") return 100;
+  if (latestStage === "partial_recovery") return 85;
+  if (latestStage === "tool_error") return 60;
+  const progress = {
+    understanding: 8,
+    planning: 16,
+    planning_done: 25,
+    planning_fallback: 25,
+    reasoning: 35,
+    tool: 48,
+    tool_completed: 68,
+    verification: 88,
+  };
+  return Math.min(95, Math.max(4, ...activity.map((item) => progress[item.stage] || 0)));
 }
 
 function Home() {
@@ -215,6 +227,10 @@ function Home() {
   const [composerToolsOpen, setComposerToolsOpen] = useState(false);
 
   const messagesRef = useRef(null);
+  const scrollAnimationFrameRef = useRef(null);
+  const programmaticScrollRef = useRef(false);
+  const programmaticScrollTimerRef = useRef(null);
+  const touchStartYRef = useRef(null);
   const composerRef = useRef(null);
   const abortRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -238,38 +254,95 @@ function Home() {
 
   const visibleHomeActions =
     HOME_ACTIONS;
-  const scrollToBottom = useCallback((force = false) => {
+  const scrollToBottom = useCallback(() => {
     const container = messagesRef.current;
+    if (!container || !shouldFollowRef.current) return;
+    if (scrollAnimationFrameRef.current !== null) return;
 
-    if (!container) {
-      return;
+    const step = () => {
+      const current = messagesRef.current;
+      if (!current || !shouldFollowRef.current) {
+        scrollAnimationFrameRef.current = null;
+        return;
+      }
+
+      const distance = current.scrollHeight - current.scrollTop - current.clientHeight;
+      if (distance <= 1) {
+        current.scrollTop = current.scrollHeight;
+        scrollAnimationFrameRef.current = null;
+        return;
+      }
+
+      // Move a small distance each frame. Recompute the target as streamed
+      // text and activity updates change the message height.
+      programmaticScrollRef.current = true;
+      current.scrollTop += Math.min(18, Math.max(1, distance * 0.14));
+      if (programmaticScrollTimerRef.current !== null) {
+        window.clearTimeout(programmaticScrollTimerRef.current);
+      }
+      programmaticScrollTimerRef.current = window.setTimeout(() => {
+        programmaticScrollRef.current = false;
+        programmaticScrollTimerRef.current = null;
+      }, 100);
+      scrollAnimationFrameRef.current = window.requestAnimationFrame(step);
+    };
+
+    scrollAnimationFrameRef.current = window.requestAnimationFrame(step);
+  }, []);
+
+  const stopProgrammaticFollow = useCallback(() => {
+    shouldFollowRef.current = false;
+    programmaticScrollRef.current = false;
+    if (scrollAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(scrollAnimationFrameRef.current);
+      scrollAnimationFrameRef.current = null;
     }
-
-    if (
-      force ||
-      shouldFollowRef.current
-    ) {
-      container.scrollTo({
-        top: container.scrollHeight,
-        behavior: force ? "auto" : "smooth",
-      });
+    if (programmaticScrollTimerRef.current !== null) {
+      window.clearTimeout(programmaticScrollTimerRef.current);
+      programmaticScrollTimerRef.current = null;
     }
   }, []);
 
+  const handleMessageWheel = useCallback((event) => {
+    if (event.deltaY < 0) stopProgrammaticFollow();
+  }, [stopProgrammaticFollow]);
+
+  const handleMessageTouchStart = useCallback((event) => {
+    touchStartYRef.current = event.touches?.[0]?.clientY ?? null;
+  }, []);
+
+  const handleMessageTouchMove = useCallback((event) => {
+    const nextY = event.touches?.[0]?.clientY;
+    if (typeof nextY !== "number" || typeof touchStartYRef.current !== "number") return;
+    const delta = nextY - touchStartYRef.current;
+    if (Math.abs(delta) > 6) {
+      // A finger moving down means the reader is scrolling back to earlier content.
+      if (delta > 0) stopProgrammaticFollow();
+      touchStartYRef.current = nextY;
+    }
+  }, [stopProgrammaticFollow]);
+
   const handleMessageScroll = useCallback(() => {
     const container = messagesRef.current;
-
-    if (!container) {
-      return;
-    }
+    if (!container || programmaticScrollRef.current) return;
 
     const distanceFromBottom =
-      container.scrollHeight -
-      container.scrollTop -
-      container.clientHeight;
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    shouldFollowRef.current = distanceFromBottom < 120;
 
-    shouldFollowRef.current =
-      distanceFromBottom < 120;
+    if (!shouldFollowRef.current && scrollAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(scrollAnimationFrameRef.current);
+      scrollAnimationFrameRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => {
+    if (scrollAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(scrollAnimationFrameRef.current);
+    }
+    if (programmaticScrollTimerRef.current !== null) {
+      window.clearTimeout(programmaticScrollTimerRef.current);
+    }
   }, []);
 
   useEffect(() => {
@@ -543,9 +616,8 @@ function Home() {
         assistantMessage,
       ]);
 
-      setTimeout(() => {
-        scrollToBottom(true);
-      }, 50);
+      shouldFollowRef.current = true;
+      requestAnimationFrame(() => scrollToBottom());
 
       const controller =
         new AbortController();
@@ -617,7 +689,7 @@ function Home() {
           setMessages((current) =>
             current.map((message) =>
               message.id === assistantId
-                ? { ...message, activity: [...(message.activity || []), activity].slice(-8) }
+                ? { ...message, activity: [...(message.activity || []), activity].slice(-24) }
                 : message
             )
           );
@@ -1009,12 +1081,36 @@ function Home() {
 
       {!hasMessages ? (
         <section className="home-screen home-dashboard">
-          <div className="dashboard-hero">
-            <div className="hero-orbit"><span>✦</span></div>
-            <p className="namaste">🙏 Namaste, Dharm!</p>
-            <h1>Your ideas, <span>in motion.</span></h1>
-            <p className="tagline">Ask anything. Plan, create, learn and get work done with ORION AI.</p>
-          </div>
+          <section className="orion-cinematic-hero" aria-label="ORION AI Intelligent Companion">
+            <div className="orion-hero-art" aria-hidden="true"><img src="/orion-hero.svg" alt="" /></div>
+            <div className="orion-hero-shade" />
+            <div className="orion-hero-copy">
+              <div className="orion-hero-mark">✦</div>
+              <p className="orion-hero-eyebrow">🙏 NAMASTE · WELCOME TO</p>
+              <h1>ORION AI <span>✦</span></h1>
+              <p className="orion-hero-subtitle">Intelligent Companion</p>
+              <p className="orion-hero-description">Think clearly. Create freely. Move forward.</p>
+              <div className="orion-brand-pill">Powered by Dharm AI</div>
+              <p className="orion-creator">Created by Dharmraj jat</p>
+            </div>
+            <div className="orion-hero-status"><i /> READY TO HELP</div>
+          </section>
+
+          <section className="public-overview" aria-label="ORION AI product overview">
+            <div className="public-overview-heading">
+              <div><span className="section-kicker">THE ORION EXPERIENCE</span><h2>One companion. Many possibilities.</h2></div>
+              <span className="public-live-indicator"><i /> LIVE</span>
+            </div>
+            <div className="public-progress-track" aria-hidden="true"><span /></div>
+            <div className="public-capability-grid">
+              <div className="public-capability"><span>✦</span><strong>AI Chat</strong><small>Answers & streaming</small><em>Available</em></div>
+              <div className="public-capability"><span>◉</span><strong>Agent Mode</strong><small>Planning & tools</small><em>Available</em></div>
+              <div className="public-capability"><span>▱</span><strong>Smart Memory</strong><small>Useful saved context</small><em>Available</em></div>
+              <div className="public-capability"><span>⌁</span><strong>Voice Input</strong><small>Speak naturally</small><em>Supported devices</em></div>
+              <div className="public-capability"><span>◎</span><strong>Web Research</strong><small>Sources & references</small><em>Available in Agent</em></div>
+              <div className="public-capability"><span>▣</span><strong>Mobile Experience</strong><small>Responsive app interface</small><em>Optimized</em></div>
+            </div>
+          </section>
 
           <form className="composer dashboard-composer" onSubmit={handleSubmit}>
             <span className="composer-spark">✧</span>
@@ -1107,6 +1203,9 @@ function Home() {
               ref={messagesRef}
               className="messages-container"
               onScroll={handleMessageScroll}
+              onWheel={handleMessageWheel}
+              onTouchStart={handleMessageTouchStart}
+              onTouchMove={handleMessageTouchMove}
             >
               {searchQuery.trim() &&
               currentSearchResults.length === 0 ? (
@@ -1135,14 +1234,25 @@ function Home() {
                               : taskMode === "agent" ? <span className="agent-live-pill">⚡ Agent Mode</span> : null}
                           </div>
                         )}
-                        {taskMode === "agent" && message.activity?.length > 0 && (
+                        {taskMode === "agent" && message.activity?.length > 0 && (() => {
+                          const stages = message.activity.map((item) => item.stage);
+                          const latestStage = stages[stages.length - 1];
+                          const completed = latestStage === "complete";
+                          const partial = latestStage === "partial_recovery" || latestStage === "tool_error";
+                          const understood = stages.length > 1;
+                          const planned = stages.some((stage) => ["planning_done", "reasoning", "tool", "tool_completed", "tool_error", "verification", "complete", "partial_recovery"].includes(stage));
+                          const toolStarted = stages.some((stage) => ["tool", "tool_completed", "tool_error", "verification", "complete", "partial_recovery"].includes(stage));
+                          const toolDone = stages.includes("tool_completed");
+                          const verifying = stages.includes("verification");
+                          const progress = getAgentProgress(message.activity, completed && !loading);
+                          return (
                           <div className="activity-feed agent-progress-card" aria-live="polite">
-                            <div className="activity-feed-heading"><span>▥</span><strong>Analysis Progress</strong><b>{getAgentProgress(message.activity, Boolean(message.content && !loading))}%</b></div>
-                            <div className="agent-progress-track"><span style={{ width: getAgentProgress(message.activity, Boolean(message.content && !loading)) + "%" }} /></div>
-                            <div className="agent-stage-row"><span>✓</span><span>Understanding request</span><strong>{message.activity.length > 1 ? "Done" : "In progress"}</strong></div>
-                            <div className="agent-stage-row"><span>◈</span><span>Planning & task steps</span><strong>{message.activity.some((item) => ["planning_done","planning_fallback","reasoning","tool","verification"].includes(item.stage)) ? "Done" : "Working"}</strong></div>
-                            <div className="agent-stage-row"><span>◌</span><span>Tool execution</span><strong>{message.activity.some((item) => ["tool","verification"].includes(item.stage)) ? "Started" : "Waiting"}</strong></div>
-                            <div className="agent-stage-row"><span>○</span><span>Verification</span><strong>{message.activity.some((item) => item.stage === "verification") ? "Done" : "Waiting"}</strong></div>
+                            <div className="activity-feed-heading"><span>▥</span><strong>Analysis Progress</strong><b>{progress}%</b></div>
+                            <div className="agent-progress-track"><span style={{ width: progress + "%" }} /></div>
+                            <div className="agent-stage-row"><span>✓</span><span>Understanding request</span><strong>{understood ? "Done" : "In progress"}</strong></div>
+                            <div className="agent-stage-row"><span>◈</span><span>Planning & task steps</span><strong>{planned ? "Done" : "Working"}</strong></div>
+                            <div className="agent-stage-row"><span>◌</span><span>Tool execution</span><strong>{toolDone ? "Done" : toolStarted ? "In progress" : "Waiting"}</strong></div>
+                            <div className="agent-stage-row"><span>○</span><span>Verification</span><strong>{completed ? "Done" : partial ? "Not completed" : verifying ? "In progress" : "Waiting"}</strong></div>
                             <div className="agent-activity-log">
                               {message.activity.slice(-5).map((item, index) => (
                                 <div className="activity-item" key={`${item.timestamp || index}-${index}`}>
@@ -1151,8 +1261,10 @@ function Home() {
                                 </div>
                               ))}
                             </div>
+                            <div className="agent-progress-outcome">{completed ? "Task completed" : partial ? "Partial result — not fully verified" : "Working on your request"}</div>
                           </div>
-                        )}
+                          );
+                        })()}
                         {message.content ? (
                           <>
                           <div
@@ -1845,7 +1957,7 @@ const styles = `
     min-height: 0;
     overflow-y: auto;
     padding: 8px 8px 20px;
-    scroll-behavior: smooth;
+    scroll-behavior: auto;
   }
 
   .message {
@@ -2451,7 +2563,44 @@ const styles = `
   .agent-progress-card .agent-stage-row strong{margin-left:auto;color:#6d819a;font-size:9px}
   .agent-activity-log{margin-top:6px;padding-top:5px;border-top:1px solid rgba(142,164,197,.22)}
   .agent-activity-log .activity-item{font-size:10px}
+  .agent-progress-outcome{margin-top:8px;padding-top:8px;border-top:1px solid rgba(142,164,197,.22);color:#536984;font-size:10px;font-weight:600}
 
+
+
+  /* ORION cinematic public home: glowing hero, no private OS/AGI roadmap */
+  .orion-cinematic-hero{position:relative;isolation:isolate;display:flex;align-items:center;justify-content:center;min-height:clamp(270px,39vw,390px);margin:4px 0 20px;overflow:hidden;border:1px solid rgba(95,190,255,.52);border-radius:26px;background:#06152d;box-shadow:0 12px 38px rgba(16,87,165,.2),0 0 24px rgba(20,145,255,.22),inset 0 0 28px rgba(53,151,255,.12)}
+  .orion-hero-art,.orion-hero-shade{position:absolute;inset:0;z-index:-1}
+  .orion-hero-art img{width:100%;height:100%;object-fit:cover;object-position:center}
+  .orion-hero-shade{background:linear-gradient(90deg,rgba(3,12,29,.22),rgba(3,12,29,.08) 35%,rgba(3,12,29,.58) 100%),linear-gradient(0deg,rgba(2,10,25,.68),transparent 42%)}
+  .orion-hero-copy{width:min(54%,560px);margin-left:auto;margin-right:5%;padding:26px 16px;text-align:center;color:#fff;text-shadow:0 2px 18px rgba(0,0,0,.8)}
+  .orion-hero-mark{display:inline-grid;place-items:center;width:40px;height:40px;margin-bottom:8px;border:1px solid rgba(133,220,255,.8);border-radius:14px;color:#dff8ff;font-size:25px;box-shadow:0 0 14px #148dff,0 0 32px rgba(49,160,255,.75),inset 0 0 12px rgba(98,198,255,.3);animation:orionMarkPulse 3.2s ease-in-out infinite}
+  .orion-hero-eyebrow{margin:0 0 6px;color:#c7ecff;font-size:10px;font-weight:850;letter-spacing:.22em}
+  .orion-hero-copy h1{margin:0;color:#fff;font-size:clamp(38px,7vw,76px);font-weight:950;letter-spacing:-.065em;line-height:1.02;text-shadow:0 0 8px #fff,0 0 20px #138cff,0 0 42px rgba(27,143,255,.9)}
+  .orion-hero-copy h1 span{display:inline-block;color:#c8f4ff;font-size:.62em;vertical-align:top;animation:orionStarPulse 2.5s ease-in-out infinite}
+  .orion-hero-subtitle{margin:7px 0 0;color:#f1f8ff;font-size:clamp(15px,2.4vw,24px);font-weight:750;letter-spacing:.08em}
+  .orion-hero-description{margin:10px 0 14px;color:#d3eaff;font-size:12px;letter-spacing:.04em}
+  .orion-brand-pill{display:inline-flex;align-items:center;justify-content:center;padding:8px 22px;border:1px solid #67cfff;border-radius:999px;background:linear-gradient(110deg,rgba(12,54,112,.94),rgba(5,24,62,.94));color:#fff;font-size:13px;font-weight:850;box-shadow:0 0 10px #168fff,0 0 24px rgba(22,137,255,.55),inset 0 0 12px rgba(114,206,255,.2)}
+  .orion-creator{margin:9px 0 0;color:#fff;font-size:11px;font-weight:750}
+  .orion-hero-status{position:absolute;right:16px;top:15px;display:flex;align-items:center;gap:7px;padding:7px 11px;border:1px solid rgba(104,255,190,.55);border-radius:999px;background:rgba(3,37,42,.68);color:#b8ffe0;font-size:9px;font-weight:850;letter-spacing:.1em;box-shadow:0 0 16px rgba(35,245,159,.2)}
+  .orion-hero-status i,.public-live-indicator i{width:7px;height:7px;border-radius:50%;background:#36f5a2;box-shadow:0 0 10px #36f5a2}
+  .public-overview{margin:0 0 18px;padding:17px;border:1px solid rgba(127,184,235,.55);border-radius:21px;background:linear-gradient(145deg,rgba(255,255,255,.97),rgba(239,247,255,.96));box-shadow:0 8px 28px rgba(27,99,165,.09),0 0 18px rgba(56,151,235,.1)}
+  .public-overview-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:13px}
+  .public-overview-heading h2{margin:3px 0 0;color:#153c6b;font-size:clamp(16px,2.5vw,21px);letter-spacing:-.025em}
+  .public-live-indicator{display:flex;align-items:center;gap:7px;padding:6px 9px;border:1px solid #b6efd4;border-radius:999px;background:#edfff6;color:#128354;font-size:9px;font-weight:900;letter-spacing:.1em;box-shadow:0 0 13px rgba(33,190,125,.13)}
+  .public-progress-track{height:4px;margin-bottom:14px;overflow:hidden;border-radius:99px;background:#dcecff;box-shadow:inset 0 1px 3px rgba(30,90,160,.12)}
+  .public-progress-track span{display:block;width:100%;height:100%;border-radius:inherit;background:linear-gradient(90deg,#12b9ff,#477dff,#9c69ff,#17cfa0);background-size:200% 100%;animation:orionSpectrum 5s linear infinite;box-shadow:0 0 12px rgba(33,149,255,.7)}
+  .public-capability-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+  .public-capability{position:relative;display:grid;grid-template-columns:34px 1fr;grid-template-rows:auto auto auto;align-items:center;column-gap:9px;min-width:0;padding:11px;border:1px solid rgba(165,198,231,.58);border-radius:15px;background:rgba(255,255,255,.88);box-shadow:0 5px 17px rgba(36,107,175,.07),0 0 12px rgba(54,146,231,.07);transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}
+  .public-capability:hover{transform:translateY(-2px);border-color:#7dcaff;box-shadow:0 8px 22px rgba(36,126,205,.14),0 0 18px rgba(42,156,255,.2)}
+  .public-capability>span{grid-row:1/4;display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:linear-gradient(135deg,#e4f6ff,#eeeaff);color:#087ed4;font-size:19px;text-shadow:0 0 12px #5dbdff;box-shadow:0 0 13px rgba(34,142,235,.22)}
+  .public-capability strong{overflow:hidden;color:#1a3b61;font-size:11px;text-overflow:ellipsis;white-space:nowrap}
+  .public-capability small{overflow:hidden;margin-top:3px;color:#71849a;font-size:9px;text-overflow:ellipsis;white-space:nowrap}
+  .public-capability em{margin-top:5px;color:#13875b;font-size:8px;font-style:normal;font-weight:850}
+  @keyframes orionMarkPulse{0%,100%{box-shadow:0 0 14px #148dff,0 0 25px rgba(49,160,255,.5)}50%{box-shadow:0 0 20px #54caff,0 0 42px rgba(49,160,255,.95)}}
+  @keyframes orionStarPulse{0%,100%{opacity:.8;filter:drop-shadow(0 0 4px #68cfff)}50%{opacity:1;filter:drop-shadow(0 0 12px #68cfff)}}
+  @keyframes orionSpectrum{to{background-position:200% 0}}
+  @media(max-width:700px){.orion-cinematic-hero{min-height:280px;margin:0 0 14px;border-radius:21px}.orion-hero-art img{object-position:38% center}.orion-hero-shade{background:linear-gradient(90deg,rgba(3,12,29,.08),rgba(3,12,29,.5) 35%,rgba(3,12,29,.82) 100%),linear-gradient(0deg,rgba(2,10,25,.68),transparent 48%)}.orion-hero-copy{width:64%;margin-right:2%;padding:26px 7px}.orion-hero-copy h1{font-size:clamp(34px,10vw,48px)}.orion-hero-subtitle{font-size:14px}.orion-hero-description{font-size:10px}.orion-brand-pill{padding:7px 13px;font-size:11px}.orion-creator{font-size:10px}.orion-hero-status{top:10px;right:10px;padding:6px 8px;font-size:8px}.public-overview{padding:13px;border-radius:18px}.public-capability-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.public-capability{padding:9px;grid-template-columns:30px 1fr;column-gap:7px}.public-capability>span{width:30px;height:30px;font-size:17px}.public-capability strong{font-size:10px}.public-capability small{font-size:8px}}
+  @media(prefers-reduced-motion:reduce){.orion-hero-mark,.orion-hero-copy h1 span,.public-progress-track span{animation:none!important}.public-capability{transition:none}}
 
 `;
 export default Home; 

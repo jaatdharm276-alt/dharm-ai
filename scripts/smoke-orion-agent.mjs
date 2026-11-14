@@ -50,7 +50,7 @@ try {
         if (event.orion_status?.detail) stages.push(event.orion_status.detail);
         if (event.orion_status?.stage) terminalStage = event.orion_status.stage;
         if (event.orion_status?.stage === "tool_error") toolFailed = true;
-        if (event.orion_status?.stage === "tool_completed" && /Tavily web search returned verified sources/i.test(event.orion_status?.detail || "")) searchSucceeded = true;
+        if (event.orion_status?.stage === "tool_completed" && /(?:web search completed with verified sources|(?:tavily|bing rss) web search returned verified sources)/i.test(event.orion_status?.detail || "")) searchSucceeded = true;
         const delta = event.choices?.[0]?.delta?.content;
         if (typeof delta === "string") answer += delta;
       } catch {
@@ -63,7 +63,7 @@ try {
     throw new Error("Agent did not reach complete status (terminal stage: " + (terminalStage || "missing") + "). Stages: " + stages.join(" | ") + ". Response: " + answer.slice(0, 1200));
   }
   if (toolFailed) throw new Error("Agent emitted a tool_error status. Stages: " + stages.join(" | "));
-  if (!searchSucceeded) throw new Error("Agent did not report a successful Tavily search with verified sources. Stages: " + stages.join(" | "));
+  if (!searchSucceeded) throw new Error("Agent did not report a successful web search with verified sources (Tavily or Bing RSS fallback). Stages: " + stages.join(" | "));
   if (!/https?:\/\/(?:www\.)?india\.gov\.in\b/i.test(answer)) {
     throw new Error("Agent response did not cite the expected India.gov.in source. Response: " + answer.slice(0, 1200));
   }

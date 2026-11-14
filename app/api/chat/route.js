@@ -896,11 +896,11 @@ export async function POST(
     }
 
     const safeErrors = {
-      GROQ_KEY_MISSING: "ORION AI service is not configured yet. The server is missing its Groq API key.",
-      GROQ_AUTH_REJECTED: "ORION AI could not authenticate with its AI provider. The server API key needs to be checked.",
-      GROQ_RATE_LIMITED: "The AI provider is temporarily rate-limiting requests. Please wait a little and try again.",
-      GROQ_PROVIDER_UNAVAILABLE: "The AI provider is temporarily unavailable. Please try again shortly.",
-      GROQ_PROVIDER_HTTP_ERROR: "The AI provider rejected the request. Please try again later.",
+      GROQ_KEY_MISSING: "ORION AI सेवा फिलहाल उपलब्ध नहीं है। कृपया कुछ देर बाद दोबारा प्रयास करें.",
+      GROQ_AUTH_REJECTED: "ORION AI सेवा से सुरक्षित कनेक्शन नहीं हो पाया। कृपया बाद में फिर प्रयास करें.",
+      GROQ_RATE_LIMITED: "अभी ORION AI पर अधिक अनुरोध आ रहे हैं। कृपया थोड़ी देर बाद दोबारा प्रयास करें.",
+      GROQ_PROVIDER_UNAVAILABLE: "ORION AI सेवा अस्थायी रूप से उपलब्ध नहीं है। कृपया थोड़ी देर बाद प्रयास करें.",
+      GROQ_PROVIDER_HTTP_ERROR: "आपका अनुरोध अभी पूरा नहीं हो पाया। कृपया बाद में फिर प्रयास करें.",
     };
     const safeMessage = safeErrors[error?.code] || "ORION AI could not complete the request. Please try again.";
     return createErrorResponse(safeMessage, error?.providerStatus === 429 ? 429 : 500);
