@@ -25,6 +25,7 @@ try {
   let buffer = "";
   let answer = "";
   const stages = [];
+  let terminalStage = "";
 
   while (true) {
     const part = await reader.read();
@@ -40,6 +41,7 @@ try {
       try {
         const event = JSON.parse(data);
         if (event.orion_status?.detail) stages.push(event.orion_status.detail);
+        if (event.orion_status?.stage) terminalStage = event.orion_status.stage;
         const delta = event.choices?.[0]?.delta?.content;
         if (typeof delta === "string") answer += delta;
       } catch {
