@@ -64,7 +64,7 @@ try {
   }
   if (toolFailed) throw new Error("Agent emitted a tool_error status. Stages: " + stages.join(" | "));
   if (!searchSucceeded) throw new Error("Agent did not report a successful Tavily search with verified sources. Stages: " + stages.join(" | "));
-  if (!/https?:\/\/(?:www\.)?india\.gov\.in\/?(?:[\s)#]|$)/i.test(answer)) {
+  if (!/https?:\/\/(?:www\.)?india\.gov\.in\b/i.test(answer)) {
     throw new Error("Agent response did not cite the expected India.gov.in source. Response: " + answer.slice(0, 1200));
   }
 
