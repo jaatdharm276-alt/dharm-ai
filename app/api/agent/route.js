@@ -206,7 +206,7 @@ async function callModel(messages, options = {}, signal) {
 
   const data = await response.json();
   const message = data?.choices?.[0]?.message;
-  if (!message) const error = new Error("The AI provider returned an empty agent response."); error.code = "GROQ_EMPTY_RESPONSE"; throw error;
+  if (!message) { const error = new Error("The AI provider returned an empty agent response."); error.code = "GROQ_EMPTY_RESPONSE"; throw error; }
   return message;
 }
 
