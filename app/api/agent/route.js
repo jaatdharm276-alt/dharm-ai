@@ -11,6 +11,7 @@ import { buildPartialRecoveryAnswer } from "../../../lib/orion-agent-recovery.mj
 import { createRateLimiter, getClientIdentifier } from "../../../lib/orion-rate-limit.mjs";
 import { getCreatorAnswer } from "../../../lib/orion-identity.mjs";
 import { validateAgentToolArgs, summarizeToolResult } from "../../../lib/orion-agent-guardrails.mjs";
+import { buildAgentEvidenceAnswer } from "../../../lib/orion-agent-evidence.mjs";
 import { getAvailableAgentTools } from "../../../lib/orion-agent-tools.mjs";
 
 export const runtime = "nodejs";
@@ -505,7 +506,9 @@ function runAgent(body, signal) {
       } catch (error) {
         if (error?.name === "AbortError" || signal?.aborted) throw error;
         console.error("ORION reasoning step unavailable:", error);
-        const recovery = buildPartialRecoveryAnswer({ draft: lastDraft, toolResults: collectedToolResults, failureStage: "reasoning" });
+        const recovery = error?.code === "GROQ_RATE_LIMITED"
+          ? buildAgentEvidenceAnswer({ toolResults: collectedToolResults, failureCode: error.code })
+          : buildPartialRecoveryAnswer({ draft: lastDraft, toolResults: collectedToolResults, failureStage: "reasoning" });
         emitStatus("partial_recovery", `AI का अगला चरण उपलब्ध नहीं है (${error.code || error.name || "unknown"}) — अब तक के परिणाम सुरक्षित रखे हैं`);
         emitText(recovery);
         return;
