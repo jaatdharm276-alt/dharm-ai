@@ -226,6 +226,8 @@ function Home() {
     useState("");
   const [composerToolsOpen, setComposerToolsOpen] = useState(false);
   const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
+  const [historyQuery, setHistoryQuery] = useState("");
+  const [pinnedSessionIds, setPinnedSessionIds] = useState([]);
 
   const messagesRef = useRef(null);
   const scrollAnimationFrameRef = useRef(null);
@@ -1084,12 +1086,18 @@ function Home() {
       {historyDrawerOpen && <div className="history-drawer-backdrop" onClick={() => setHistoryDrawerOpen(false)}>
         <aside className="history-drawer" aria-label="Chat history" onClick={(event) => event.stopPropagation()}>
           <div className="history-drawer-head"><strong>Chat history</strong><button type="button" onClick={() => setHistoryDrawerOpen(false)} aria-label="Close history">×</button></div>
-          <button type="button" className="history-new-chat" onClick={() => { startNewChat(); setHistoryDrawerOpen(false); }}>＋ New chat</button>
+          <button type="button" className="history-new-chat" onClick={() => { startNewChat(); setHistoryQuery(""); setHistoryDrawerOpen(false); }}>＋ New chat</button>
+          <label className="history-search"><span>⌕</span><input value={historyQuery} onChange={(event) => setHistoryQuery(event.target.value)} placeholder="Search chats..." aria-label="Search chat history" /></label>
           <div className="history-drawer-list">
-            {chatSessions.length ? chatSessions.map((session) => <button key={session.id} type="button" className={session.id === activeSessionId ? "history-session active" : "history-session"} onClick={() => { openChatSession(session); setHistoryDrawerOpen(false); }}>
-              <span className="history-session-icon">◷</span><span><strong>{session.title || "Conversation"}</strong><small>{session.mode === "agent" ? "Agent mode" : "Chat"} · {new Date(session.updatedAt || Date.now()).toLocaleDateString("en-IN")}</small></span>
-            </button>) : <p className="history-empty">Your conversations will appear here.</p>}
+            {chatSessions.filter((session) => String(session.title || "").toLowerCase().includes(historyQuery.trim().toLowerCase())).length ? chatSessions.filter((session) => String(session.title || "").toLowerCase().includes(historyQuery.trim().toLowerCase())).map((session) => <div key={session.id} className={session.id === activeSessionId ? "history-session active" : "history-session"}>
+              <button type="button" className="history-session-open" onClick={() => { openChatSession(session); setHistoryDrawerOpen(false); }}>
+                <span className="history-session-icon">◷</span><span><strong>{session.title || "Conversation"}</strong><small>{session.mode === "agent" ? "Agent mode" : "Chat"} · {new Date(session.updatedAt || Date.now()).toLocaleDateString("en-IN")}</small></span>
+              </button>
+              <button type="button" className={pinnedSessionIds.includes(session.id) ? "history-pin pinned" : "history-pin"} aria-label={pinnedSessionIds.includes(session.id) ? "Unpin chat" : "Pin chat"} title={pinnedSessionIds.includes(session.id) ? "Unpin chat" : "Pin chat"} onClick={() => setPinnedSessionIds((ids) => ids.includes(session.id) ? ids.filter((id) => id !== session.id) : [...ids, session.id])}>⌖</button>
+            </div>) : <p className="history-empty">{historyQuery ? "No matching chats." : "Your conversations will appear here."}</p>}
+            {pinnedSessionIds.some((id) => chatSessions.some((session) => session.id === id)) && <div className="history-pinned-label">PINNED</div>}
           </div>
+          <div className="history-drawer-bottom"><span>⚙ Settings</span><span>ⓘ Help & feedback</span></div>
         </aside>
       </div>}
 
@@ -1146,11 +1154,11 @@ function Home() {
             <button type="button" className="feature-tile tile-study" onClick={() => { setTaskMode("study"); composerRef.current?.focus(); }}>
               <span className="tile-icon">⌘</span><strong>Study & learn</strong><small>Simple step-by-step learning</small><span className="tile-arrow">↗</span>
             </button>
-            <button type="button" className="feature-tile tile-create" onClick={() => { setTaskMode("content"); composerRef.current?.focus(); }}>
-              <span className="tile-icon">✎</span><strong>Create content</strong><small>Writing, ideas & drafts</small><span className="tile-arrow">↗</span>
+            <button type="button" className="feature-tile tile-create" onClick={() => runQuickAction("agent", "Research this topic using available web search and cite sources.")}>
+              <span className="tile-icon">◎</span><strong>Web research</strong><small>Sources & references</small><span className="tile-arrow">↗</span>
             </button>
-            <button type="button" className="feature-tile tile-work" onClick={() => { setTaskMode("work"); composerRef.current?.focus(); }}>
-              <span className="tile-icon">⌁</span><strong>Get work done</strong><small>Plans, code & productivity</small><span className="tile-arrow">↗</span>
+            <button type="button" className="feature-tile tile-work" onClick={() => document.getElementById("orion-home-tools")?.scrollIntoView({ behavior: "smooth", block: "center" })}>
+              <span className="tile-icon">▦</span><strong>Tools</strong><small>Quick actions & utilities</small><span className="tile-arrow">↗</span>
             </button>
           </div>
 
@@ -1168,7 +1176,7 @@ function Home() {
             <button type="button" className="active" onClick={startNewChat}><span>⌂</span>Home</button>
             <button type="button" onClick={() => document.getElementById("orion-home-features")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span>⌕</span>Explore</button>
             <button type="button" onClick={() => document.getElementById("orion-home-tools")?.scrollIntoView({ behavior: "smooth", block: "center" })}><span>✧</span>Tools</button>
-            <button type="button" onClick={() => document.getElementById("orion-recent-chats")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span>◷</span>History</button>
+            <button type="button" onClick={() => setHistoryDrawerOpen(true)}><span>◷</span>History</button>
             <button type="button" onClick={() => document.querySelector('[aria-label="Manage ORION memory"]')?.click()}><span>▦</span>More</button>
           </nav>
           <div className="dashboard-footer"><span><strong>Powered by Dharm AI</strong> · Created by Dharmraj jat</span></div>
@@ -2591,6 +2599,23 @@ const styles = `
   .history-session small,.history-empty{color:#8294a8;font-size:10px}
   .history-empty{padding:10px}
   @keyframes historyDrawerIn{from{opacity:.65;transform:translateX(-14px)}to{opacity:1;transform:translateX(0)}}
+
+  .history-search{display:flex;align-items:center;gap:9px;margin-top:12px;padding:10px 12px;border:1px solid #d5e4f4;border-radius:13px;background:#fff;color:#6c829b}
+  .history-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:#244563;font-size:13px}
+  .history-session{padding:6px 8px;gap:4px}
+  .history-session-open{display:flex;align-items:center;gap:9px;min-width:0;flex:1;border:0;background:transparent;text-align:left}
+  .history-session-open>span:last-child{min-width:0;display:flex;flex-direction:column;gap:4px}
+  .history-pin{width:30px;height:30px;flex:0 0 30px;border:0;border-radius:9px;background:transparent;color:#91a3b6}
+  .history-pin.pinned{background:#e4f2ff;color:#087bd1}
+  .history-pinned-label{padding:12px 8px 4px;color:#8196aa;font-size:10px;font-weight:800;letter-spacing:.12em}
+  .history-drawer-bottom{display:flex;flex-direction:column;gap:14px;margin-top:auto;padding:18px 10px 6px;border-top:1px solid #e0eaf4;color:#4c6681;font-size:12px;font-weight:650}
+  .assistant-card{border:1px solid #d8e8f7;border-radius:18px;background:linear-gradient(145deg,#fff,#f8fbff);box-shadow:0 7px 22px rgba(25,89,150,.07)}
+  .user-message .message-content{border:1px solid #c6e1fa;border-radius:18px 18px 5px 18px;background:linear-gradient(135deg,#eaf6ff,#f5f1ff);padding:12px 15px}
+  .assistant-message .message-content{padding:14px 16px}
+  .source-results{margin-top:14px;padding-top:12px;border-top:1px solid #e0edf8}
+  .source-result-card{border:1px solid #d7e7f7;border-radius:12px;background:#fff}
+  @media(max-width:700px){.feature-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.home-dashboard .feature-tile{min-height:94px;padding:9px 7px;align-items:center;text-align:center}.home-dashboard .feature-tile strong{font-size:11px}.home-dashboard .feature-tile small{font-size:8px;line-height:1.25}.home-dashboard .tile-arrow{display:none}.history-drawer{width:min(340px,88vw)}.orion-topbar .brand-copy small{display:none}.orion-topbar .top-actions{gap:4px}.orion-topbar .new-chat-button{padding:7px 8px;font-size:10px}.chat-screen{padding-bottom:12px}}
+
   @media(max-width:700px){.history-toggle{width:32px;height:32px;flex-basis:32px}.orion-topbar{gap:5px}.home-dashboard .feature-tile{min-height:76px}.home-dashboard .tile-icon{width:27px;height:27px}.home-dashboard .dashboard-composer{bottom:calc(66px + env(safe-area-inset-bottom));}}
 
   @keyframes orionSpectrum{to{background-position:200% 0}}
