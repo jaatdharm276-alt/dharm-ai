@@ -187,6 +187,8 @@ function formatMessage(content) {
 function Home() {
   const [messages, setMessages] = useState([]);
   const [historyReady, setHistoryReady] = useState(false);
+  const [chatSessions, setChatSessions] = useState([]);
+  const [activeSessionId, setActiveSessionId] = useState(null);
   const [memories, setMemories] = useState([]);
   const [memoryReady, setMemoryReady] = useState(false);
   const [input, setInput] = useState("");
@@ -262,16 +264,52 @@ function Home() {
 
   useEffect(() => {
     try {
-      const saved = window.localStorage.getItem("orion-ai-chat-history-v1");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          setMessages(parsed.slice(-100).filter((item) =>
-            item &&
-            typeof item.id === "string" &&
-            (item.role === "user" || item.role === "assistant") &&
-            typeof item.content === "string"
-          ));
+      const savedSessions = JSON.parse(window.localStorage.getItem("orion-ai-chat-sessions-v1") || "[]");
+      const validSessions = Array.isArray(savedSessions)
+        ? savedSessions.filter((session) =>
+            session &&
+            typeof session.id === "string" &&
+            Array.isArray(session.messages) &&
+            session.messages.length > 0
+          ).slice(0, 30)
+        : [];
+      const savedActiveId = window.localStorage.getItem("orion-ai-active-session-v1");
+      const activeSession = validSessions.find((session) => session.id === savedActiveId);
+
+      if (activeSession) {
+        setChatSessions(validSessions);
+        setActiveSessionId(activeSession.id);
+        setMessages(activeSession.messages.slice(-100));
+        setTaskMode(activeSession.mode || "chat");
+      } else {
+        const legacy = JSON.parse(window.localStorage.getItem("orion-ai-chat-history-v1") || "[]");
+        const validLegacy = Array.isArray(legacy)
+          ? legacy.filter((item) =>
+              item &&
+              typeof item.id === "string" &&
+              (item.role === "user" || item.role === "assistant") &&
+              typeof item.content === "string"
+            ).slice(-100)
+          : [];
+        if (validLegacy.length) {
+          const id = "migrated-" + Date.now();
+          const firstUserMessage = validLegacy.find((item) => item.role === "user")?.content || "Previous conversation";
+          const migrated = {
+            id,
+            title: String(firstUserMessage).slice(0, 56),
+            messages: validLegacy,
+            mode: "chat",
+            updatedAt: Date.now(),
+          };
+          const nextSessions = [migrated, ...validSessions].slice(0, 30);
+          setChatSessions(nextSessions);
+          setActiveSessionId(id);
+          setMessages(validLegacy);
+          window.localStorage.setItem("orion-ai-chat-sessions-v1", JSON.stringify(nextSessions));
+          window.localStorage.setItem("orion-ai-active-session-v1", id);
+        } else {
+          setChatSessions(validSessions);
+          setActiveSessionId(null);
         }
       }
     } catch (storageError) {
@@ -304,14 +342,35 @@ function Home() {
   useEffect(() => {
     if (!historyReady) return;
     try {
-      window.localStorage.setItem(
-        "orion-ai-chat-history-v1",
-        JSON.stringify(messages.slice(-100))
-      );
+      if (!messages.length || !activeSessionId) {
+        if (!activeSessionId) {
+          window.localStorage.removeItem("orion-ai-active-session-v1");
+          window.localStorage.removeItem("orion-ai-chat-history-v1");
+        }
+        return;
+      }
+      const safeMessages = messages.slice(-100);
+      const firstUserMessage = safeMessages.find((item) => item.role === "user")?.content || "New conversation";
+      const session = {
+        id: activeSessionId,
+        title: String(firstUserMessage).replace(/\s+/g, " ").slice(0, 56),
+        messages: safeMessages,
+        mode: taskMode,
+        updatedAt: Date.now(),
+      };
+      setChatSessions((current) => {
+        const next = [session, ...current.filter((item) => item.id !== activeSessionId)]
+          .sort((a, b) => b.updatedAt - a.updatedAt)
+          .slice(0, 30);
+        window.localStorage.setItem("orion-ai-chat-sessions-v1", JSON.stringify(next));
+        return next;
+      });
+      window.localStorage.setItem("orion-ai-active-session-v1", activeSessionId);
+      window.localStorage.setItem("orion-ai-chat-history-v1", JSON.stringify(safeMessages));
     } catch (storageError) {
       console.warn("ORION history could not be saved:", storageError);
     }
-  }, [messages, historyReady]);
+  }, [messages, historyReady, activeSessionId, taskMode]);
 
   useEffect(() => {
     if (!hasMessages) {
@@ -376,6 +435,8 @@ function Home() {
     setListening(false);
     setError("");
     setMessages([]);
+    setActiveSessionId(null);
+    window.localStorage.removeItem("orion-ai-active-session-v1");
     setInput("");
     setSearchOpen(false);
     setSearchQuery("");
@@ -420,7 +481,8 @@ function Home() {
   );
 
   const sendMessage = useCallback(
-    async (customMessage = null) => {
+    async (customMessage = null, requestedTaskMode = null) => {
+      const effectiveTaskMode = requestedTaskMode || taskMode;
       const messageText =
         typeof customMessage === "string"
           ? customMessage.trim()
@@ -437,6 +499,8 @@ function Home() {
       setError("");
       setInput("");
       setLoading(true);
+      if (requestedTaskMode) setTaskMode(requestedTaskMode);
+      if (!activeSessionId) setActiveSessionId(createId());
 
       shouldFollowRef.current = true;
 
@@ -476,7 +540,7 @@ function Home() {
 
       try {
         const endpoint =
-          taskMode === "agent"
+          effectiveTaskMode === "agent"
             ? "/api/agent"
             : "/api/chat";
 
@@ -491,7 +555,7 @@ function Home() {
             signal: controller.signal,
             body: JSON.stringify({
               message: messageText,
-              taskMode,
+              taskMode: effectiveTaskMode,
               messages:
                 buildHistory(nextMessages),
               memories: normalizeMemories(memories),
@@ -662,8 +726,7 @@ function Home() {
             item.id === assistantId
               ? {
                   ...item,
-                  content:
-                    "Sorry, response generate nahi ho saka. Please dobara try karo.",
+                  content: message,
                 }
               : item
           )
@@ -686,6 +749,7 @@ function Home() {
       buildHistory,
       memories,
       scrollToBottom,
+      activeSessionId,
     ]
   );
 
@@ -707,10 +771,29 @@ function Home() {
 
   const handleHomeAction = useCallback(
     async (action) => {
-      await sendMessage(action.prompt);
+      await sendMessage(action.prompt, action.mode || taskMode);
     },
-    [sendMessage]
+    [sendMessage, taskMode]
   );
+
+  const openChatSession = useCallback((session) => {
+    if (!session?.id || !Array.isArray(session.messages)) return;
+    if (abortRef.current) abortRef.current.abort();
+    setLoading(false);
+    setError("");
+    setMessages(session.messages.slice(-100));
+    setActiveSessionId(session.id);
+    setTaskMode(session.mode || "chat");
+    setInput("");
+    setSearchOpen(false);
+    setSearchQuery("");
+    window.localStorage.setItem("orion-ai-active-session-v1", session.id);
+    shouldFollowRef.current = true;
+  }, []);
+
+  const runQuickAction = useCallback((mode, prompt) => {
+    sendMessage(prompt, mode);
+  }, [sendMessage]);
 
   const handleKeyDown = useCallback(
     (event) => {
@@ -866,46 +949,23 @@ function Home() {
       <div className="orion-glow glow-one" />
       <div className="orion-glow glow-two" />
 
-      <header className="topbar">
-        <button
-          className="brand-button"
-          onClick={startNewChat}
-          type="button"
-        >
-          <span className="brand-orbit">
-            ✦
-          </span>
-
-          <span className="brand-text">
-            ORION AI
+      <header className="topbar orion-topbar">
+        <button className="brand-button" onClick={startNewChat} type="button" aria-label="ORION AI Home">
+          <span className="brand-orbit">✦</span>
+          <span className="brand-copy">
+            <span className="brand-text">ORION AI</span>
+            <small>Intelligent Companion</small>
           </span>
         </button>
-
         <div className="top-actions">
+          {hasMessages && <span className={taskMode === "agent" ? "mode-pill agent" : "mode-pill"}>{taskMode === "agent" ? "⚡ Agent Mode" : activeTask.label}</span>}
           <OrionMemoryPanel memories={memories} onChange={setMemories} />
           {hasMessages && (
-            <button
-              className="top-button"
-              onClick={downloadChat}
-              type="button"
-              aria-label="Download chat"
-              title="Download chat"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v3h16v-3" />
-              </svg>
+            <button className="top-button" onClick={downloadChat} type="button" aria-label="Download chat" title="Download chat">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v3h16v-3" /></svg>
             </button>
           )}
-
-          {hasMessages && (
-            <button
-              className="new-chat-button"
-              onClick={startNewChat}
-              type="button"
-            >
-              + New chat
-            </button>
-          )}
+          <button className="new-chat-button" onClick={startNewChat} type="button">+ New chat</button>
         </div>
       </header>
 
@@ -913,9 +973,9 @@ function Home() {
         <section className="home-screen home-dashboard">
           <div className="dashboard-hero">
             <div className="hero-orbit"><span>✦</span></div>
-            <p className="namaste">🙏 NAMASTE, DHARM!</p>
+            <p className="namaste">🙏 Namaste, Dharm!</p>
             <h1>Your ideas, <span>in motion.</span></h1>
-            <p className="tagline">Ask anything, plan anything, build with ORION AI.</p>
+            <p className="tagline">Ask anything. Plan, create, learn and get work done with ORION AI.</p>
           </div>
 
           <form className="composer dashboard-composer" onSubmit={handleSubmit}>
@@ -941,7 +1001,7 @@ function Home() {
             <span className="online-pill"><i /> Ready</span>
           </div>
 
-          <div className="feature-grid">
+          <div className="feature-grid" id="orion-home-features">
             <button type="button" className="feature-tile tile-search" onClick={() => { setTaskMode("chat"); composerRef.current?.focus(); }}>
               <span className="tile-icon">⌕</span><strong>Ask anything</strong><small>Answers, ideas & explanations</small><span className="tile-arrow">↗</span>
             </button>
@@ -962,6 +1022,45 @@ function Home() {
             </button>
           </div>
 
+          <section className="home-quick-actions" id="orion-home-tools" aria-label="Quick actions">
+            <div className="home-section-title"><span>✦</span><strong>Quick Actions</strong></div>
+            <div className="quick-action-row">
+              <button type="button" onClick={() => runQuickAction("work", "Help me write and explain code for this task.")}><span>⌘</span> Code</button>
+              <button type="button" onClick={() => runQuickAction("agent", "Analyze this task carefully and report key findings.")}><span>▥</span> Analyze</button>
+              <button type="button" onClick={() => runQuickAction("work", "Create a clear step-by-step plan for my goal.")}><span>☷</span> Plan</button>
+              <button type="button" onClick={() => runQuickAction("agent", "Research this topic using available web search and cite sources.")}><span>◎</span> Research</button>
+            </div>
+          </section>
+
+          <section className="recent-chats" id="orion-recent-chats" aria-label="Recent chats">
+            <div className="home-section-title">
+              <span>◷</span><strong>Recent Chats</strong>
+            </div>
+            {chatSessions.length ? (
+              <div className="recent-chat-list">
+                {chatSessions.slice(0, 4).map((session) => (
+                  <button key={session.id} type="button" className="recent-chat-row" onClick={() => openChatSession(session)}>
+                    <span className="recent-chat-icon">▢</span>
+                    <span className="recent-chat-copy">
+                      <strong>{session.title || "Conversation"}</strong>
+                      <small>{session.mode === "agent" ? "Agent mode" : "Chat"} · {new Date(session.updatedAt || Date.now()).toLocaleDateString("en-IN")}</small>
+                    </span>
+                    <span className="recent-chat-arrow">›</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="recent-chat-empty">Your recent conversations will appear here.</p>
+            )}
+          </section>
+
+          <nav className="bottom-navigation" aria-label="Main navigation">
+            <button type="button" className="active" onClick={startNewChat}><span>⌂</span>Home</button>
+            <button type="button" onClick={() => document.getElementById("orion-home-features")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span>⌕</span>Explore</button>
+            <button type="button" onClick={() => document.getElementById("orion-home-tools")?.scrollIntoView({ behavior: "smooth", block: "center" })}><span>✧</span>Tools</button>
+            <button type="button" onClick={() => document.getElementById("orion-recent-chats")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span>◷</span>History</button>
+            <button type="button" onClick={() => document.querySelector('[aria-label="Manage ORION memory"]')?.click()}><span>▦</span>More</button>
+          </nav>
           <div className="dashboard-footer"><span><strong>Powered by Dharm AI</strong> · Created by Dharmraj jat</span></div>
         </section>
         ) : (
@@ -987,19 +1086,21 @@ function Home() {
                           : "message assistant-message"
                       }
                     >
-                      {message.role ===
-                        "assistant" && (
-                        <div className="assistant-avatar">
-                          ✦
-                        </div>
-                      )}
+                      {message.role === "assistant" && <div className="assistant-avatar">✦</div>}
 
-                      <div className="message-content">
+                      <div className={message.role === "assistant" ? "message-content assistant-card" : "message-content"}>
+                        {message.role === "assistant" && (
+                          <div className="assistant-message-heading">
+                            <strong>ORION AI</strong>
+                            {taskMode === "agent" && <span className="agent-live-pill">⚡ Agent Mode</span>}
+                          </div>
+                        )}
                         {taskMode === "agent" && message.activity?.length > 0 && (
                           <div className="activity-feed" aria-live="polite">
+                            <div className="activity-feed-heading"><span>◈</span> Live task progress</div>
                             {message.activity.map((item, index) => (
-                              <div className="activity-item" key={`${item.timestamp}-${index}`}>
-                                <span className={item.stage === "complete" ? "activity-mark complete" : "activity-mark"} />
+                              <div className="activity-item" key={`${item.timestamp || index}-${index}`}>
+                                <span className={item.stage === "complete" ? "activity-mark complete" : item.stage === "tool_error" || item.stage === "partial_recovery" ? "activity-mark warning" : "activity-mark"} />
                                 <span>{item.detail}</span>
                               </div>
                             ))}
@@ -1150,7 +1251,7 @@ function Home() {
               </div>
             )}
             <p className="composer-credit">
-              Powered by Dharm AI
+              Powered by Dharm AI · Created by Dharmraj jat
             </p>
           </section>
         )}
@@ -2166,6 +2267,106 @@ function Home() {
     .home-dashboard .dashboard-composer { bottom:calc(42px + env(safe-area-inset-bottom)); }
     .home-dashboard .dashboard-footer { bottom:calc(7px + env(safe-area-inset-bottom)); }
     .chat-screen { padding-bottom:calc(48px + env(safe-area-inset-bottom)); }
+  }
+
+
+  /* Approved ORION mobile-app reference layout */
+  .orion-app { min-height:100dvh;background:radial-gradient(ellipse at 12% 8%,rgba(126,91,255,.12),transparent 38%),radial-gradient(ellipse at 92% 78%,rgba(28,168,255,.11),transparent 40%),#f7faff; }
+  .orion-topbar { position:sticky;top:0;z-index:20;height:72px;padding:0 16px;background:rgba(250,252,255,.92);backdrop-filter:blur(18px); }
+  .brand-copy { display:flex;flex-direction:column;align-items:flex-start;gap:1px; }
+  .brand-copy small { color:#77869b;font-size:10px;letter-spacing:0; }
+  .brand-orbit { width:42px;height:42px;border:1px solid rgba(43,148,247,.28);background:linear-gradient(140deg,#dff3ff,#eee8ff);border-radius:50%;font-size:27px;color:#087eea;box-shadow:0 0 14px rgba(30,144,255,.35),0 0 27px rgba(133,91,237,.16); }
+  .brand-text { color:#15478c;text-shadow:0 0 14px rgba(41,143,231,.22); }
+  .mode-pill { padding:7px 10px;border:1px solid #dce8f5;border-radius:999px;background:#f6faff;color:#47729c;font-size:10px;font-weight:800;white-space:nowrap; }
+  .mode-pill.agent,.agent-live-pill { border-color:#c5ecd9;background:#effcf5;color:#138655;box-shadow:0 0 14px rgba(31,191,119,.1); }
+  .home-dashboard { width:min(1000px,calc(100% - 28px));padding:22px 0 calc(230px + env(safe-area-inset-bottom)); }
+  .home-dashboard .dashboard-hero { padding:8px 10px 13px;text-align:center; }
+  .home-dashboard .hero-orbit { width:66px;height:66px;margin-bottom:10px;border-radius:22px;box-shadow:0 0 0 7px rgba(40,145,245,.045),0 0 34px rgba(45,117,208,.21); }
+  .home-dashboard .hero-orbit span { font-size:37px; }
+  .home-dashboard .namaste { margin:8px 0 4px;color:#167dc9;font-size:11px;font-weight:850;letter-spacing:.14em; }
+  .home-dashboard .dashboard-hero h1 { margin:4px 0;font-size:clamp(29px,5vw,43px);letter-spacing:-.05em; }
+  .home-dashboard .dashboard-hero .tagline { max-width:520px;margin:7px auto 0;color:#62758c;font-size:12px;line-height:1.5; }
+  .home-dashboard .dashboard-section-heading { margin:18px 2px 10px; }
+  .home-dashboard .dashboard-section-heading h2 { font-size:17px; }
+  .home-dashboard .online-pill { box-shadow:0 0 14px rgba(45,194,120,.12); }
+  .home-dashboard .feature-grid { grid-template-columns:repeat(2,minmax(0,1fr));gap:10px; }
+  .home-dashboard .feature-tile { min-height:105px;padding:12px;gap:5px;border-radius:17px;border-color:rgba(166,197,229,.55);background:rgba(255,255,255,.9);box-shadow:0 7px 22px rgba(31,106,180,.07),0 0 14px rgba(80,139,234,.045); }
+  .home-dashboard .tile-icon { width:34px;height:34px;border-radius:12px;box-shadow:0 0 14px currentColor;filter:saturate(1.08); }
+  .home-dashboard .feature-tile strong { color:#19385d;font-size:12px; }
+  .home-dashboard .feature-tile small { font-size:9px; }
+  .home-dashboard .tile-arrow { right:12px;top:12px; }
+  .home-quick-actions,.recent-chats { margin:14px 0 0;padding:13px 14px;border:1px solid rgba(177,201,228,.55);border-radius:19px;background:rgba(255,255,255,.78);box-shadow:0 7px 24px rgba(32,108,174,.055); }
+  .home-section-title { display:flex;align-items:center;gap:8px;margin-bottom:10px;color:#173d68;font-size:13px; }
+  .home-section-title > span { color:#258ce4;font-size:17px;text-shadow:0 0 12px rgba(38,145,230,.3); }
+  .home-section-title button { margin-left:auto;border:0;background:transparent;color:#167bc9;font-size:10px;font-weight:750; }
+  .quick-action-row { display:flex;flex-wrap:wrap;gap:7px; }
+  .quick-action-row button { display:inline-flex;align-items:center;gap:6px;padding:8px 11px;border:1px solid #dce8f7;border-radius:999px;background:#fff;color:#526780;font-size:11px;font-weight:700;box-shadow:0 3px 12px rgba(48,120,191,.06); }
+  .quick-action-row button span { color:#1f8ad9;font-size:13px; }
+  .quick-action-row button:active,.recent-chat-row:active { transform:scale(.985); }
+  .recent-chat-list { display:flex;flex-direction:column;gap:7px; }
+  .recent-chat-row { display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border:1px solid #e0eaf6;border-radius:14px;background:rgba(255,255,255,.94);text-align:left; }
+  .recent-chat-icon { width:30px;height:30px;flex:0 0 30px;display:grid;place-items:center;border-radius:10px;background:#edf5ff;color:#287fd2;font-size:17px; }
+  .recent-chat-copy { min-width:0;display:flex;flex:1;flex-direction:column;gap:3px; }
+  .recent-chat-copy strong { overflow:hidden;color:#243e5c;font-size:11px;text-overflow:ellipsis;white-space:nowrap; }
+  .recent-chat-copy small { color:#91a0b1;font-size:9px; }
+  .recent-chat-arrow { color:#7b9cbd;font-size:19px; }
+  .recent-chat-empty { margin:0;padding:8px 0;color:#8b9caf;font-size:11px; }
+  .bottom-navigation { position:fixed;z-index:31;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(5,1fr);padding:7px 8px calc(7px + env(safe-area-inset-bottom));border-top:1px solid rgba(187,207,229,.65);background:rgba(250,252,255,.95);backdrop-filter:blur(18px); }
+  .bottom-navigation button { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:0;padding:3px 0;border:0;border-radius:12px;background:transparent;color:#71839a;font-size:9px;font-weight:650; }
+  .bottom-navigation button span { font-size:19px;line-height:1.1; }
+  .bottom-navigation button.active { color:#087bd3;background:linear-gradient(135deg,#e7f5ff,#f0edff); }
+  .home-dashboard .dashboard-composer { position:fixed;z-index:32;left:50%;bottom:calc(82px + env(safe-area-inset-bottom));transform:translateX(-50%);width:min(760px,calc(100% - 28px));margin:0;border:1px solid #cde4f8;border-radius:24px;background:rgba(255,255,255,.97);box-shadow:0 9px 32px rgba(24,112,186,.15),0 0 0 5px rgba(62,153,229,.045); }
+  .home-dashboard .dashboard-footer { position:fixed;z-index:32;left:0;right:0;bottom:calc(57px + env(safe-area-inset-bottom));justify-content:center;margin:0;padding:0 8px;border:0;background:transparent;text-align:center; }
+  .home-dashboard .dashboard-footer span { color:#607d9d;font-size:10px;white-space:nowrap; }
+  .home-dashboard .dashboard-footer strong { color:#166fb2; }
+  .assistant-message { align-items:flex-start; }
+  .assistant-message .assistant-avatar { width:34px;height:34px;flex:0 0 34px;border:1px solid rgba(80,151,239,.28);background:linear-gradient(135deg,#e4f5ff,#f0eaff);box-shadow:0 0 16px rgba(69,144,240,.22),0 0 24px rgba(144,91,235,.12); }
+  .assistant-message .assistant-card { max-width:min(740px,calc(100% - 44px));padding:13px 15px;border:1px solid rgba(145,115,230,.26);border-radius:19px;background:linear-gradient(145deg,rgba(255,255,255,.98),rgba(247,244,255,.97));box-shadow:0 7px 25px rgba(113,80,205,.10),0 0 18px rgba(133,101,235,.07); }
+  .assistant-message-heading { display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 10px;color:#1b4d8b;font-size:12px; }
+  .assistant-message-heading strong { letter-spacing:.02em; }
+  .agent-live-pill { padding:5px 8px;border:1px solid;border-radius:999px;font-size:9px;white-space:nowrap; }
+  .user-message .message-content { max-width:min(560px,88%);border:1px solid rgba(42,139,235,.32);border-radius:20px 20px 6px 20px;background:linear-gradient(135deg,rgba(231,244,255,.98),rgba(239,237,255,.96));box-shadow:0 5px 22px rgba(36,130,225,.12); }
+  .activity-feed { padding:12px 13px;margin:0 0 12px;border:1px solid rgba(58,167,207,.32);border-radius:16px;background:linear-gradient(110deg,#f0fbff,#f7f2ff);box-shadow:0 0 18px rgba(35,167,210,.08); }
+  .activity-feed-heading { display:flex;align-items:center;gap:7px;margin-bottom:9px;color:#176fa7;font-size:11px;font-weight:850;letter-spacing:.02em; }
+  .activity-feed-heading span { color:#8259dc;font-size:15px; }
+  .activity-item { padding:4px 0;gap:9px;color:#596e84;font-size:11px;line-height:1.5; }
+  .activity-mark.warning { background:#e6a13b;box-shadow:0 0 8px rgba(230,161,59,.25); }
+  .message-content { overflow-wrap:anywhere; }
+  .message-content p { line-height:1.65; }
+  .chat-screen { height:calc(100dvh - 72px);padding-bottom:calc(8px + env(safe-area-inset-bottom)); }
+  .chat-screen .composer-credit { margin:8px 0 0;padding-bottom:2px;color:#6f86a0;font-size:10px; }
+  .chat-search-actions { margin-top:7px; }
+  @media(max-width:700px) {
+    .orion-topbar { height:68px;padding:0 10px; }
+    .brand-orbit { width:36px;height:36px;font-size:24px; }
+    .brand-text { font-size:14px; }
+    .brand-copy small { font-size:8px; }
+    .top-actions { gap:5px; }
+    .top-button { width:34px;height:34px; }
+    .new-chat-button { padding:8px 9px;font-size:10px; }
+    .mode-pill { display:none; }
+    .home-dashboard { width:calc(100% - 24px);padding:15px 0 calc(225px + env(safe-area-inset-bottom)); }
+    .home-dashboard .dashboard-hero { padding-bottom:8px; }
+    .home-dashboard .hero-orbit { width:58px;height:58px; }
+    .home-dashboard .dashboard-hero h1 { font-size:30px; }
+    .home-dashboard .dashboard-hero .tagline { font-size:11px; }
+    .home-dashboard .dashboard-section-heading { margin:13px 2px 8px; }
+    .home-dashboard .feature-tile { min-height:98px;padding:10px; }
+    .home-quick-actions,.recent-chats { margin-top:11px;padding:11px 12px; }
+    .home-dashboard .dashboard-composer { bottom:calc(82px + env(safe-area-inset-bottom)); }
+    .home-dashboard .dashboard-footer { bottom:calc(57px + env(safe-area-inset-bottom)); }
+    .bottom-navigation { min-height:54px; }
+    .chat-screen { width:calc(100% - 14px);height:calc(100dvh - 68px);padding-top:10px; }
+    .assistant-message .assistant-card { padding:11px 12px; }
+    .assistant-message .message-content { font-size:14px; }
+    .user-message .message-content { font-size:14px; }
+  }
+  @media(max-width:380px) {
+    .home-dashboard .dashboard-hero h1 { font-size:27px; }
+    .home-dashboard .feature-grid { gap:7px; }
+    .home-dashboard .feature-tile small { font-size:8px; }
+    .new-chat-button { font-size:9px;padding:7px 8px; }
+    .home-dashboard .dashboard-footer span { font-size:9px; }
   }
 
 
