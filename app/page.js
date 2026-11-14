@@ -5,6 +5,7 @@ import { normalizeMemories } from "../lib/orion-memory.mjs";
 import { extractSources } from "../lib/orion-sources.mjs";
 import { escapeHtml } from "../lib/orion-html.mjs";
 import { formatChatTranscript } from "../lib/orion-export.mjs";
+import { mergeRecognizedSegments } from "../lib/orion-voice.mjs";
 
 import {
   useCallback,
@@ -216,6 +217,7 @@ function Home() {
   const composerRef = useRef(null);
   const abortRef = useRef(null);
   const recognitionRef = useRef(null);
+  const voiceInputBaseRef = useRef("");
 
   const shouldFollowRef = useRef(true);
 
@@ -848,57 +850,51 @@ function Home() {
   }, []);
 
   const startVoice = useCallback(() => {
-    if (loading) return;
+    if (loading || typeof window === "undefined") return;
 
-    if (typeof window === "undefined") return;
-
-    const SpeechRecognition =
-      window.SpeechRecognition ||
-      window.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      setError("इस ब्राउज़र में Voice Typing उपलब्ध नहीं है। ORION AI को Android Chrome में खोलकर Microphone permission Allow करें।");
-      return;
-    }
-
-    if (listening) {
-      try {
-        recognitionRef.current?.stop();
-      } catch (stopError) {
+    // Ref guard prevents two SpeechRecognition instances from starting
+    // during fast taps before React has rendered the listening state.
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch (stopError) {
         console.warn("ORION voice stop failed:", stopError);
       }
       setListening(false);
       return;
     }
 
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setError("इस ब्राउज़र में Voice Typing उपलब्ध नहीं है। ORION AI को Android Chrome में खोलें और Microphone permission Allow करें।");
+      return;
+    }
+
     setError("");
-    let recognition;
     try {
-      recognition = new SpeechRecognition();
+      const recognition = new SpeechRecognition();
       recognition.lang = "hi-IN";
       recognition.continuous = false;
       recognition.interimResults = true;
       recognition.maxAlternatives = 1;
+      voiceInputBaseRef.current = input.trim();
 
       recognition.onstart = () => {
         setListening(true);
         setError("");
       };
 
-      // Use only finalized segments. Android Chrome can revise interim
-      // hypotheses repeatedly, which must never be appended to the input.
-      const inputBeforeVoice = input;
       recognition.onresult = (event) => {
+        // Rebuild the complete finalized transcript from the current result
+        // list; collapse overlapping/cumulative Hindi hypotheses.
         const finalParts = [];
         for (let i = 0; i < event.results.length; i += 1) {
           const result = event.results[i];
           if (!result?.isFinal) continue;
-          const text = result?.[0]?.transcript?.trim();
-          if (text) finalParts.push(text);
+          const transcript = result?.[0]?.transcript?.trim();
+          if (transcript) finalParts.push(transcript);
         }
 
-        const recognizedText = finalParts.join(" ").replace(/\\s+/g, " ").trim();
-        const base = inputBeforeVoice.trim();
+        const recognizedText = mergeRecognizedSegments(finalParts);
+        const base = voiceInputBaseRef.current;
         if (recognizedText) {
           setInput(base ? `${base} ${recognizedText}` : recognizedText);
         }
@@ -907,11 +903,11 @@ function Home() {
       recognition.onerror = (event) => {
         const messages = {
           "not-allowed": "Microphone permission Block है। Android Settings → Apps → Chrome → Permissions → Microphone को Allow करें, फिर पेज Reload करें।",
-          "service-not-allowed": "Voice recognition service को अनुमति नहीं मिली। Chrome में Microphone permission Allow करके दोबारा कोशिश करें।",
-          "audio-capture": "फोन का Microphone उपलब्ध नहीं है। Microphone access और दूसरे ऐप में उसका उपयोग जाँचें।",
+          "service-not-allowed": "Voice recognition service को अनुमति नहीं मिली। Chrome की Microphone permission Allow करें।",
+          "audio-capture": "फोन का Microphone उपलब्ध नहीं है। Microphone access जाँचें।",
           "no-speech": "आवाज़ सुनाई नहीं दी। Mic दबाकर साफ़ और पास से बोलें।",
-          "network": "Voice recognition के लिए Internet connection उपलब्ध नहीं है। Network जाँचकर फिर कोशिश करें।",
-          "language-not-supported": "Hindi voice recognition इस browser में उपलब्ध नहीं है।",
+          "network": "Voice recognition के लिए Internet connection उपलब्ध नहीं है।",
+          "language-not-supported": "इस browser में Hindi voice recognition उपलब्ध नहीं है।",
           "aborted": "",
         };
         setListening(false);
@@ -921,7 +917,7 @@ function Home() {
 
       recognition.onend = () => {
         setListening(false);
-        recognitionRef.current = null;
+        if (recognitionRef.current === recognition) recognitionRef.current = null;
       };
 
       recognitionRef.current = recognition;
@@ -933,7 +929,7 @@ function Home() {
         ? "Microphone permission नहीं मिली। Chrome की Site settings में Microphone को Allow करें और Reload करें।"
         : `Voice input शुरू नहीं हो पाया: ${voiceError?.message || "कृपया दोबारा कोशिश करें"}`);
     }
-  }, [loading, listening, input]);
+  }, [loading, input]);
   const speakText = useCallback((text) => {
     if (
       typeof window === "undefined" ||
