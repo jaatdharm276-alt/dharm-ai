@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildTavilySearchRequest, normalizeTavilySearchResults } from "../lib/orion-search.mjs";
+import { buildTavilySearchRequest, normalizeTavilySearchResults, normalizeBingRssResults } from "../lib/orion-search.mjs";
 
 test("builds a free keyless Tavily request without credentials", () => {
   const request = buildTavilySearchRequest({ query: " latest AI news " });
@@ -43,8 +43,6 @@ test("normalizes only safe HTTP(S) sources and respects the result limit", () =>
 });
 
 
-import { normalizeBingRssResults } from "../lib/orion-search.mjs";
-
 test("normalizes safe Bing RSS results and decodes XML entities", () => {
   const xml = `<rss><channel><item><title>India &amp; Government</title><link>https://www.india.gov.in/</link><description><![CDATA[Official portal &amp; services]]></description></item><item><title>Unsafe</title><link>javascript:alert(1)</link><description>bad</description></item></channel></rss>`;
   const output = normalizeBingRssResults(xml, { limit: 3 });
@@ -52,7 +50,7 @@ test("normalizes safe Bing RSS results and decodes XML entities", () => {
   assert.equal(output.results.length, 1);
   assert.equal(output.results[0].title, "India & Government");
   assert.equal(output.results[0].url, "https://www.india.gov.in/");
-  assert.equal(output.results[0].content, "Official portal &amp; services");
+  assert.equal(output.results[0].content, "Official portal & services");
 });
 
 test("Bing RSS parser returns no results for malformed or empty XML", () => {
