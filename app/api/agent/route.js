@@ -178,7 +178,7 @@ async function searchWeb(query, signal) {
 
 async function callModel(messages, options = {}, signal) {
   const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) throw new Error("GROQ_API_KEY is not configured.");
+  if (!apiKey) { const error = new Error("GROQ_API_KEY is not configured."); error.code = "GROQ_KEY_MISSING"; throw error; }
 
   const response = await fetchWithRetry(GROQ_API_URL, {
     method: "POST",
@@ -201,12 +201,12 @@ async function callModel(messages, options = {}, signal) {
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
     console.error("ORION agent provider error:", response.status, detail.slice(0, 1200));
-    throw new Error("The AI provider could not complete the agent step.");
+    const error = new Error("The AI provider could not complete the agent step.");\n    error.code = response.status === 401 || response.status === 403 ? "GROQ_AUTH_REJECTED" : response.status === 429 ? "GROQ_RATE_LIMITED" : response.status >= 500 ? "GROQ_PROVIDER_UNAVAILABLE" : "GROQ_PROVIDER_HTTP_ERROR";\n    error.providerStatus = response.status;\n    throw error;
   }
 
   const data = await response.json();
   const message = data?.choices?.[0]?.message;
-  if (!message) throw new Error("The AI provider returned an empty agent response.");
+  if (!message) const error = new Error("The AI provider returned an empty agent response."); error.code = "GROQ_EMPTY_RESPONSE"; throw error;
   return message;
 }
 
@@ -395,7 +395,7 @@ function runAgent(body, signal) {
     } catch (error) {
       if (error?.name === "AbortError" || signal?.aborted) throw error;
       console.error("ORION planner unavailable; continuing without plan:", error);
-      emitStatus("planning_fallback", "Planner उपलब्ध नहीं है — उपलब्ध काम सुरक्षित रूप से जारी है");
+      emitStatus("planning_fallback", `Planner उपलब्ध नहीं है (${error.code || error.name || "unknown"}) — उपलब्ध काम सुरक्षित रूप से जारी है`);
     }
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
@@ -411,7 +411,7 @@ function runAgent(body, signal) {
         if (error?.name === "AbortError" || signal?.aborted) throw error;
         console.error("ORION reasoning step unavailable:", error);
         const recovery = buildPartialRecoveryAnswer({ draft: lastDraft, toolResults: collectedToolResults, failureStage: "reasoning" });
-        emitStatus("partial_recovery", "AI का अगला चरण उपलब्ध नहीं है — अब तक के परिणाम सुरक्षित रखे हैं");
+        emitStatus("partial_recovery", `AI का अगला चरण उपलब्ध नहीं है (${error.code || error.name || "unknown"}) — अब तक के परिणाम सुरक्षित रखे हैं`);
         emitText(recovery);
         return;
       }
