@@ -199,6 +199,27 @@ function getAgentProgress(activity = [], complete = false) {
   return Math.max(4, ...activity.map((item) => progressByStage[item.stage] || 0));
 }
 
+function getAgentStageRows(activity = [], complete = false) {
+  const stages = [
+    { key: "understanding", label: "Understanding request", later: ["planning", "planning_done", "planning_fallback", "reasoning", "tool", "verification"] },
+    { key: "planning_done", label: "Planning & task steps", later: ["reasoning", "tool", "verification"] },
+    { key: "tool", label: "Tool execution", later: ["verification"] },
+    { key: "verification", label: "Verification", later: [] },
+  ];
+  const latest = activity[activity.length - 1]?.stage;
+  return stages.map((stage) => {
+    const seen = activity.some((item) => item.stage === stage.key || (stage.key === "planning_done" && item.stage === "planning_fallback"));
+    const done = complete || seen || activity.some((item) => stage.later.includes(item.stage));
+    const active = !done && (
+      (stage.key === "understanding" && latest === "understanding") ||
+      (stage.key === "planning_done" && latest === "planning") ||
+      (stage.key === "tool" && ["planning_done", "planning_fallback", "reasoning", "tool"].includes(latest)) ||
+      (stage.key === "verification" && latest === "verification")
+    );
+    return { ...stage, done, active };
+  });
+}
+
 function Home() {
   const [messages, setMessages] = useState([]);
   const [historyReady, setHistoryReady] = useState(false);
@@ -1117,18 +1138,13 @@ function Home() {
                             <div className="activity-feed-heading"><span>◈</span><strong>Analysis Progress</strong><b>{getAgentProgress(message.activity, Boolean(message.content && !loading))}%</b></div>
                             <div className="agent-progress-track"><span style={{ width: `${getAgentProgress(message.activity, Boolean(message.content && !loading))}%` }} /></div>
                             <div className="agent-stage-list">
-                              {[
-                                ["understanding", "Understanding request"],
-                                ["planning_done", "Planning & task steps"],
-                                ["tool", "Tool execution"],
-                                ["verification", "Verification"],
-                              ].map(([stage, label]) => {
-                                const seen = message.activity.some((item) => item.stage === stage || (stage === "planning_done" && item.stage === "planning_fallback"));
-                                const later = message.activity.some((item) => ({understanding: ["planning","planning_done","planning_fallback","reasoning","tool","verification"], planning_done: ["reasoning","tool","verification"], tool: ["verification"], verification: []}[stage] || []).includes(item.stage));
-                                const done = seen || later || Boolean(message.content && !loading);
-                                const active = !done && message.activity.length > 0 && stage === (message.activity[message.activity.length - 1]?.stage === "understanding" ? "understanding" : message.activity[message.activity.length - 1]?.stage === "planning" ? "planning_done" : message.activity[message.activity.length - 1]?.stage === "reasoning" ? "tool" : "verification");
-                                return <div className="agent-stage-row" key={stage}><span className={done ? "agent-stage-check done" : active ? "agent-stage-check active" : "agent-stage-check"}>{done ? "✓" : active ? "◌" : ""}</span><span>{label}</span><strong>{done ? "Done" : active ? "In progress" : "Waiting"}</strong></div>;
-                              })}
+                              {getAgentStageRows(message.activity, Boolean(message.content && !loading)).map((stage) => (
+                                <div className="agent-stage-row" key={stage.key}>
+                                  <span className={stage.done ? "agent-stage-check done" : stage.active ? "agent-stage-check active" : "agent-stage-check"}>{stage.done ? "✓" : stage.active ? "◌" : ""}</span>
+                                  <span>{stage.label}</span>
+                                  <strong>{stage.done ? "Done" : stage.active ? "In progress" : "Waiting"}</strong>
+                                </div>
+                              ))}
                             </div>
                             <div className="agent-activity-log">
                               {message.activity.slice(-5).map((item, index) => <div className="activity-item" key={`${item.timestamp || index}-${index}`}><span className={item.stage === "tool_error" || item.stage === "partial_recovery" || item.stage === "planning_fallback" ? "activity-mark warning" : "activity-mark"} /><span>{item.detail}</span></div>)}
