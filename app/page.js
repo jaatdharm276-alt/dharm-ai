@@ -219,6 +219,7 @@ function Home() {
 
   const [searchQuery, setSearchQuery] =
     useState("");
+  const [composerToolsOpen, setComposerToolsOpen] = useState(false);
 
   const messagesRef = useRef(null);
   const composerRef = useRef(null);
@@ -963,6 +964,7 @@ function Home() {
       <div className="orion-glow glow-two" />
 
       <header className="topbar orion-topbar">
+        {hasMessages && <button className="back-home-button" onClick={startNewChat} type="button" aria-label="Back to home">‹</button>}
         <button className="brand-button" onClick={startNewChat} type="button" aria-label="ORION AI Home">
           <span className="brand-orbit">✦</span>
           <span className="brand-copy">
@@ -1105,7 +1107,9 @@ function Home() {
                         {message.role === "assistant" && (
                           <div className="assistant-message-heading">
                             <strong>ORION AI</strong>
-                            {taskMode === "agent" && <span className="agent-live-pill">⚡ Agent Mode</span>}
+                            {loading && message.id === messages[messages.length - 1]?.id
+                              ? <span className="agent-live-pill thinking-pill">◌ Thinking…</span>
+                              : taskMode === "agent" ? <span className="agent-live-pill">⚡ Agent Mode</span> : null}
                           </div>
                         )}
                         {taskMode === "agent" && message.activity?.length > 0 && (
@@ -1203,10 +1207,20 @@ function Home() {
                 />
               </div>
             )}
+            {composerToolsOpen && (
+              <div className="composer-tools-panel" role="group" aria-label="Choose response mode">
+                {TASK_MODES.map((mode) => (
+                  <button key={mode.id} type="button" className={taskMode === mode.id ? "active" : ""} onClick={() => { setTaskMode(mode.id); setComposerToolsOpen(false); }}>
+                    <span>{mode.icon}</span>{mode.label}
+                  </button>
+                ))}
+              </div>
+            )}
             <form
               className="composer chat-composer"
               onSubmit={handleSubmit}
             >
+              <button type="button" className="composer-plus-button" aria-label="Choose mode" aria-expanded={composerToolsOpen} onClick={() => setComposerToolsOpen((open) => !open)}>+</button>
               <textarea
                 ref={composerRef}
                 value={input}
@@ -2294,6 +2308,16 @@ function Home() {
     .chat-screen { padding-bottom:calc(48px + env(safe-area-inset-bottom)); }
   }
 
+
+  .back-home-button { width:30px;height:34px;flex:0 0 30px;border:0;border-radius:10px;background:transparent;color:#235a91;font-size:31px;line-height:1; }
+  .composer-tools-panel { display:flex;flex-wrap:wrap;gap:7px;width:min(760px,100%);margin:0 auto 8px;padding:9px;border:1px solid #dce8f7;border-radius:15px;background:rgba(255,255,255,.96);box-shadow:0 7px 20px rgba(42,102,165,.09); }
+  .composer-tools-panel button { display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid #e2ebf7;border-radius:999px;background:#fff;color:#5f748d;font-size:11px; }
+  .composer-tools-panel button.active { border-color:#a7cff2;background:#eef7ff;color:#176eb9;box-shadow:0 0 12px rgba(43,142,223,.12); }
+  .composer-plus-button { width:36px;height:36px;flex:0 0 36px;border:1px solid #dce8f7;border-radius:50%;background:linear-gradient(135deg,#eef8ff,#f5f0ff);color:#187bc8;font-size:22px;line-height:1; }
+  .thinking-pill { border-color:#c9dfff;background:#f1f8ff;color:#287cc5; }
+  @media(max-width:700px) {
+    .back-home-button { width:24px;flex-basis:24px;font-size:27px; }
+  }
 
   /* Approved ORION mobile-app reference layout */
   .orion-app { min-height:100dvh;background:radial-gradient(ellipse at 12% 8%,rgba(126,91,255,.12),transparent 38%),radial-gradient(ellipse at 92% 78%,rgba(28,168,255,.11),transparent 40%),#f7faff; }
