@@ -1005,7 +1005,7 @@ function Home() {
             <button type="button" className="feature-tile tile-search" onClick={() => { setTaskMode("chat"); composerRef.current?.focus(); }}>
               <span className="tile-icon">⌕</span><strong>Ask anything</strong><small>Answers, ideas & explanations</small><span className="tile-arrow">↗</span>
             </button>
-            <button type="button" className="feature-tile tile-agent" onClick={() => { setTaskMode("agent"); handleHomeAction({prompt:"Help me plan and execute a useful task step by step."}); }}>
+            <button type="button" className="feature-tile tile-agent" onClick={() => { setTaskMode("agent"); composerRef.current?.focus(); }}>
               <span className="tile-icon">✧</span><strong>Agent mode</strong><small>Plan, tools & task execution</small><span className="tile-arrow">↗</span>
             </button>
             <button type="button" className="feature-tile tile-memory" onClick={() => document.querySelector('[aria-label="Manage ORION memory"]')?.click()}>
@@ -2315,8 +2315,8 @@ function Home() {
   .bottom-navigation button { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:0;padding:3px 0;border:0;border-radius:12px;background:transparent;color:#71839a;font-size:9px;font-weight:650; }
   .bottom-navigation button span { font-size:19px;line-height:1.1; }
   .bottom-navigation button.active { color:#087bd3;background:linear-gradient(135deg,#e7f5ff,#f0edff); }
-  .home-dashboard .dashboard-composer { position:fixed;z-index:32;left:50%;bottom:calc(82px + env(safe-area-inset-bottom));transform:translateX(-50%);width:min(760px,calc(100% - 28px));margin:0;border:1px solid #cde4f8;border-radius:24px;background:rgba(255,255,255,.97);box-shadow:0 9px 32px rgba(24,112,186,.15),0 0 0 5px rgba(62,153,229,.045); }
-  .home-dashboard .dashboard-footer { position:fixed;z-index:32;left:0;right:0;bottom:calc(57px + env(safe-area-inset-bottom));justify-content:center;margin:0;padding:0 8px;border:0;background:transparent;text-align:center; }
+  .home-dashboard .dashboard-composer { position:fixed;z-index:32;left:50%;bottom:calc(93px + env(safe-area-inset-bottom));transform:translateX(-50%);width:min(760px,calc(100% - 28px));margin:0;border:1px solid #cde4f8;border-radius:24px;background:rgba(255,255,255,.97);box-shadow:0 9px 32px rgba(24,112,186,.15),0 0 0 5px rgba(62,153,229,.045); }
+  .home-dashboard .dashboard-footer { position:fixed;z-index:32;left:0;right:0;bottom:calc(70px + env(safe-area-inset-bottom));justify-content:center;margin:0;padding:0 8px;border:0;background:transparent;text-align:center; }
   .home-dashboard .dashboard-footer span { color:#607d9d;font-size:10px;white-space:nowrap; }
   .home-dashboard .dashboard-footer strong { color:#166fb2; }
   .assistant-message { align-items:flex-start; }
@@ -2344,7 +2344,7 @@ function Home() {
     .top-actions { gap:5px; }
     .top-button { width:34px;height:34px; }
     .new-chat-button { padding:8px 9px;font-size:10px; }
-    .mode-pill { display:none; }
+    .mode-pill { display:inline-flex;max-width:88px;overflow:hidden;padding:5px 7px;font-size:8px;text-overflow:ellipsis; }
     .home-dashboard { width:calc(100% - 24px);padding:15px 0 calc(225px + env(safe-area-inset-bottom)); }
     .home-dashboard .dashboard-hero { padding-bottom:8px; }
     .home-dashboard .hero-orbit { width:58px;height:58px; }
@@ -2353,8 +2353,8 @@ function Home() {
     .home-dashboard .dashboard-section-heading { margin:13px 2px 8px; }
     .home-dashboard .feature-tile { min-height:98px;padding:10px; }
     .home-quick-actions,.recent-chats { margin-top:11px;padding:11px 12px; }
-    .home-dashboard .dashboard-composer { bottom:calc(82px + env(safe-area-inset-bottom)); }
-    .home-dashboard .dashboard-footer { bottom:calc(57px + env(safe-area-inset-bottom)); }
+    .home-dashboard .dashboard-composer { bottom:calc(93px + env(safe-area-inset-bottom)); }
+    .home-dashboard .dashboard-footer { bottom:calc(70px + env(safe-area-inset-bottom)); }
     .bottom-navigation { min-height:54px; }
     .chat-screen { width:calc(100% - 14px);height:calc(100dvh - 68px);padding-top:10px; }
     .assistant-message .assistant-card { padding:11px 12px; }
