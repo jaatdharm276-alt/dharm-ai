@@ -184,6 +184,12 @@ function formatMessage(content) {
   if (inCode && codeLines.length) output.push('<div class="response-code-card"><div class="response-code-label">CODE</div><pre><code>' + escapeHtml(codeLines.join("\n")) + '</code></pre></div>');
   return output.join("");
 }
+function getAgentProgress(activity = [], complete = false) {
+  if (complete) return 100;
+  const progress = { understanding: 10, planning: 22, planning_done: 35, planning_fallback: 35, reasoning: 48, tool: 68, verification: 90, partial_recovery: 90 };
+  return Math.max(4, ...activity.map((item) => progress[item.stage] || 0));
+}
+
 function Home() {
   const [messages, setMessages] = useState([]);
   const [historyReady, setHistoryReady] = useState(false);
@@ -1100,14 +1106,21 @@ function Home() {
                           </div>
                         )}
                         {taskMode === "agent" && message.activity?.length > 0 && (
-                          <div className="activity-feed" aria-live="polite">
-                            <div className="activity-feed-heading"><span>◈</span> Live task progress</div>
-                            {message.activity.slice(-8).map((item, index) => (
-                              <div className="activity-item" key={`${item.timestamp || index}-${index}`}>
-                                <span className={item.stage === "tool_error" || item.stage === "partial_recovery" || item.stage === "planning_fallback" ? "activity-mark warning" : "activity-mark"} />
-                                <span>{item.detail}</span>
-                              </div>
-                            ))}
+                          <div className="activity-feed agent-progress-card" aria-live="polite">
+                            <div className="activity-feed-heading"><span>▥</span><strong>Analysis Progress</strong><b>{getAgentProgress(message.activity, Boolean(message.content && !loading))}%</b></div>
+                            <div className="agent-progress-track"><span style={{ width: getAgentProgress(message.activity, Boolean(message.content && !loading)) + "%" }} /></div>
+                            <div className="agent-stage-row"><span>✓</span><span>Understanding request</span><strong>{message.activity.length > 1 ? "Done" : "In progress"}</strong></div>
+                            <div className="agent-stage-row"><span>◈</span><span>Planning & task steps</span><strong>{message.activity.some((item) => ["planning_done","planning_fallback","reasoning","tool","verification"].includes(item.stage)) ? "Done" : "Working"}</strong></div>
+                            <div className="agent-stage-row"><span>◌</span><span>Tool execution</span><strong>{message.activity.some((item) => ["tool","verification"].includes(item.stage)) ? "Started" : "Waiting"}</strong></div>
+                            <div className="agent-stage-row"><span>○</span><span>Verification</span><strong>{message.activity.some((item) => item.stage === "verification") ? "Done" : "Waiting"}</strong></div>
+                            <div className="agent-activity-log">
+                              {message.activity.slice(-5).map((item, index) => (
+                                <div className="activity-item" key={`${item.timestamp || index}-${index}`}>
+                                  <span className={item.stage === "tool_error" || item.stage === "partial_recovery" || item.stage === "planning_fallback" ? "activity-mark warning" : "activity-mark"} />
+                                  <span>{item.detail}</span>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
                         {message.content ? (
@@ -2396,6 +2409,16 @@ const styles = `
   }
 
 
+
+  .agent-progress-card{padding:12px 13px;border:1px solid rgba(58,167,207,.32);border-radius:16px;background:linear-gradient(110deg,#effbff,#f4f0ff);box-shadow:0 0 18px rgba(35,167,210,.08)}
+  .agent-progress-card .activity-feed-heading{display:flex;align-items:center;gap:8px;color:#143d79;font-size:12px}
+  .agent-progress-card .activity-feed-heading b{margin-left:auto;color:#713ed0;font-size:14px}
+  .agent-progress-track{height:9px;margin:10px 0;border-radius:999px;background:#e6def8;overflow:hidden}
+  .agent-progress-track span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#7652e8,#168fe7,#19b9cf);box-shadow:0 0 12px rgba(28,147,226,.35);transition:width .3s ease}
+  .agent-progress-card .agent-stage-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid rgba(142,164,197,.2);color:#435a75;font-size:10px}
+  .agent-progress-card .agent-stage-row strong{margin-left:auto;color:#6d819a;font-size:9px}
+  .agent-activity-log{margin-top:6px;padding-top:5px;border-top:1px solid rgba(142,164,197,.22)}
+  .agent-activity-log .activity-item{font-size:10px}
 
 
 `;
