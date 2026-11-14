@@ -11,6 +11,7 @@ import { buildPartialRecoveryAnswer } from "../../../lib/orion-agent-recovery.mj
 import { createRateLimiter, getClientIdentifier } from "../../../lib/orion-rate-limit.mjs";
 import { getCreatorAnswer } from "../../../lib/orion-identity.mjs";
 import { validateAgentToolArgs, summarizeToolResult } from "../../../lib/orion-agent-guardrails.mjs";
+import { getAvailableAgentTools } from "../../../lib/orion-agent-tools.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -497,7 +498,7 @@ function runAgent(body, signal) {
       let assistant;
       try {
         assistant = await callModel(messages, {
-          tools: TOOL_DEFINITIONS,
+          tools: getAvailableAgentTools(TOOL_DEFINITIONS, context),
           temperature: 0.25,
           max_tokens: 3500,
         }, signal);
