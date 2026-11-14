@@ -2678,11 +2678,43 @@ const styles = `
   .source-result-card{border:1px solid #d7e7f7;border-radius:12px;background:#fff}
   @media(max-width:700px){.feature-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.home-dashboard .feature-tile{min-height:94px;padding:9px 7px;align-items:center;text-align:center}.home-dashboard .feature-tile strong{font-size:11px}.home-dashboard .feature-tile small{font-size:8px;line-height:1.25}.home-dashboard .tile-arrow{display:none}.history-drawer{width:min(340px,88vw)}.orion-topbar .brand-copy small{display:none}.orion-topbar .top-actions{gap:4px}.orion-topbar .new-chat-button{padding:7px 8px;font-size:10px}.chat-screen{padding-bottom:12px}}
 
-  @media(max-width:700px){.history-toggle{width:32px;height:32px;flex-basis:32px}.orion-topbar{gap:5px}.home-dashboard .feature-tile{min-height:76px}.home-dashboard .tile-icon{width:27px;height:27px}.home-dashboard .dashboard-composer{bottom:calc(66px + env(safe-area-inset-bottom));}}
+  @media(max-width:700px){.history-toggle{width:32px;height:32px;flex-basis:32px}.orion-topbar{gap:5px}.home-dashboard .feature-tile{min-height:76px}.home-dashboard .tile-icon{width:27px;height:27px}/* Composer stays in normal flow; no legacy fixed bottom offset. */}
 
   @keyframes orionSpectrum{to{background-position:200% 0}}
   @media(max-width:700px){.orion-cinematic-hero{min-height:280px;margin:0 0 14px;border-radius:21px}.orion-hero-art img{object-position:38% center}.orion-hero-shade{background:linear-gradient(90deg,rgba(3,12,29,.08),rgba(3,12,29,.5) 35%,rgba(3,12,29,.82) 100%),linear-gradient(0deg,rgba(2,10,25,.68),transparent 48%)}.orion-hero-copy{width:64%;margin-right:2%;padding:26px 7px}.orion-hero-copy h1{font-size:clamp(34px,10vw,48px)}.orion-hero-subtitle{font-size:14px}.orion-hero-description{font-size:10px}.orion-brand-pill{padding:7px 13px;font-size:11px}.orion-creator{font-size:10px}.orion-hero-status{top:10px;right:10px;padding:6px 8px;font-size:8px}.public-overview{padding:13px;border-radius:18px}.public-capability-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.public-capability{padding:9px;grid-template-columns:30px 1fr;column-gap:7px}.public-capability>span{width:30px;height:30px;font-size:17px}.public-capability strong{font-size:10px}.public-capability small{font-size:8px}}
   @media(prefers-reduced-motion:reduce){.orion-hero-mark,.orion-hero-copy h1 span,.public-progress-track span{animation:none!important}.public-capability{transition:none}}
+
+  /* ORION poster-inspired live app skin: preserve the existing working app flows. */
+  .orion-app{background:radial-gradient(ellipse at 50% -18%,rgba(26,137,255,.16),transparent 48%),linear-gradient(180deg,#f4f9ff 0%,#edf5ff 52%,#f8fbff 100%)}
+  .orion-topbar{background:linear-gradient(105deg,#061a39 0%,#082d5c 52%,#061a39 100%);border-bottom:1px solid rgba(88,190,255,.55);box-shadow:0 5px 24px rgba(0,69,143,.22),0 0 22px rgba(16,137,255,.16)}
+  .orion-topbar .brand-text{color:#fff;text-shadow:0 0 7px #fff,0 0 16px #138cff,0 0 28px rgba(26,148,255,.9)}
+  .orion-topbar .brand-copy small{color:#c9e9ff}
+  .orion-topbar .brand-orbit{color:#dff7ff;text-shadow:0 0 9px #fff,0 0 22px #168dff}
+  .orion-topbar .history-toggle,.orion-topbar .top-button{border-color:rgba(119,202,255,.5);background:rgba(255,255,255,.1);color:#e8f7ff;box-shadow:0 0 14px rgba(31,151,255,.18)}
+  .orion-topbar .new-chat-button{border:1px solid #6bcaff;background:linear-gradient(110deg,#0876c8,#1749a5);color:#fff;box-shadow:0 0 13px rgba(25,143,255,.45)}
+  .home-dashboard{max-width:980px}
+  .orion-reference-hero{min-height:205px;border:1px solid rgba(74,174,255,.75);background:radial-gradient(ellipse at 82% 45%,rgba(16,128,235,.28),transparent 40%),linear-gradient(112deg,#061b3c 0%,#0a3971 55%,#061b3c 100%);box-shadow:0 9px 30px rgba(3,61,125,.2),0 0 23px rgba(25,142,255,.22),inset 0 0 28px rgba(64,170,255,.12)}
+  .orion-reference-copy .orion-hero-eyebrow{color:#9de5ff;text-shadow:0 0 10px rgba(40,174,255,.8)}
+  .orion-reference-copy h1,.orion-reference-copy h1 span{color:#fff;text-shadow:0 0 8px #fff,0 0 18px #148fff,0 0 32px rgba(20,140,255,.85)}
+  .orion-reference-copy .orion-hero-subtitle{color:#d5f0ff}
+  .orion-reference-copy .orion-hero-description{color:#b9dfff}
+  .orion-reference-robot{filter:drop-shadow(0 0 13px rgba(38,168,255,.72)) drop-shadow(0 8px 14px rgba(27,125,210,.24))}
+  .dashboard-section-heading h2{color:#123d70}
+  .dashboard-section-heading .section-kicker{color:#1688d8;letter-spacing:.16em}
+  .home-dashboard .feature-tile{border:1px solid rgba(90,166,226,.42);background:linear-gradient(145deg,#fff,#f1f8ff);box-shadow:0 5px 18px rgba(19,96,163,.08),0 0 13px rgba(43,147,232,.08);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+  .home-dashboard .feature-tile:active,.home-dashboard .feature-tile:hover{transform:translateY(-2px);border-color:#5bbcff;box-shadow:0 8px 22px rgba(19,96,163,.14),0 0 18px rgba(43,147,232,.2)}
+  .home-dashboard .tile-icon{box-shadow:0 0 14px rgba(31,145,235,.2);text-shadow:0 0 9px rgba(24,142,255,.65)}
+  .home-dashboard .dashboard-composer{border:1px solid rgba(63,155,226,.55);box-shadow:0 7px 22px rgba(23,111,181,.12),0 0 16px rgba(32,148,235,.12)}
+  .home-dashboard .dashboard-footer{color:#174c7c}
+  .home-dashboard .dashboard-footer strong{color:#087bc3;text-shadow:0 0 9px rgba(25,151,245,.22)}
+  .home-dashboard .bottom-navigation{border:1px solid rgba(110,179,232,.38);box-shadow:0 -5px 22px rgba(20,91,153,.1)}
+  @media(max-width:700px){
+    .orion-reference-hero{min-height:166px}
+    .home-dashboard .feature-tile{min-height:82px}
+    .home-dashboard .dashboard-composer{position:relative;left:auto;bottom:auto;transform:none;margin:13px 0 8px}
+    .home-dashboard{padding-bottom:calc(88px + env(safe-area-inset-bottom))}
+  }
+  @media(prefers-reduced-motion:reduce){.home-dashboard .feature-tile{transition:none}}
 
 `;
 export default Home; 
