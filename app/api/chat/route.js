@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { selectRelevantMemories } from "../../../lib/orion-memory.mjs";
 import { createRateLimiter, getClientIdentifier } from "../../../lib/orion-rate-limit.mjs";
 import { getCreatorAnswer } from "../../../lib/orion-identity.mjs";
+import { getOfflineQuickAnswer } from "../../../lib/orion-quick-actions.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -810,6 +811,13 @@ async function handleChatRequest(
   const creatorAnswer = getCreatorAnswer(message);
   if (creatorAnswer) {
     return streamResponse(createTextStream(creatorAnswer));
+  }
+
+  // Common utility requests are answered locally without consuming provider
+  // quota, so these basics remain available during an LLM outage.
+  const quickAnswer = getOfflineQuickAnswer(message);
+  if (quickAnswer) {
+    return streamResponse(createTextStream(quickAnswer));
   }
 
   const finalSystemPrompt =
