@@ -6,6 +6,7 @@ import { extractSources } from "../lib/orion-sources.mjs";
 import { escapeHtml } from "../lib/orion-html.mjs";
 import { formatChatTranscript } from "../lib/orion-export.mjs";
 import { mergeRecognizedSegments } from "../lib/orion-voice.mjs";
+import { shouldUseAgentMode } from "../lib/orion-routing.mjs";
 
 import {
   useCallback,
@@ -491,7 +492,6 @@ function Home() {
 
   const sendMessage = useCallback(
     async (customMessage = null, requestedTaskMode = null) => {
-      const effectiveTaskMode = requestedTaskMode || taskMode;
       const messageText =
         typeof customMessage === "string"
           ? customMessage.trim()
@@ -501,6 +501,11 @@ function Home() {
         return;
       }
 
+      // Live facts and navigation need retrieval tools, so route those requests
+      // to the Agent engine even when the user started in ordinary Chat mode.
+      const autoAgent = !requestedTaskMode && shouldUseAgentMode(messageText);
+      const effectiveTaskMode = requestedTaskMode || (autoAgent ? "agent" : taskMode);
+
       if (abortRef.current) {
         abortRef.current.abort();
       }
@@ -508,7 +513,7 @@ function Home() {
       setError("");
       setInput("");
       setLoading(true);
-      if (requestedTaskMode) setTaskMode(requestedTaskMode);
+      if (requestedTaskMode || autoAgent) setTaskMode(effectiveTaskMode);
       if (!activeSessionId) setActiveSessionId(createId());
 
       shouldFollowRef.current = true;
