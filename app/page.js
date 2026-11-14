@@ -1260,7 +1260,9 @@ function Home() {
                 }
                 onClick={startVoice}
                 disabled={loading}
-                aria-label="Voice input"
+                aria-label={listening ? "Stop voice input" : "Start voice input"}
+                aria-pressed={listening}
+                title={listening ? "Listening… tap to stop" : "Speak in Hindi"}
               >
                 <svg
                   viewBox="0 0 24 24"
