@@ -2528,6 +2528,7 @@ const styles = `
   .agent-progress-card .agent-stage-row strong{margin-left:auto;color:#6d819a;font-size:9px}
   .agent-activity-log{margin-top:6px;padding-top:5px;border-top:1px solid rgba(142,164,197,.22)}
   .agent-activity-log .activity-item{font-size:10px}
+  .agent-progress-outcome{margin-top:8px;padding-top:8px;border-top:1px solid rgba(142,164,197,.22);color:#536984;font-size:10px;font-weight:600}
 
 
 
