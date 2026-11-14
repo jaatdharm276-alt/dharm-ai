@@ -34,3 +34,10 @@ test("handles empty and non-array input", () => {
   assert.equal(mergeRecognizedSegments([]), "");
   assert.equal(mergeRecognizedSegments(null), "");
 });
+
+test("collapses repeated cumulative Hindi phrases inside one recognition chunk", () => {
+  assert.equal(
+    mergeRecognizedSegments(["तुम्हें तुम्हें किसने तुम्हें किसने बनाया तुम्हें किसने बनाया"]),
+    "तुम्हें किसने बनाया",
+  );
+});
