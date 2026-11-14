@@ -1109,6 +1109,7 @@ function Home() {
                               </div>
                             ))}
                           </div>
+                        )}
                         {message.content ? (
                           <>
                           <div
