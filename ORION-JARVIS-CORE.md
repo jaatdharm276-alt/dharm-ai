@@ -9,7 +9,7 @@ ORION JARVIS CORE is the bounded agentic execution layer for ORION AI. It is ins
 - **Agentic brain cycle:** A dedicated planner specialist creates an explicit task plan before execution. The main brain can adapt that plan as tool evidence arrives, then an independent verifier checks the proposed answer before final delivery.
 - **Tool loop:** The server can request tools, execute them, return tool results to the model, and repeat within a bounded budget.
 - **Specialist agents:** Planner, research analyst, coder, security reviewer and verifier. These are role-specialized model calls, not separate independently hosted models.
-- **Built-in tools:** India date/time, restricted arithmetic parser, optional read-only public web search, and specialist delegation.
+- **Built-in tools:** India date/time, restricted arithmetic parser, read-only public web search through Tavily keyless mode (free, no account or API key; provider rate limits apply), optional account-based Tavily quota, and specialist delegation. Search is enabled by default and can be disabled with `ORION_ENABLE_EXTERNAL_SEARCH=false`. Each task is limited to one basic search and at most three results.
 - **Memory v2:** Users can pin important notes for cross-topic context; unpinned notes are selected by lightweight English/Hindi keyword overlap with the current request. This is relevance filtering, not semantic/vector search or automatic memory extraction. Memory remains local to the current browser profile.
 - **Safety:** Request-size limits, server-side API keys, bounded tool/search/delegation counts, untrusted search-result handling, no arbitrary shell/code execution, and no side-effecting device/account tools.
 
@@ -20,7 +20,8 @@ Copy `.env.example` to your local `.env.local` and configure:
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `GROQ_API_KEY` | Yes | Chat and agent model requests |
-| `TAVILY_API_KEY` | No | Live web search for Agent mode |
+| `ORION_ENABLE_EXTERNAL_SEARCH` | No | Set to `false` to disable free keyless search; otherwise enabled |
+| `TAVILY_API_KEY` | No | Optional account-based Tavily quota; keyless search works without it |
 
 Never commit `.env.local` or real API keys. The repository ignores local environment files and keeps only the safe `.env.example` template.
 
