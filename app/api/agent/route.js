@@ -509,7 +509,7 @@ function runAgent(body, signal) {
         const recovery = error?.code === "GROQ_RATE_LIMITED"
           ? buildAgentEvidenceAnswer({ toolResults: collectedToolResults, failureCode: error.code })
           : buildPartialRecoveryAnswer({ draft: lastDraft, toolResults: collectedToolResults, failureStage: "reasoning" });
-        emitStatus("partial_recovery", `AI का अगला चरण उपलब्ध नहीं है (${error.code || error.name || "unknown"}) — अब तक के परिणाम सुरक्षित रखे हैं`);
+        emitStatus("partial_recovery", "अभी अगला चरण पूरा नहीं हो सका — अब तक के परिणाम सुरक्षित रखे हैं");
         emitText(recovery);
         return;
       }
