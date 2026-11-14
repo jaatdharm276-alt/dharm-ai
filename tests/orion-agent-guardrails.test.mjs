@@ -41,3 +41,12 @@ test("tool output remains valid JSON when bounded", () => {
 test("preserves compact tool results without truncation", () => {
   assert.equal(summarizeToolResult({ result: 42 }), JSON.stringify({ result: 42 }));
 });
+
+
+test("keeps escaped and Unicode tool output within the exact context budget", () => {
+  const result = summarizeToolResult({ data: "\"\\\n😀".repeat(2000) }, 500);
+  assert.equal(result.length <= 500, true);
+  const parsed = JSON.parse(result);
+  assert.equal(parsed.truncated, true);
+  assert.equal(typeof parsed.preview, "string");
+});
