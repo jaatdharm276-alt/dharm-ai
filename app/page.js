@@ -230,6 +230,7 @@ function Home() {
   const scrollAnimationFrameRef = useRef(null);
   const programmaticScrollRef = useRef(false);
   const programmaticScrollTimerRef = useRef(null);
+  const touchStartYRef = useRef(null);
   const composerRef = useRef(null);
   const abortRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -289,6 +290,38 @@ function Home() {
     scrollAnimationFrameRef.current = window.requestAnimationFrame(step);
   }, []);
 
+  const stopProgrammaticFollow = useCallback(() => {
+    shouldFollowRef.current = false;
+    programmaticScrollRef.current = false;
+    if (scrollAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(scrollAnimationFrameRef.current);
+      scrollAnimationFrameRef.current = null;
+    }
+    if (programmaticScrollTimerRef.current !== null) {
+      window.clearTimeout(programmaticScrollTimerRef.current);
+      programmaticScrollTimerRef.current = null;
+    }
+  }, []);
+
+  const handleMessageWheel = useCallback((event) => {
+    if (event.deltaY < 0) stopProgrammaticFollow();
+  }, [stopProgrammaticFollow]);
+
+  const handleMessageTouchStart = useCallback((event) => {
+    touchStartYRef.current = event.touches?.[0]?.clientY ?? null;
+  }, []);
+
+  const handleMessageTouchMove = useCallback((event) => {
+    const nextY = event.touches?.[0]?.clientY;
+    if (typeof nextY !== "number" || typeof touchStartYRef.current !== "number") return;
+    const delta = nextY - touchStartYRef.current;
+    if (Math.abs(delta) > 6) {
+      // A finger moving down means the reader is scrolling back to earlier content.
+      if (delta > 0) stopProgrammaticFollow();
+      touchStartYRef.current = nextY;
+    }
+  }, [stopProgrammaticFollow]);
+
   const handleMessageScroll = useCallback(() => {
     const container = messagesRef.current;
     if (!container || programmaticScrollRef.current) return;
@@ -297,7 +330,6 @@ function Home() {
       container.scrollHeight - container.scrollTop - container.clientHeight;
     shouldFollowRef.current = distanceFromBottom < 120;
 
-    // Respect a reader who deliberately scrolls up during a long response.
     if (!shouldFollowRef.current && scrollAnimationFrameRef.current !== null) {
       window.cancelAnimationFrame(scrollAnimationFrameRef.current);
       scrollAnimationFrameRef.current = null;
@@ -1171,6 +1203,9 @@ function Home() {
               ref={messagesRef}
               className="messages-container"
               onScroll={handleMessageScroll}
+              onWheel={handleMessageWheel}
+              onTouchStart={handleMessageTouchStart}
+              onTouchMove={handleMessageTouchMove}
             >
               {searchQuery.trim() &&
               currentSearchResults.length === 0 ? (
