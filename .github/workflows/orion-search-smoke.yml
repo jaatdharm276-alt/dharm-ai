@@ -1,0 +1,28 @@
+name: ORION Keyless Search Smoke Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - "orion-ai/**"
+    paths:
+      - "scripts/smoke-tavily-search.mjs"
+      - "lib/orion-search.mjs"
+      - ".github/workflows/orion-search-smoke.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  keyless-search:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify free keyless Tavily request against live service
+        run: node scripts/smoke-tavily-search.mjs
