@@ -1112,19 +1112,14 @@ function Home() {
 
       {!hasMessages ? (
         <section className="home-screen home-dashboard">
-          <section className="orion-cinematic-hero" aria-label="ORION AI Intelligent Companion">
-            <div className="orion-hero-art" aria-hidden="true"><img src="/orion-hero.svg" alt="" /></div>
-            <div className="orion-hero-shade" />
-            <div className="orion-hero-copy">
-              <div className="orion-hero-mark">✦</div>
-              <p className="orion-hero-eyebrow">🙏 NAMASTE · WELCOME TO</p>
-              <h1>ORION AI <span>✦</span></h1>
+          <section className="orion-reference-hero" aria-label="Welcome to ORION AI">
+            <div className="orion-reference-copy">
+              <p className="orion-hero-eyebrow">🙏 Namaste</p>
+              <h1>Welcome to <span>ORION AI ✦</span></h1>
               <p className="orion-hero-subtitle">Intelligent Companion</p>
               <p className="orion-hero-description">Think clearly. Create freely. Move forward.</p>
-              <div className="orion-brand-pill">Powered by Dharm AI</div>
-              <p className="orion-creator">Created by Dharmraj jat</p>
             </div>
-            <div className="orion-hero-status"><i /> READY TO HELP</div>
+            <img className="orion-reference-robot" src="/orion-hero.svg" alt="ORION AI companion" />
           </section>
 
           <form className="composer dashboard-composer" onSubmit={handleSubmit}>
@@ -2624,6 +2619,44 @@ const styles = `
   @keyframes orionCursorBlink{to{opacity:0}}
   @keyframes orionThinking{0%,60%,100%{opacity:.35;transform:translateY(0)}30%{opacity:1;transform:translateY(-4px)}}
   @keyframes orionMessageIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+
+  /* Supplied reference: compact welcome, three-column cards and in-flow composer */
+  .orion-reference-hero{position:relative;display:flex;align-items:center;min-height:190px;margin:8px 0 18px;padding:18px;overflow:hidden;border:1px solid #d7e9f8;border-radius:22px;background:linear-gradient(115deg,#fff,#f3f9ff 64%,#e8f4ff);box-shadow:0 8px 24px rgba(28,105,170,.09)}
+  .orion-reference-copy{position:relative;z-index:1;width:70%;text-align:left}
+  .orion-reference-copy .orion-hero-eyebrow{margin:0 0 8px;color:#1677bd;font-size:13px;letter-spacing:.08em}
+  .orion-reference-copy h1{margin:0;color:#173e70;font-size:clamp(22px,5.5vw,34px);line-height:1.08;font-weight:900;letter-spacing:-.04em}
+  .orion-reference-copy h1 span{display:block;color:#155ca4}
+  .orion-reference-copy .orion-hero-subtitle{margin:6px 0;color:#1d3554;font-size:14px;letter-spacing:0}
+  .orion-reference-copy .orion-hero-description{max-width:230px;margin:8px 0 0;color:#526b86;font-size:11px;line-height:1.4}
+  .orion-reference-robot{position:absolute;right:3px;bottom:5px;width:34%;max-width:150px;height:88%;object-fit:contain;object-position:center bottom;filter:drop-shadow(0 8px 14px rgba(27,125,210,.24))}
+  .home-dashboard .feature-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .home-dashboard .feature-tile{min-height:96px;padding:10px 7px;align-items:center;text-align:center}
+  .home-dashboard .feature-tile small{font-size:9px;line-height:1.25}
+  .home-dashboard .tile-arrow{display:none}
+  .home-dashboard .dashboard-composer{position:relative;left:auto;bottom:auto;transform:none;width:100%;margin:14px 0 8px}
+  .home-dashboard{padding-bottom:calc(100px + env(safe-area-inset-bottom))}
+  .home-dashboard .dashboard-footer{display:flex;justify-content:center;margin:8px 0 0;padding:8px 0;border:0;text-align:center}
+  @media(max-width:700px){
+    .home-dashboard{width:calc(100% - 24px);padding:14px 0 calc(96px + env(safe-area-inset-bottom))}
+    .orion-reference-hero{min-height:175px;margin:6px 0 15px;padding:15px 13px;border-radius:19px}
+    .orion-reference-copy{width:72%}
+    .orion-reference-copy .orion-hero-eyebrow{font-size:11px}
+    .orion-reference-copy h1{font-size:25px}
+    .orion-reference-copy .orion-hero-subtitle{font-size:12px}
+    .orion-reference-copy .orion-hero-description{font-size:10px}
+    .orion-reference-robot{width:35%;right:0;max-width:128px}
+    .home-dashboard .dashboard-section-heading{margin:12px 2px 10px}
+    .home-dashboard .dashboard-section-heading h2{font-size:18px}
+    .home-dashboard .feature-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+    .home-dashboard .feature-tile{min-height:90px;padding:9px 5px;border-radius:14px}
+    .home-dashboard .tile-icon{width:32px;height:32px;margin:0 auto 3px}
+    .home-dashboard .feature-tile strong{font-size:11px}
+    .home-dashboard .feature-tile small{font-size:8px}
+    .home-dashboard .dashboard-composer{position:relative;left:auto;bottom:auto;transform:none;width:100%;margin:14px 0 8px}
+    .home-dashboard .dashboard-footer{display:flex;margin:6px 0 0;padding:7px 0;font-size:9px}
+    .home-dashboard .dashboard-footer span:last-child{white-space:normal}
+  }
+
   @media(max-width:700px){.assistant-message .message-content{max-width:calc(100% - 39px);padding:11px 12px 7px}.user-message .message-content{max-width:88%}.assistant-avatar{width:27px;height:27px;flex-basis:27px}}
 
 
