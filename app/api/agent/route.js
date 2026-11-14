@@ -355,6 +355,12 @@ function streamResponse(text) {
 }
 
 function runAgent(body, signal) {
+  if (!process.env.GROQ_API_KEY) {
+    return errorResponse(
+      "ORION Agent Mode is not configured yet. Add GROQ_API_KEY in Vercel Project Settings → Environment Variables, then redeploy.",
+      503,
+    );
+  }
   const message = typeof body.message === "string" ? body.message.trim() : "";
   if (!message) return errorResponse("Message is required.", 400);
   if (message.length > MAX_MESSAGE_CHARS) return errorResponse("Message is too long.", 413);
