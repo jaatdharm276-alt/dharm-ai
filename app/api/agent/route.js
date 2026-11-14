@@ -386,7 +386,7 @@ function runAgent(body, signal) {
 
   if (!process.env.GROQ_API_KEY) {
     return errorResponse(
-      "ORION Agent Mode is not configured: GROQ_API_KEY is missing from Vercel Production Environment Variables. Add the key and redeploy.",
+      "ORION Agent Mode सेवा फिलहाल उपलब्ध नहीं है। कृपया कुछ देर बाद दोबारा प्रयास करें.",
       503,
     );
   }
@@ -491,7 +491,7 @@ function runAgent(body, signal) {
     } catch (error) {
       if (error?.name === "AbortError" || signal?.aborted) throw error;
       console.error("ORION planner unavailable; continuing without plan:", error);
-      emitStatus("planning_fallback", `Planner उपलब्ध नहीं है (${error.code || error.name || "unknown"}) — उपलब्ध काम सुरक्षित रूप से जारी है`);
+      emitStatus("planning_fallback", "योजना बनाने का एक चरण उपलब्ध नहीं था — बाकी काम सुरक्षित रूप से जारी है");
     }
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
@@ -566,7 +566,7 @@ function runAgent(body, signal) {
           analyze_text: "टेक्स्ट का विश्लेषण पूरा हुआ",
           search_web: result?.available === false
             ? "वेब खोज बंद है — ORION_ENABLE_EXTERNAL_SEARCH=true की जरूरत है"
-            : (Array.isArray(result?.results) && result.results.length > 0 ? "Web search completed with verified sources from " + String(result.provider || "the configured provider") : "वेब खोज में कोई सत्यापित स्रोत नहीं मिला"),
+            : (Array.isArray(result?.results) && result.results.length > 0 ? "वेब खोज से सत्यापित स्रोत मिले" : "वेब खोज में कोई सत्यापित स्रोत नहीं मिला"),
           delegate_specialist: "Specialist agent का विश्लेषण मिल गया",
           coordinate_specialists: "Parallel specialist analyses मिल गए",
         };
