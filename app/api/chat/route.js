@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { selectRelevantMemories } from "../../../lib/orion-memory.mjs";
+import { createRateLimiter, getClientIdentifier } from "../../../lib/orion-rate-limit.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +16,8 @@ const MAX_HISTORY_ITEM_CHARS = 8000;
 const MAX_REQUEST_BYTES = 128 * 1024;
 const MAX_TOKENS = 6000;
 const TEMPERATURE = 0.4;
+// Best-effort per-instance protection; use shared KV/Redis for global enforcement.
+const chatRateLimiter = createRateLimiter({ limit: 20, windowMs: 60_000 });
 
 const CREATOR_NAME = "Dharmraj Jat";
 const ORIGINAL_PROJECT = "Dharm AI";
@@ -963,6 +966,14 @@ export async function POST(
   request
 ) {
   try {
+    const rate = chatRateLimiter.check(getClientIdentifier(request.headers));
+    if (!rate.allowed) {
+      return new Response(JSON.stringify({ error: "Too many chat requests. Please wait before trying again." }), {
+        status: 429,
+        headers: { "Content-Type": "application/json; charset=utf-8", "Retry-After": String(Math.ceil(rate.retryAfterMs / 1000)), "Cache-Control": "no-store" },
+      });
+    }
+
     const contentType = request.headers.get("content-type") || "";
     if (!contentType.toLowerCase().includes("application/json")) {
       return createErrorResponse("Content-Type must be application/json.", 415);
