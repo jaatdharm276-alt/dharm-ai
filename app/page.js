@@ -186,10 +186,22 @@ function formatMessage(content) {
   if (inCode && codeLines.length) output.push('<div class="response-code-card"><div class="response-code-label">CODE</div><pre><code>' + escapeHtml(codeLines.join("\n")) + '</code></pre></div>');
   return output.join("");
 }
-function getAgentProgress(activity = [], complete = false) {
-  if (complete) return 100;
-  const progress = { understanding: 10, planning: 22, planning_done: 35, planning_fallback: 35, reasoning: 48, tool: 68, verification: 90, partial_recovery: 90 };
-  return Math.max(4, ...activity.map((item) => progress[item.stage] || 0));
+function getAgentProgress(activity = []) {
+  const latestStage = activity[activity.length - 1]?.stage;
+  if (latestStage === "complete") return 100;
+  if (latestStage === "partial_recovery") return 85;
+  if (latestStage === "tool_error") return 60;
+  const progress = {
+    understanding: 8,
+    planning: 16,
+    planning_done: 25,
+    planning_fallback: 25,
+    reasoning: 35,
+    tool: 48,
+    tool_completed: 68,
+    verification: 88,
+  };
+  return Math.min(95, Math.max(4, ...activity.map((item) => progress[item.stage] || 0)));
 }
 
 function Home() {
@@ -215,6 +227,7 @@ function Home() {
   const [composerToolsOpen, setComposerToolsOpen] = useState(false);
 
   const messagesRef = useRef(null);
+  const scrollAnimationFrameRef = useRef(null);
   const composerRef = useRef(null);
   const abortRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -238,38 +251,53 @@ function Home() {
 
   const visibleHomeActions =
     HOME_ACTIONS;
-  const scrollToBottom = useCallback((force = false) => {
+  const scrollToBottom = useCallback(() => {
     const container = messagesRef.current;
+    if (!container || !shouldFollowRef.current) return;
+    if (scrollAnimationFrameRef.current !== null) return;
 
-    if (!container) {
-      return;
-    }
+    const step = () => {
+      const current = messagesRef.current;
+      if (!current || !shouldFollowRef.current) {
+        scrollAnimationFrameRef.current = null;
+        return;
+      }
 
-    if (
-      force ||
-      shouldFollowRef.current
-    ) {
-      container.scrollTo({
-        top: container.scrollHeight,
-        behavior: force ? "auto" : "smooth",
-      });
-    }
+      const distance = current.scrollHeight - current.scrollTop - current.clientHeight;
+      if (distance <= 1) {
+        current.scrollTop = current.scrollHeight;
+        scrollAnimationFrameRef.current = null;
+        return;
+      }
+
+      // Move a small distance each frame. Recompute the target as streamed
+      // text and activity updates change the message height.
+      current.scrollTop += Math.min(34, Math.max(2, distance * 0.18));
+      scrollAnimationFrameRef.current = window.requestAnimationFrame(step);
+    };
+
+    scrollAnimationFrameRef.current = window.requestAnimationFrame(step);
   }, []);
 
   const handleMessageScroll = useCallback(() => {
     const container = messagesRef.current;
-
-    if (!container) {
-      return;
-    }
+    if (!container) return;
 
     const distanceFromBottom =
-      container.scrollHeight -
-      container.scrollTop -
-      container.clientHeight;
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    shouldFollowRef.current = distanceFromBottom < 120;
 
-    shouldFollowRef.current =
-      distanceFromBottom < 120;
+    // Respect a reader who deliberately scrolls up during a long response.
+    if (!shouldFollowRef.current && scrollAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(scrollAnimationFrameRef.current);
+      scrollAnimationFrameRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => {
+    if (scrollAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(scrollAnimationFrameRef.current);
+    }
   }, []);
 
   useEffect(() => {
@@ -543,9 +571,8 @@ function Home() {
         assistantMessage,
       ]);
 
-      setTimeout(() => {
-        scrollToBottom(true);
-      }, 50);
+      shouldFollowRef.current = true;
+      requestAnimationFrame(() => scrollToBottom());
 
       const controller =
         new AbortController();
@@ -1159,14 +1186,25 @@ function Home() {
                               : taskMode === "agent" ? <span className="agent-live-pill">⚡ Agent Mode</span> : null}
                           </div>
                         )}
-                        {taskMode === "agent" && message.activity?.length > 0 && (
+                        {taskMode === "agent" && message.activity?.length > 0 && (() => {
+                          const stages = message.activity.map((item) => item.stage);
+                          const latestStage = stages[stages.length - 1];
+                          const completed = latestStage === "complete";
+                          const partial = latestStage === "partial_recovery" || latestStage === "tool_error";
+                          const understood = stages.length > 1;
+                          const planned = stages.some((stage) => ["planning_done", "reasoning", "tool", "tool_completed", "tool_error", "verification", "complete", "partial_recovery"].includes(stage));
+                          const toolStarted = stages.some((stage) => ["tool", "tool_completed", "tool_error", "verification", "complete", "partial_recovery"].includes(stage));
+                          const toolDone = stages.includes("tool_completed");
+                          const verifying = stages.includes("verification");
+                          const progress = getAgentProgress(message.activity);
+                          return (
                           <div className="activity-feed agent-progress-card" aria-live="polite">
-                            <div className="activity-feed-heading"><span>▥</span><strong>Analysis Progress</strong><b>{getAgentProgress(message.activity, Boolean(message.content && !loading))}%</b></div>
-                            <div className="agent-progress-track"><span style={{ width: getAgentProgress(message.activity, Boolean(message.content && !loading)) + "%" }} /></div>
-                            <div className="agent-stage-row"><span>✓</span><span>Understanding request</span><strong>{message.activity.length > 1 ? "Done" : "In progress"}</strong></div>
-                            <div className="agent-stage-row"><span>◈</span><span>Planning & task steps</span><strong>{message.activity.some((item) => ["planning_done","planning_fallback","reasoning","tool","verification"].includes(item.stage)) ? "Done" : "Working"}</strong></div>
-                            <div className="agent-stage-row"><span>◌</span><span>Tool execution</span><strong>{message.activity.some((item) => ["tool","verification"].includes(item.stage)) ? "Started" : "Waiting"}</strong></div>
-                            <div className="agent-stage-row"><span>○</span><span>Verification</span><strong>{message.activity.some((item) => item.stage === "verification") ? "Done" : "Waiting"}</strong></div>
+                            <div className="activity-feed-heading"><span>▥</span><strong>Analysis Progress</strong><b>{progress}%</b></div>
+                            <div className="agent-progress-track"><span style={{ width: progress + "%" }} /></div>
+                            <div className="agent-stage-row"><span>✓</span><span>Understanding request</span><strong>{understood ? "Done" : "In progress"}</strong></div>
+                            <div className="agent-stage-row"><span>◈</span><span>Planning & task steps</span><strong>{planned ? "Done" : "Working"}</strong></div>
+                            <div className="agent-stage-row"><span>◌</span><span>Tool execution</span><strong>{toolDone ? "Done" : toolStarted ? "In progress" : "Waiting"}</strong></div>
+                            <div className="agent-stage-row"><span>○</span><span>Verification</span><strong>{completed ? "Done" : partial ? "Not completed" : verifying ? "In progress" : "Waiting"}</strong></div>
                             <div className="agent-activity-log">
                               {message.activity.slice(-5).map((item, index) => (
                                 <div className="activity-item" key={`${item.timestamp || index}-${index}`}>
@@ -1175,8 +1213,10 @@ function Home() {
                                 </div>
                               ))}
                             </div>
+                            <div className="agent-progress-outcome">{completed ? "Task completed" : partial ? "Partial result — not fully verified" : "Working on your request"}</div>
                           </div>
-                        )}
+                          );
+                        })()}
                         {message.content ? (
                           <>
                           <div
@@ -1869,7 +1909,7 @@ const styles = `
     min-height: 0;
     overflow-y: auto;
     padding: 8px 8px 20px;
-    scroll-behavior: smooth;
+    scroll-behavior: auto;
   }
 
   .message {
