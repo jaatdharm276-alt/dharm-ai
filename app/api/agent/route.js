@@ -201,7 +201,10 @@ async function callModel(messages, options = {}, signal) {
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
     console.error("ORION agent provider error:", response.status, detail.slice(0, 1200));
-    const error = new Error("The AI provider could not complete the agent step.");\n    error.code = response.status === 401 || response.status === 403 ? "GROQ_AUTH_REJECTED" : response.status === 429 ? "GROQ_RATE_LIMITED" : response.status >= 500 ? "GROQ_PROVIDER_UNAVAILABLE" : "GROQ_PROVIDER_HTTP_ERROR";\n    error.providerStatus = response.status;\n    throw error;
+    const error = new Error("The AI provider could not complete the agent step.");
+    error.code = response.status === 401 || response.status === 403 ? "GROQ_AUTH_REJECTED" : response.status === 429 ? "GROQ_RATE_LIMITED" : response.status >= 500 ? "GROQ_PROVIDER_UNAVAILABLE" : "GROQ_PROVIDER_HTTP_ERROR";
+    error.providerStatus = response.status;
+    throw error;
   }
 
   const data = await response.json();
