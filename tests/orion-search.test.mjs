@@ -41,3 +41,20 @@ test("normalizes only safe HTTP(S) sources and respects the result limit", () =>
   assert.equal(output.provider, "Tavily");
   assert.equal(output.accessMode, "keyless");
 });
+
+
+import { normalizeBingRssResults } from "../lib/orion-search.mjs";
+
+test("normalizes safe Bing RSS results and decodes XML entities", () => {
+  const xml = `<rss><channel><item><title>India &amp; Government</title><link>https://www.india.gov.in/</link><description><![CDATA[Official portal &amp; services]]></description></item><item><title>Unsafe</title><link>javascript:alert(1)</link><description>bad</description></item></channel></rss>`;
+  const output = normalizeBingRssResults(xml, { limit: 3 });
+  assert.equal(output.provider, "Bing RSS");
+  assert.equal(output.results.length, 1);
+  assert.equal(output.results[0].title, "India & Government");
+  assert.equal(output.results[0].url, "https://www.india.gov.in/");
+  assert.equal(output.results[0].content, "Official portal &amp; services");
+});
+
+test("Bing RSS parser returns no results for malformed or empty XML", () => {
+  assert.deepEqual(normalizeBingRssResults("<rss></rss>").results, []);
+});
