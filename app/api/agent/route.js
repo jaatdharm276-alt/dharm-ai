@@ -10,6 +10,7 @@ import { runSpecialistsInParallel } from "../../../lib/orion-agent-coordination.
 import { buildPartialRecoveryAnswer } from "../../../lib/orion-agent-recovery.mjs";
 import { createRateLimiter, getClientIdentifier } from "../../../lib/orion-rate-limit.mjs";
 import { getCreatorAnswer } from "../../../lib/orion-identity.mjs";
+import { validateAgentToolArgs, summarizeToolResult } from "../../../lib/orion-agent-guardrails.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -276,7 +277,8 @@ async function runSpecialist(role, task, objective, signal) {
   return { role, findings: String(result.content || "").slice(0, 7000) };
 }
 
-async function executeTool(name, args, context) {
+async function executeTool(name, rawArgs, context) {
+  const args = validateAgentToolArgs(name, rawArgs);
   if (name === "get_india_datetime") return { timezone: "Asia/Kolkata", current: indiaDateTime() };
   if (name === "calculate") return calculateSafely(args.expression);
   if (name === "convert_units") return convertUnits(args.value, args.from, args.to);
@@ -577,7 +579,7 @@ function runAgent(body, signal) {
         messages.push({
           role: "tool",
           tool_call_id: call.id,
-          content: JSON.stringify(result).slice(0, 9000),
+          content: summarizeToolResult(result, 9000),
         });
       }
     }
