@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { selectRelevantMemories } from "../../../lib/orion-memory.mjs";
 import { createRateLimiter, getClientIdentifier } from "../../../lib/orion-rate-limit.mjs";
+import { getCreatorAnswer } from "../../../lib/orion-identity.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -911,22 +912,9 @@ async function handleChatRequest(
     );
   }
 
-  const specialRequest =
-    detectSpecialRequest(
-      message
-    );
-
-  if (
-    specialRequest ===
-    "creator"
-  ) {
-    return streamResponse(
-      createTextStream(
-        getCreatorResponse(
-          message
-        )
-      )
-    );
+  const creatorAnswer = getCreatorAnswer(message);
+  if (creatorAnswer) {
+    return streamResponse(createTextStream(creatorAnswer));
   }
 
   const finalSystemPrompt =
