@@ -885,24 +885,21 @@ function Home() {
         setError("");
       };
 
+      // SpeechRecognition sends cumulative results. Rebuild the voice segment
+      // on every event instead of appending interim text (which caused repeats).
+      const inputBeforeVoice = input;
       recognition.onresult = (event) => {
-        let finalTranscript = "";
-        let interimTranscript = "";
+        const transcriptParts = [];
 
-        for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        for (let i = 0; i < event.results.length; i += 1) {
           const result = event.results[i];
-          const text = result?.[0]?.transcript || "";
-          if (result.isFinal) finalTranscript += text;
-          else interimTranscript += text;
+          const text = result?.[0]?.transcript?.trim();
+          if (text) transcriptParts.push(text);
         }
 
-        const recognizedText = (finalTranscript || interimTranscript).trim();
-        if (recognizedText) {
-          setInput((current) => {
-            const existing = current.trim();
-            return existing ? `${existing} ${recognizedText}` : recognizedText;
-          });
-        }
+        const recognizedText = transcriptParts.join(" ").replace(/\\s+/g, " ").trim();
+        const base = inputBeforeVoice.trim();
+        setInput(base && recognizedText ? `${base} ${recognizedText}` : base || recognizedText);
       };
 
       recognition.onerror = (event) => {
@@ -934,7 +931,7 @@ function Home() {
         ? "Microphone permission नहीं मिली। Chrome की Site settings में Microphone को Allow करें और Reload करें।"
         : `Voice input शुरू नहीं हो पाया: ${voiceError?.message || "कृपया दोबारा कोशिश करें"}`);
     }
-  }, [loading, listening]);
+  }, [loading, listening, input]);
   const speakText = useCallback((text) => {
     if (
       typeof window === "undefined" ||
