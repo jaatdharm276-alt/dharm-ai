@@ -196,6 +196,10 @@ async function callModel(messages, options = {}, signal) {
     }),
     cache: "no-store",
     signal,
+  }, {
+    maxRetries: 3,
+    baseDelayMs: 2000,
+    maxDelayMs: 15000,
   });
 
   if (!response.ok) {
