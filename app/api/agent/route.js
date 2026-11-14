@@ -4,7 +4,7 @@ import { calculateSafely } from "../../../lib/orion-tools.mjs";
 import { convertUnits } from "../../../lib/orion-units.mjs";
 import { analyzeText } from "../../../lib/orion-text.mjs";
 import { getExternalSearchPolicy } from "../../../lib/orion-cost-policy.mjs";
-import { buildTavilySearchRequest, normalizeTavilySearchResults } from "../../../lib/orion-search.mjs";
+import { buildTavilySearchRequest, normalizeTavilySearchResults, normalizeBingRssResults } from "../../../lib/orion-search.mjs";
 import { fetchWithRetry } from "../../../lib/orion-retry.mjs";
 import { runSpecialistsInParallel } from "../../../lib/orion-agent-coordination.mjs";
 import { buildPartialRecoveryAnswer } from "../../../lib/orion-agent-recovery.mjs";
@@ -150,48 +150,72 @@ function indiaDateTime() {
 async function searchWeb(query, signal) {
   const apiKey = process.env.TAVILY_API_KEY;
   if (!SEARCH_POLICY.allowed) {
-    return {
-      available: false,
-      message: SEARCH_POLICY.reason,
-    };
+    return { available: false, message: SEARCH_POLICY.reason };
   }
 
-  const request = buildTavilySearchRequest({
-    apiKey,
-    query,
-    searchDepth: SEARCH_POLICY.searchDepth,
-    maxResults: SEARCH_POLICY.maxResults,
-  });
-  const response = await fetchWithRetry(request.url, {
-    ...request.init,
+  let tavilyFailure = null;
+  try {
+    const request = buildTavilySearchRequest({
+      apiKey,
+      query,
+      searchDepth: SEARCH_POLICY.searchDepth,
+      maxResults: SEARCH_POLICY.maxResults,
+    });
+    const response = await fetchWithRetry(request.url, {
+      ...request.init,
+      cache: "no-store",
+      signal,
+    }, {
+      maxRetries: 1,
+      baseDelayMs: 1000,
+      maxDelayMs: 3000,
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      const normalized = normalizeTavilySearchResults(data, {
+        limit: SEARCH_POLICY.maxResults,
+        accessMode: SEARCH_POLICY.authMode,
+      });
+      if (normalized.results.length) return normalized;
+      tavilyFailure = "Tavily returned no usable sources.";
+    } else {
+      const detail = await response.text().catch(() => "");
+      const retryAfter = response.headers.get("retry-after");
+      tavilyFailure = "Tavily HTTP " + response.status + (retryAfter ? " (Retry-After: " + retryAfter + ")" : "");
+      console.error("ORION web search provider error:", response.status, detail.slice(0, 1000));
+    }
+  } catch (error) {
+    if (error?.name === "AbortError" || signal?.aborted) throw error;
+    tavilyFailure = error?.code || error?.message || "Tavily request failed";
+    console.error("ORION Tavily search failed; trying public RSS fallback:", tavilyFailure);
+  }
+
+  // Public RSS fallback keeps basic web lookup available when Tavily is unavailable.
+  const rssUrl = "https://www.bing.com/search?format=rss&q=" + encodeURIComponent(String(query).trim().slice(0, 500));
+  const rssResponse = await fetchWithRetry(rssUrl, {
+    method: "GET",
+    headers: { Accept: "application/rss+xml, application/xml, text/xml" },
     cache: "no-store",
     signal,
   }, {
-    maxRetries: 3,
-    baseDelayMs: 2000,
-    maxDelayMs: 15000,
+    maxRetries: 1,
+    baseDelayMs: 800,
+    maxDelayMs: 2000,
   });
-
-  if (!response.ok) {
-    const providerDetail = await response.text().catch(() => "");
-    console.error("ORION web search provider error:", response.status, providerDetail.slice(0, 1200));
-    const retryAfter = response.headers.get("retry-after");
-    const error = new Error("Web search provider returned HTTP " + response.status + (retryAfter ? " (Retry-After: " + retryAfter + ")." : "."));
-    error.retryAfter = retryAfter || null;
-    error.code = response.status === 401 || response.status === 403
-      ? "TAVILY_AUTH_OR_ACCESS_REJECTED"
-      : response.status === 429
-        ? "TAVILY_RATE_LIMITED"
-        : response.status >= 500
-          ? "TAVILY_PROVIDER_UNAVAILABLE"
-          : "TAVILY_PROVIDER_HTTP_ERROR";
+  if (!rssResponse.ok) {
+    const error = new Error("Web search providers unavailable (Tavily: " + tavilyFailure + "; Bing RSS HTTP " + rssResponse.status + ").");
+    error.code = "WEB_SEARCH_PROVIDERS_UNAVAILABLE";
     throw error;
   }
-  const data = await response.json();
-  return normalizeTavilySearchResults(data, {
-    limit: SEARCH_POLICY.maxResults,
-    accessMode: SEARCH_POLICY.authMode,
-  });
+  const xml = await rssResponse.text();
+  const fallback = normalizeBingRssResults(xml, { limit: SEARCH_POLICY.maxResults });
+  if (!fallback.results.length) {
+    const error = new Error("Web search providers returned no usable sources (Tavily: " + tavilyFailure + ").");
+    error.code = "WEB_SEARCH_NO_RESULTS";
+    throw error;
+  }
+  return { ...fallback, fallbackReason: tavilyFailure };
 }
 
 async function callModel(messages, options = {}, signal) {
@@ -257,15 +281,29 @@ async function executeTool(name, args, context) {
   if (name === "convert_units") return convertUnits(args.value, args.from, args.to);
   if (name === "analyze_text") return analyzeText(args.text);
   if (name === "search_web") {
+    if (context.searchResults) {
+      return { ...context.searchResults, reused: true, note: "Reused the verified results from the first search." };
+    }
+    if (context.searchFailure) {
+      return { error: context.searchFailure, reusedFailure: true };
+    }
     if (context.searchCalls >= MAX_SEARCH_CALLS) {
-      return context.searchResults
-        ? { ...context.searchResults, reused: true, note: "Search budget already used; reused the verified results from the first search." }
-        : { error: "Search-call limit reached before any search results were collected." };
+      return { error: "Search-call limit reached before any search results were collected." };
     }
     context.searchCalls += 1;
-    const results = await searchWeb(args.query, context.signal);
-    if (Array.isArray(results?.results) && results.results.length > 0) context.searchResults = results;
-    return results;
+    try {
+      const results = await searchWeb(args.query, context.signal);
+      if (Array.isArray(results?.results) && results.results.length > 0) {
+        context.searchResults = results;
+        return results;
+      }
+      context.searchFailure = results?.message || "Search provider returned no usable results.";
+      return { error: context.searchFailure };
+    } catch (error) {
+      if (error?.name === "AbortError" || context.signal?.aborted) throw error;
+      context.searchFailure = error?.message || "Web search failed.";
+      return { error: context.searchFailure, code: error?.code || "WEB_SEARCH_FAILED" };
+    }
   }
   if (name === "delegate_specialist") {
     if (context.delegations >= MAX_DELEGATIONS) return { error: "Specialist delegation limit reached for this task." };
@@ -355,6 +393,7 @@ function runAgent(body, signal) {
     signal,
     searchCalls: 0,
     searchResults: null,
+    searchFailure: null,
     toolErrors: 0,
     delegations: 0,
     toolCalls: 0,
