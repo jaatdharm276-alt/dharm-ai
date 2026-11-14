@@ -50,7 +50,7 @@ try {
         if (event.orion_status?.detail) stages.push(event.orion_status.detail);
         if (event.orion_status?.stage) terminalStage = event.orion_status.stage;
         if (event.orion_status?.stage === "tool_error") toolFailed = true;
-        if (event.orion_status?.stage === "tool_completed" && /web search completed with verified sources/i.test(event.orion_status?.detail || "")) searchSucceeded = true;
+        if (event.orion_status?.stage === "tool_completed" && /(?:web search completed with verified sources|(?:tavily|bing rss) web search returned verified sources)/i.test(event.orion_status?.detail || "")) searchSucceeded = true;
         const delta = event.choices?.[0]?.delta?.content;
         if (typeof delta === "string") answer += delta;
       } catch {
