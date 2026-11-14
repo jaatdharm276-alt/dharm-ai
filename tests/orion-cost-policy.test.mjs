@@ -2,18 +2,21 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { getExternalSearchPolicy } from "../lib/orion-cost-policy.mjs";
 
-test("external search is disabled unless explicitly opted in", () => {
+test("external search stays disabled unless explicitly enabled", () => {
   assert.equal(getExternalSearchPolicy({ apiKey: "secret" }).allowed, false);
   assert.equal(getExternalSearchPolicy({ enabled: "false", apiKey: "secret" }).allowed, false);
 });
 
-test("requires both explicit opt-in and provider key", () => {
-  assert.equal(getExternalSearchPolicy({ enabled: "true" }).allowed, false);
-  assert.equal(getExternalSearchPolicy({ enabled: "true", apiKey: "secret" }).allowed, true);
+test("explicit opt-in enables free keyless search without a provider key", () => {
+  const policy = getExternalSearchPolicy({ enabled: "true" });
+  assert.equal(policy.allowed, true);
+  assert.equal(policy.authMode, "keyless");
 });
 
-test("uses low-cost bounded defaults", () => {
+test("an optional API key selects keyed mode without changing the bounded defaults", () => {
   const policy = getExternalSearchPolicy({ enabled: "true", apiKey: "secret" });
+  assert.equal(policy.allowed, true);
+  assert.equal(policy.authMode, "api_key");
   assert.equal(policy.maxCalls, 1);
   assert.equal(policy.maxResults, 3);
   assert.equal(policy.searchDepth, "basic");
