@@ -66,5 +66,5 @@ test("returns rate-limited responses immediately without retrying", async () => 
     baseDelayMs: 10,
     maxDelayMs: 100,
   });
-  assert.deepEqual(delays, [100]);
+  assert.deepEqual(delays, []);
 });
