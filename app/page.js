@@ -227,7 +227,10 @@ function Home() {
   const [composerToolsOpen, setComposerToolsOpen] = useState(false);
   const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
   const [historyQuery, setHistoryQuery] = useState("");
-  const [pinnedSessionIds, setPinnedSessionIds] = useState([]);
+  const [pinnedSessionIds, setPinnedSessionIds] = useState(() => {
+    if (typeof window === "undefined") return [];
+    try { return JSON.parse(window.localStorage.getItem("orion-ai-pinned-sessions-v1") || "[]"); } catch { return []; }
+  });
 
   const messagesRef = useRef(null);
   const scrollAnimationFrameRef = useRef(null);
@@ -424,6 +427,10 @@ function Home() {
       console.warn("ORION memory could not be saved:", storageError);
     }
   }, [memories, memoryReady]);
+
+  useEffect(() => {
+    try { window.localStorage.setItem("orion-ai-pinned-sessions-v1", JSON.stringify(pinnedSessionIds)); } catch {}
+  }, [pinnedSessionIds]);
 
   useEffect(() => {
     if (!historyReady) return;
@@ -1089,7 +1096,7 @@ function Home() {
           <button type="button" className="history-new-chat" onClick={() => { startNewChat(); setHistoryQuery(""); setHistoryDrawerOpen(false); }}>＋ New chat</button>
           <label className="history-search"><span>⌕</span><input value={historyQuery} onChange={(event) => setHistoryQuery(event.target.value)} placeholder="Search chats..." aria-label="Search chat history" /></label>
           <div className="history-drawer-list">
-            {chatSessions.filter((session) => String(session.title || "").toLowerCase().includes(historyQuery.trim().toLowerCase())).length ? chatSessions.filter((session) => String(session.title || "").toLowerCase().includes(historyQuery.trim().toLowerCase())).map((session) => <div key={session.id} className={session.id === activeSessionId ? "history-session active" : "history-session"}>
+            {chatSessions.filter((session) => String(session.title || "").toLowerCase().includes(historyQuery.trim().toLowerCase())).length ? chatSessions.filter((session) => String(session.title || "").toLowerCase().includes(historyQuery.trim().toLowerCase())).sort((a, b) => Number(pinnedSessionIds.includes(b.id)) - Number(pinnedSessionIds.includes(a.id)) || (b.updatedAt || 0) - (a.updatedAt || 0)).map((session) => <div key={session.id} className={session.id === activeSessionId ? "history-session active" : "history-session"}>
               <button type="button" className="history-session-open" onClick={() => { openChatSession(session); setHistoryDrawerOpen(false); }}>
                 <span className="history-session-icon">◷</span><span><strong>{session.title || "Conversation"}</strong><small>{session.mode === "agent" ? "Agent mode" : "Chat"} · {new Date(session.updatedAt || Date.now()).toLocaleDateString("en-IN")}</small></span>
               </button>
