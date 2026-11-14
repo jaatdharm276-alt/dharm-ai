@@ -885,21 +885,23 @@ function Home() {
         setError("");
       };
 
-      // SpeechRecognition sends cumulative results. Rebuild the voice segment
-      // on every event instead of appending interim text (which caused repeats).
+      // Use only finalized segments. Android Chrome can revise interim
+      // hypotheses repeatedly, which must never be appended to the input.
       const inputBeforeVoice = input;
       recognition.onresult = (event) => {
-        const transcriptParts = [];
-
+        const finalParts = [];
         for (let i = 0; i < event.results.length; i += 1) {
           const result = event.results[i];
+          if (!result?.isFinal) continue;
           const text = result?.[0]?.transcript?.trim();
-          if (text) transcriptParts.push(text);
+          if (text) finalParts.push(text);
         }
 
-        const recognizedText = transcriptParts.join(" ").replace(/\\s+/g, " ").trim();
+        const recognizedText = finalParts.join(" ").replace(/\\s+/g, " ").trim();
         const base = inputBeforeVoice.trim();
-        setInput(base && recognizedText ? `${base} ${recognizedText}` : base || recognizedText);
+        if (recognizedText) {
+          setInput(base ? `${base} ${recognizedText}` : recognizedText);
+        }
       };
 
       recognition.onerror = (event) => {
