@@ -186,6 +186,7 @@ function formatMessage(content) {
 }
 function Home() {
   const [messages, setMessages] = useState([]);
+  const [recentChats, setRecentChats] = useState([]);
   const [historyReady, setHistoryReady] = useState(false);
   const [chatSessions, setChatSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
@@ -317,7 +318,21 @@ function Home() {
     } finally {
       setHistoryReady(true);
     }
+    try {
+      const savedChats = JSON.parse(window.localStorage.getItem("orion-ai-recent-chats-v1") || "[]");
+      if (Array.isArray(savedChats)) setRecentChats(savedChats.slice(0, 8));
+    } catch (storageError) {
+      console.warn("ORION recent chats could not be restored:", storageError);
+    }
   }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("orion-ai-recent-chats-v1", JSON.stringify(recentChats.slice(0, 8)));
+    } catch (storageError) {
+      console.warn("ORION recent chats could not be saved:", storageError);
+    }
+  }, [recentChats]);
 
   useEffect(() => {
     try {
@@ -426,6 +441,11 @@ function Home() {
   }, [messages]);
 
   const startNewChat = useCallback(() => {
+    if (messages.some((item) => item.role === "user")) {
+      const firstUser = messages.find((item) => item.role === "user");
+      const snapshot = { id: createId(), title: getText(firstUser?.content).slice(0, 54) || "ORION conversation", updatedAt: Date.now(), messages };
+      setRecentChats((current) => [snapshot, ...current.filter((item) => item.title !== snapshot.title)].slice(0, 8));
+    }
     if (abortRef.current) {
       abortRef.current.abort();
       abortRef.current = null;
@@ -452,6 +472,18 @@ function Home() {
     setTimeout(() => {
       composerRef.current?.focus();
     }, 100);
+  }, [messages, createId]);
+
+  const openRecentChat = useCallback((chat) => {
+    if (abortRef.current) abortRef.current.abort();
+    setLoading(false);
+    setError("");
+    setMessages(chat.messages || []);
+    setTaskMode("chat");
+    setInput("");
+    setSearchOpen(false);
+    setSearchQuery("");
+    shouldFollowRef.current = true;
   }, []);
 
   const stopGeneration = useCallback(() => {
@@ -1061,6 +1093,21 @@ function Home() {
             <button type="button" onClick={() => document.getElementById("orion-recent-chats")?.scrollIntoView({ behavior: "smooth", block: "start" })}><span>◷</span>History</button>
             <button type="button" onClick={() => document.querySelector('[aria-label="Manage ORION memory"]')?.click()}><span>▦</span>More</button>
           </nav>
+          <section className="home-extras">
+            <div className="home-extra-heading"><span>🔥</span><strong>Quick Actions</strong></div>
+            <div className="quick-action-row">
+              <button type="button" onClick={() => { setTaskMode("work"); setInput("Mere code ka analysis karo aur bugs identify karo."); composerRef.current?.focus(); }}>〈/〉 Code</button>
+              <button type="button" onClick={() => { setTaskMode("agent"); setInput("Mere project ka detailed analysis karo."); composerRef.current?.focus(); }}>▥ Analyze</button>
+              <button type="button" onClick={() => { setTaskMode("agent"); setInput("Mere goal ka step-by-step plan banao."); composerRef.current?.focus(); }}>☷ Plan</button>
+              <button type="button" onClick={() => { setTaskMode("agent"); setInput("Is topic par research karke sources do."); composerRef.current?.focus(); }}>◎ Research</button>
+            </div>
+            <div className="home-extra-heading recent-heading"><span>◷</span><strong>Recent Chats</strong><button type="button" onClick={() => document.querySelector(".recent-chat-list")?.scrollIntoView({behavior:"smooth"})}>View all ›</button></div>
+            {recentChats.length ? <div className="recent-chat-list">
+              {recentChats.slice(0, 3).map((chat) => <button type="button" className="recent-chat-item" key={chat.id} onClick={() => openRecentChat(chat)}>
+                <span className="recent-chat-icon">▢</span><span className="recent-chat-copy"><strong>{chat.title}</strong><small>{new Date(chat.updatedAt).toLocaleString("en-IN", { day:"numeric", month:"short", hour:"numeric", minute:"2-digit" })}</small></span><span>•••</span>
+              </button>)}
+            </div> : <p className="recent-empty">Your recent conversations will appear here.</p>}
+          </section>
           <div className="dashboard-footer"><span><strong>Powered by Dharm AI</strong> · Created by Dharmraj jat</span></div>
         </section>
         ) : (
@@ -1262,6 +1309,13 @@ function Home() {
           </div>
         )}
 
+        <nav className="bottom-nav" aria-label="Main navigation">
+          <button type="button" className={!hasMessages ? "active" : ""} onClick={startNewChat}><span>⌂</span><small>Home</small></button>
+          <button type="button" onClick={() => { if (!hasMessages) document.querySelector(".feature-grid")?.scrollIntoView({behavior:"smooth"}); else setSearchOpen(true); }}><span>⌕</span><small>Explore</small></button>
+          <button type="button" onClick={() => { setTaskMode("agent"); if (!hasMessages) composerRef.current?.focus(); }}><span>✧</span><small>Tools</small></button>
+          <button type="button" onClick={() => { if (recentChats[0]) openRecentChat(recentChats[0]); else setError("Your recent chats will appear here after your first conversation."); }}><span>◷</span><small>History</small></button>
+          <button type="button" onClick={() => document.querySelector('[aria-label="Manage ORION memory"]')?.click()}><span>▦</span><small>More</small></button>
+        </nav>
       </main>
 </>
 );
@@ -2368,6 +2422,32 @@ function Home() {
     .new-chat-button { font-size:9px;padding:7px 8px; }
     .home-dashboard .dashboard-footer span { font-size:9px; }
   }
+
+  .home-extras{width:100%;margin:20px 0 78px;display:grid;gap:11px}
+  .home-extra-heading{display:flex;align-items:center;gap:8px;color:#142f65;font-size:14px;font-weight:800}
+  .home-extra-heading>span{font-size:17px}
+  .home-extra-heading button{margin-left:auto;border:0;background:transparent;color:#236fd0;font-size:11px;font-weight:800}
+  .quick-action-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+  .quick-action-row button{min-width:0;padding:10px 5px;border-radius:999px;border:1px solid #d9e5f4;background:rgba(255,255,255,.82);color:#243d70;font-size:11px;font-weight:750;box-shadow:0 3px 12px rgba(45,102,175,.07)}
+  .recent-heading{margin-top:5px}
+  .recent-chat-list{display:grid;gap:7px}
+  .recent-chat-item{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border:1px solid #dce6f2;border-radius:15px;background:rgba(255,255,255,.84);text-align:left;color:#23395f}
+  .recent-chat-icon{width:30px;height:30px;display:grid;place-items:center;border-radius:10px;background:#edf5ff;color:#287fe0}
+  .recent-chat-copy{display:grid;gap:3px;min-width:0;flex:1}
+  .recent-chat-copy strong{font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .recent-chat-copy small,.recent-empty{font-size:10px;color:#8491a4}
+  .bottom-nav{position:fixed;z-index:45;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(5,1fr);padding:8px 8px calc(7px + env(safe-area-inset-bottom));border-top:1px solid rgba(112,139,181,.18);background:rgba(255,255,255,.94);backdrop-filter:blur(18px);box-shadow:0 -6px 24px rgba(30,75,140,.06)}
+  .bottom-nav button{display:grid;justify-items:center;gap:3px;border:0;background:transparent;color:#66758d;padding:2px;font-weight:700}
+  .bottom-nav button span{font-size:20px;line-height:1.1}.bottom-nav button small{font-size:9px}
+  .bottom-nav button.active{color:#126fd1;text-shadow:0 0 12px rgba(31,131,245,.22)}
+  .home-dashboard{padding-bottom:calc(230px + env(safe-area-inset-bottom))}
+  .home-dashboard .dashboard-footer{bottom:calc(58px + env(safe-area-inset-bottom))}
+  .home-dashboard .dashboard-composer{bottom:calc(91px + env(safe-area-inset-bottom))}
+  .chat-screen{padding-bottom:calc(120px + env(safe-area-inset-bottom))}
+  .chat-screen .chat-composer{bottom:calc(91px + env(safe-area-inset-bottom))}
+  .chat-screen .chat-search-actions{bottom:calc(62px + env(safe-area-inset-bottom))}
+  .chat-screen .composer-credit{bottom:calc(47px + env(safe-area-inset-bottom))}
+  @media(max-width:700px){.home-extras{margin-bottom:80px}.quick-action-row button{font-size:9px;padding:9px 2px}.home-dashboard{padding-bottom:calc(230px + env(safe-area-inset-bottom))}}
 
 
 `;
