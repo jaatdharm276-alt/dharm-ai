@@ -1,4 +1,4 @@
-const endpoint = "https://dharm-ai.vercel.app/api/agent";
+const endpoint = process.env.ORION_AGENT_URL || "https://dharm-ai-git-orion-ai-agent-live-smoke-dharm-ai.vercel.app/api/agent";
 const controller = new AbortController();
 const timeout = setTimeout(() => controller.abort(), 150_000);
 
