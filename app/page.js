@@ -689,7 +689,7 @@ function Home() {
           setMessages((current) =>
             current.map((message) =>
               message.id === assistantId
-                ? { ...message, activity: [...(message.activity || []), activity].slice(-8) }
+                ? { ...message, activity: [...(message.activity || []), activity].slice(-24) }
                 : message
             )
           );
