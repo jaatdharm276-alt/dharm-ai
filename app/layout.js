@@ -1,4 +1,5 @@
 import "./globals.css";
+import PwaRegister from "./pwa-register";
 
 export const metadata = {
   title: "ORION AI",
@@ -9,6 +10,10 @@ export const metadata = {
     capable: true,
     statusBarStyle: "default",
     title: "ORION AI",
+  },
+  icons: {
+    icon: "/orion-icon.svg",
+    apple: "/orion-icon.svg",
   },
 };
 
@@ -21,7 +26,10 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="hi">
-      <body>{children}</body>
+      <body>
+        <PwaRegister />
+        {children}
+      </body>
     </html>
   );
 }

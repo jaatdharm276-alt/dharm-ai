@@ -1,9 +1,8 @@
-
 {
   "id": "/",
   "name": "ORION AI",
-  "short_name": "ORION AI",
-  "description": "Your Intelligent Companion",
+  "short_name": "ORION",
+  "description": "Your Intelligent Companion, Powered by Dharm AI",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -13,16 +12,10 @@
   "categories": ["productivity", "education"],
   "icons": [
     {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
+      "src": "/orion-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     }
   ]
 }
