@@ -850,62 +850,92 @@ function Home() {
   const startVoice = useCallback(() => {
     if (loading) return;
 
+    if (typeof window === "undefined") return;
+
     const SpeechRecognition =
       window.SpeechRecognition ||
       window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      setError(
-        "Voice input is not supported on this browser."
-      );
+      setError("इस ब्राउज़र में Voice Typing उपलब्ध नहीं है। ORION AI को Android Chrome में खोलकर Microphone permission Allow करें।");
       return;
     }
 
     if (listening) {
-      recognitionRef.current?.stop();
+      try {
+        recognitionRef.current?.stop();
+      } catch (stopError) {
+        console.warn("ORION voice stop failed:", stopError);
+      }
       setListening(false);
       return;
     }
 
-    const recognition =
-      new SpeechRecognition();
+    setError("");
+    let recognition;
+    try {
+      recognition = new SpeechRecognition();
+      recognition.lang = "hi-IN";
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
 
-    recognition.lang = "hi-IN";
-    recognition.continuous = false;
-    recognition.interimResults = true;
+      recognition.onstart = () => {
+        setListening(true);
+        setError("");
+      };
 
-    recognition.onstart = () => {
-      setListening(true);
-      setError("");
-    };
+      recognition.onresult = (event) => {
+        let finalTranscript = "";
+        let interimTranscript = "";
 
-    recognition.onresult = (event) => {
-      let transcript = "";
+        for (let i = event.resultIndex; i < event.results.length; i += 1) {
+          const result = event.results[i];
+          const text = result?.[0]?.transcript || "";
+          if (result.isFinal) finalTranscript += text;
+          else interimTranscript += text;
+        }
 
-      for (
-        let i = event.resultIndex;
-        i < event.results.length;
-        i++
-      ) {
-        transcript +=
-          event.results[i][0].transcript;
-      }
+        const recognizedText = (finalTranscript || interimTranscript).trim();
+        if (recognizedText) {
+          setInput((current) => {
+            const existing = current.trim();
+            return existing ? `${existing} ${recognizedText}` : recognizedText;
+          });
+        }
+      };
 
-      setInput(transcript);
-    };
+      recognition.onerror = (event) => {
+        const messages = {
+          "not-allowed": "Microphone permission Block है। Android Settings → Apps → Chrome → Permissions → Microphone को Allow करें, फिर पेज Reload करें।",
+          "service-not-allowed": "Voice recognition service को अनुमति नहीं मिली। Chrome में Microphone permission Allow करके दोबारा कोशिश करें।",
+          "audio-capture": "फोन का Microphone उपलब्ध नहीं है। Microphone access और दूसरे ऐप में उसका उपयोग जाँचें।",
+          "no-speech": "आवाज़ सुनाई नहीं दी। Mic दबाकर साफ़ और पास से बोलें।",
+          "network": "Voice recognition के लिए Internet connection उपलब्ध नहीं है। Network जाँचकर फिर कोशिश करें।",
+          "language-not-supported": "Hindi voice recognition इस browser में उपलब्ध नहीं है।",
+          "aborted": "",
+        };
+        setListening(false);
+        const message = messages[event.error] ?? `Voice input error: ${event.error || "unknown"}`;
+        if (message) setError(message);
+      };
 
-    recognition.onerror = () => {
+      recognition.onend = () => {
+        setListening(false);
+        recognitionRef.current = null;
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (voiceError) {
+      recognitionRef.current = null;
       setListening(false);
-    };
-
-    recognition.onend = () => {
-      setListening(false);
-    };
-
-    recognitionRef.current = recognition;
-    recognition.start();
+      setError(voiceError?.name === "NotAllowedError" || voiceError?.name === "SecurityError"
+        ? "Microphone permission नहीं मिली। Chrome की Site settings में Microphone को Allow करें और Reload करें।"
+        : `Voice input शुरू नहीं हो पाया: ${voiceError?.message || "कृपया दोबारा कोशिश करें"}`);
+    }
   }, [loading, listening]);
-    const speakText = useCallback((text) => {
+  const speakText = useCallback((text) => {
     if (
       typeof window === "undefined" ||
       !window.speechSynthesis ||
@@ -997,7 +1027,7 @@ function Home() {
               rows={1}
               disabled={loading}
             />
-            <button type="button" className={listening ? "icon-button listening" : "icon-button"} onClick={startVoice} disabled={loading} aria-label="Voice input">
+            <button type="button" className={listening ? "icon-button listening" : "icon-button"} onClick={startVoice} disabled={loading} aria-label={listening ? "Stop voice input" : "Start voice input"} aria-pressed={listening} title={listening ? "Listening… tap to stop" : "Speak in Hindi"}>
               <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" /></svg>
             </button>
             <button type="submit" className="send-button" disabled={!input.trim() || loading} aria-label="Send message">↑</button>
