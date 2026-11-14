@@ -1,0 +1,31 @@
+name: ORION Live Agent Search E2E
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+    paths:
+      - "scripts/smoke-orion-agent.mjs"
+      - ".github/workflows/orion-agent-e2e.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  live-agent-search:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test deployed ORION Agent end-to-end
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: node scripts/smoke-orion-agent.mjs

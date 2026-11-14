@@ -886,31 +886,6 @@ function Home() {
           {hasMessages && (
             <button
               className="top-button"
-              onClick={() =>
-                setSearchOpen(
-                  (value) => !value
-                )
-              }
-              type="button"
-              aria-label="Search chat"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <circle
-                  cx="11"
-                  cy="11"
-                  r="6.5"
-                />
-                <path d="m16 16 5 5" />
-              </svg>
-            </button>
-          )}
-
-          {hasMessages && (
-            <button
-              className="top-button"
               onClick={downloadChat}
               type="button"
               aria-label="Download chat"
@@ -933,21 +908,6 @@ function Home() {
           )}
         </div>
       </header>
-
-      {searchOpen && hasMessages && (
-        <div className="search-panel">
-          <input
-            value={searchQuery}
-            onChange={(event) =>
-              setSearchQuery(
-                event.target.value
-              )
-            }
-            placeholder="Search this chat..."
-            autoFocus
-          />
-        </div>
-      )}
 
       {!hasMessages ? (
         <section className="home-screen home-dashboard">
@@ -1127,6 +1087,17 @@ function Home() {
                   ORION AI · {activeTask.label}
                 </div>
               )}
+            {searchOpen && hasMessages && (
+              <div id="orion-chat-search" className="search-panel search-panel-bottom">
+                <input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search this chat..."
+                  aria-label="Search this chat"
+                  autoFocus
+                />
+              </div>
+            )}
             <form
               className="composer chat-composer"
               onSubmit={handleSubmit}
@@ -1182,6 +1153,23 @@ function Home() {
                 ↑
               </button>
             </form>
+            {hasMessages && (
+              <div className="chat-search-actions">
+                <button
+                  type="button"
+                  className="chat-search-button"
+                  onClick={() => setSearchOpen((value) => !value)}
+                  aria-expanded={searchOpen}
+                  aria-controls="orion-chat-search"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="11" cy="11" r="6.5" />
+                    <path d="m16 16 5 5" />
+                  </svg>
+                  <span>{searchOpen ? "Close search" : "Search chat"}</span>
+                </button>
+              </div>
+            )}
             <p className="composer-credit">
               Powered by Dharm AI
             </p>
@@ -1366,6 +1354,46 @@ function Home() {
     z-index: 4;
     width: min(620px, calc(100% - 32px));
     margin: 12px auto 0;
+  }
+  .search-panel-bottom {
+    flex: 0 0 auto;
+    width: 100%;
+    margin: 0 auto 8px;
+  }
+  .chat-search-actions {
+    display: flex;
+    justify-content: flex-end;
+    width: min(760px, 100%);
+    margin: 7px auto 0;
+    padding: 0 3px;
+  }
+  .chat-search-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 38px;
+    padding: 0 13px;
+    border: 1px solid #cfe3f8;
+    border-radius: 12px;
+    background: #f1f8ff;
+    color: #176db5;
+    font-size: 13px;
+    font-weight: 650;
+    box-shadow: 0 3px 12px rgba(25, 112, 180, .08);
+  }
+  .chat-search-button svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .chat-search-button:focus-visible {
+    outline: 3px solid rgba(31, 130, 220, .25);
+    outline-offset: 2px;
   }
 
   .search-panel input {

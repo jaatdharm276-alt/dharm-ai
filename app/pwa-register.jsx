@@ -47,15 +47,17 @@ export default function PwaRegister() {
       style={{
         position: "fixed",
         right: 16,
-        bottom: 16,
+        bottom: "calc(16px + env(safe-area-inset-bottom))",
         zIndex: 1000,
         border: "1px solid rgba(99, 102, 241, .25)",
         borderRadius: 999,
-        padding: "11px 16px",
+        padding: "9px 13px",
+        maxWidth: "calc(100vw - 24px)",
         color: "#fff",
         background: "linear-gradient(135deg, #6d5dfc, #269bd8)",
         boxShadow: "0 8px 24px rgba(50, 70, 180, .22)",
         fontWeight: 700,
+        fontSize: 13,
         cursor: "pointer",
       }}
     >

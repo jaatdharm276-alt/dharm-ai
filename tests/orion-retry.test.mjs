@@ -53,11 +53,11 @@ test("bounds retry count and exposes the transient status policy", async () => {
     sleep: async () => {},
   });
   assert.equal(calls, 4);
-  assert.ok(RETRYABLE_STATUS_CODES.has(429));
+  assert.ok(!RETRYABLE_STATUS_CODES.has(429));
   assert.ok(!RETRYABLE_STATUS_CODES.has(404));
 });
 
-test("honors a bounded Retry-After header", async () => {
+test("returns rate-limited responses immediately without retrying", async () => {
   const delays = [];
   await fetchWithRetry("https://example.test", {}, {
     fetchImpl: async () => new Response("", { status: 429, headers: { "retry-after": "2" } }),
@@ -66,5 +66,5 @@ test("honors a bounded Retry-After header", async () => {
     baseDelayMs: 10,
     maxDelayMs: 100,
   });
-  assert.deepEqual(delays, [100]);
+  assert.deepEqual(delays, []);
 });

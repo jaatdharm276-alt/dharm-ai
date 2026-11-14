@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { selectRelevantMemories } from "../../../lib/orion-memory.mjs";
+import { createRateLimiter, getClientIdentifier } from "../../../lib/orion-rate-limit.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +16,8 @@ const MAX_HISTORY_ITEM_CHARS = 8000;
 const MAX_REQUEST_BYTES = 128 * 1024;
 const MAX_TOKENS = 6000;
 const TEMPERATURE = 0.4;
+// Best-effort per-instance protection; use shared KV/Redis for global enforcement.
+const chatRateLimiter = createRateLimiter({ limit: 20, windowMs: 60_000 });
 
 const CREATOR_NAME = "Dharmraj Jat";
 const ORIGINAL_PROJECT = "Dharm AI";
@@ -659,24 +662,18 @@ async function callGroq({
     );
 
   if (!response.ok) {
-    let errorMessage =
-      `Groq API error (${response.status})`;
-
-    try {
-      const data =
-        await response.json();
-
-      errorMessage =
-        data?.error?.message ||
-        data?.message ||
-        errorMessage;
-    } catch {
-      // Keep fallback error.
-    }
-
-    throw new Error(
-      errorMessage
-    );
+    const detail = await response.text().catch(() => "");
+    console.error("ORION Groq provider error:", response.status, detail.slice(0, 1000));
+    const error = new Error("Groq provider request failed.");
+    error.providerStatus = response.status;
+    error.code = response.status === 401 || response.status === 403
+      ? "GROQ_AUTH_REJECTED"
+      : response.status === 429
+        ? "GROQ_RATE_LIMITED"
+        : response.status >= 500
+          ? "GROQ_PROVIDER_UNAVAILABLE"
+          : "GROQ_PROVIDER_HTTP_ERROR";
+    throw error;
   }
 
   if (!response.body) {
@@ -963,6 +960,14 @@ export async function POST(
   request
 ) {
   try {
+    const rate = chatRateLimiter.check(getClientIdentifier(request.headers));
+    if (!rate.allowed) {
+      return new Response(JSON.stringify({ error: "Too many chat requests. Please wait before trying again." }), {
+        status: 429,
+        headers: { "Content-Type": "application/json; charset=utf-8", "Retry-After": String(Math.ceil(rate.retryAfterMs / 1000)), "Cache-Control": "no-store" },
+      });
+    }
+
     const contentType = request.headers.get("content-type") || "";
     if (!contentType.toLowerCase().includes("application/json")) {
       return createErrorResponse("Content-Type must be application/json.", 415);
@@ -1000,10 +1005,14 @@ export async function POST(
       return createErrorResponse("Request was cancelled.", 499);
     }
 
-    // Keep upstream provider details in server logs; do not expose them to clients.
-    return createErrorResponse(
-      "ORION AI could not complete the request. Please try again.",
-      500
-    );
+    const safeErrors = {
+      GROQ_KEY_MISSING: "ORION AI service is not configured yet. The server is missing its Groq API key.",
+      GROQ_AUTH_REJECTED: "ORION AI could not authenticate with its AI provider. The server API key needs to be checked.",
+      GROQ_RATE_LIMITED: "The AI provider is temporarily rate-limiting requests. Please wait a little and try again.",
+      GROQ_PROVIDER_UNAVAILABLE: "The AI provider is temporarily unavailable. Please try again shortly.",
+      GROQ_PROVIDER_HTTP_ERROR: "The AI provider rejected the request. Please try again later.",
+    };
+    const safeMessage = safeErrors[error?.code] || "ORION AI could not complete the request. Please try again.";
+    return createErrorResponse(safeMessage, error?.providerStatus === 429 ? 429 : 500);
   }
 }
