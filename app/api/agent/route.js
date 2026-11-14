@@ -175,8 +175,10 @@ async function searchWeb(query, signal) {
   if (!response.ok) {
     const providerDetail = await response.text().catch(() => "");
     console.error("ORION web search provider error:", response.status, providerDetail.slice(0, 1200));
-    const retryAfter = response.headers.get("retry-after");\n    const error = new Error("Web search provider returned HTTP " + response.status + (retryAfter ? " (Retry-After: " + retryAfter + ")." : "."));
-    error.retryAfter = retryAfter || null;\n    error.code = response.status === 401 || response.status === 403
+    const retryAfter = response.headers.get("retry-after");
+    const error = new Error("Web search provider returned HTTP " + response.status + (retryAfter ? " (Retry-After: " + retryAfter + ")." : "."));
+    error.retryAfter = retryAfter || null;
+    error.code = response.status === 401 || response.status === 403
       ? "TAVILY_AUTH_OR_ACCESS_REJECTED"
       : response.status === 429
         ? "TAVILY_RATE_LIMITED"
