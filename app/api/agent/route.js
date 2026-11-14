@@ -346,7 +346,7 @@ function runAgent(body, signal) {
     } catch (error) {
       if (error?.name === "AbortError" || signal?.aborted) throw error;
       console.error("ORION verifier unavailable:", error);
-      return buildPartialRecoveryAnswer({ draft, toolResults: collectedToolResults, failureStage: "verification" });
+      return { answer: buildPartialRecoveryAnswer({ draft, toolResults: collectedToolResults, failureStage: "verification" }), partial: true };
     }
     try {
       const revised = await callModel([
@@ -358,7 +358,7 @@ function runAgent(body, signal) {
     } catch (error) {
       if (error?.name === "AbortError" || signal?.aborted) throw error;
       console.error("ORION finalization unavailable:", error);
-      return buildPartialRecoveryAnswer({ draft, toolResults: collectedToolResults, failureStage: "finalization" });
+      return { answer: buildPartialRecoveryAnswer({ draft, toolResults: collectedToolResults, failureStage: "finalization" }), partial: true };
     }
   }
 
@@ -418,9 +418,9 @@ function runAgent(body, signal) {
         const answer = String(assistant.content || "").trim();
         lastDraft = answer;
         emitStatus("verification", "जवाब और उपलब्ध सबूतों की जाँच कर रहा हूँ");
-        const verifiedAnswer = await verifyAndFinalize(answer || "Task complete nahi ho saka. Kripya request ko thoda aur specific karein.");
-        emitStatus("complete", "जाँच पूरी — जवाब तैयार है");
-        emitText(verifiedAnswer);
+        const verified = await verifyAndFinalize(answer || "Task complete nahi ho saka. Kripya request ko thoda aur specific karein.");
+        emitStatus(verified.partial ? "partial_recovery" : "complete", verified.partial ? "जाँच सेवा उपलब्ध नहीं थी — आंशिक जवाब सुरक्षित रखा है" : "जाँच पूरी — जवाब तैयार है");
+        emitText(verified.answer || verified);
         return;
       }
 
@@ -498,9 +498,9 @@ function runAgent(body, signal) {
     }
 
     emitStatus("verification", "मिले हुए नतीजों की अंतिम जाँच कर रहा हूँ");
-    const verifiedAnswer = await verifyAndFinalize(lastDraft || "Agent task limit reached. Please narrow the task.");
-    emitStatus("complete", "जाँच पूरी — जवाब तैयार है");
-    emitText(verifiedAnswer);
+    const verified = await verifyAndFinalize(lastDraft || "Agent task limit reached. Please narrow the task.");
+    emitStatus(verified.partial ? "partial_recovery" : "complete", verified.partial ? "जाँच सेवा उपलब्ध नहीं थी — आंशिक जवाब सुरक्षित रखा है" : "जाँच पूरी — जवाब तैयार है");
+    emitText(verified.answer || verified);
   } catch (error) {
     if (error?.name === "AbortError") {
       emitStatus("cancelled", "काम रोक दिया गया");
