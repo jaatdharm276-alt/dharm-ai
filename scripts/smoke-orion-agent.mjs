@@ -1,4 +1,4 @@
-const endpoint = process.env.ORION_AGENT_URL || "https://dharm-ai-git-orion-ai-agent-live-smoke-dharm-ai.vercel.app/api/agent";
+const endpoint = process.env.ORION_AGENT_URL || "https://dharm-ai-git-feat-orion-poster-ui-live-dharm-ai.vercel.app/api/agent";
 const controller = new AbortController();
 const timeout = setTimeout(() => controller.abort(), 150_000);
 
@@ -12,7 +12,7 @@ try {
         : {}),
     },
     body: JSON.stringify({
-      message: "Use search_web to find the official National Portal of India (India.gov.in). Answer briefly and cite the exact source URL.",
+      message: "Use search_web to find the official National Portal of India at site:india.gov.in. Answer briefly and cite the exact source URL.",
       messages: [],
       memories: [],
     }),
@@ -50,7 +50,7 @@ try {
         if (event.orion_status?.detail) stages.push(event.orion_status.detail);
         if (event.orion_status?.stage) terminalStage = event.orion_status.stage;
         if (event.orion_status?.stage === "tool_error") toolFailed = true;
-        if (event.orion_status?.stage === "tool_completed" && /(?:web search completed with verified sources|(?:tavily|bing rss) web search returned verified sources)/i.test(event.orion_status?.detail || "")) searchSucceeded = true;
+        if (event.orion_status?.stage === "tool_completed" && /(?:वेब खोज से सत्यापित स्रोत मिले|web search completed with verified sources|(?:tavily|bing rss|google news rss) web search returned verified sources)/i.test(event.orion_status?.detail || "")) searchSucceeded = true;
         const delta = event.choices?.[0]?.delta?.content;
         if (typeof delta === "string") answer += delta;
       } catch {

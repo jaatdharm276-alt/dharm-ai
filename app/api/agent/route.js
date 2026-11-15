@@ -196,30 +196,51 @@ async function searchWeb(query, signal) {
   }
 
   // Public RSS fallback keeps basic web lookup available when Tavily is unavailable.
-  const rssUrl = "https://www.bing.com/search?format=rss&q=" + encodeURIComponent(String(query).trim().slice(0, 500));
-  const rssResponse = await fetchWithRetry(rssUrl, {
-    method: "GET",
-    headers: { Accept: "application/rss+xml, application/xml, text/xml" },
-    cache: "no-store",
-    signal,
-  }, {
-    maxRetries: 1,
-    baseDelayMs: 800,
-    maxDelayMs: 2000,
-  });
-  if (!rssResponse.ok) {
-    const error = new Error("Web search providers unavailable (Tavily: " + tavilyFailure + "; Bing RSS HTTP " + rssResponse.status + ").");
-    error.code = "WEB_SEARCH_PROVIDERS_UNAVAILABLE";
-    throw error;
+  const fallbackProviders = [
+    {
+      name: "Bing RSS",
+      url: "https://www.bing.com/search?format=rss&q=" + encodeURIComponent(String(query).trim().slice(0, 500)),
+    },
+    {
+      name: "Google News RSS",
+      url: "https://news.google.com/rss/search?q=" + encodeURIComponent(String(query).trim().slice(0, 500)) + "&hl=en-IN&gl=IN&ceid=IN:en",
+    },
+  ];
+  const fallbackFailures = [];
+  for (const provider of fallbackProviders) {
+    try {
+      const rssResponse = await fetchWithRetry(provider.url, {
+        method: "GET",
+        headers: {
+          Accept: "application/rss+xml, application/xml, text/xml",
+          "User-Agent": "ORION-AI/1.0 (+https://dharm-ai.vercel.app)",
+        },
+        cache: "no-store",
+        signal,
+      }, {
+        maxRetries: 1,
+        baseDelayMs: 800,
+        maxDelayMs: 2000,
+      });
+      if (!rssResponse.ok) {
+        fallbackFailures.push(provider.name + " HTTP " + rssResponse.status);
+        continue;
+      }
+      const xml = await rssResponse.text();
+      const fallback = normalizeBingRssResults(xml, {
+        limit: SEARCH_POLICY.maxResults,
+        provider: provider.name,
+      });
+      if (fallback.results.length) return { ...fallback, fallbackReason: tavilyFailure };
+      fallbackFailures.push(provider.name + " returned no usable sources");
+    } catch (error) {
+      if (error?.name === "AbortError" || signal?.aborted) throw error;
+      fallbackFailures.push(provider.name + " request failed");
+    }
   }
-  const xml = await rssResponse.text();
-  const fallback = normalizeBingRssResults(xml, { limit: SEARCH_POLICY.maxResults });
-  if (!fallback.results.length) {
-    const error = new Error("Web search providers returned no usable sources (Tavily: " + tavilyFailure + ").");
-    error.code = "WEB_SEARCH_NO_RESULTS";
-    throw error;
-  }
-  return { ...fallback, fallbackReason: tavilyFailure };
+  const error = new Error("Web search providers unavailable (Tavily: " + tavilyFailure + "; " + fallbackFailures.join("; ") + ").");
+  error.code = "WEB_SEARCH_PROVIDERS_UNAVAILABLE";
+  throw error;
 }
 
 async function callModel(messages, options = {}, signal) {
@@ -433,6 +454,67 @@ function runAgent(body, signal) {
   const collectedToolResults = [];
   let lastDraft = "";
 
+  // A direct, explicit web-search request does not need an LLM planning round.
+  // Run the bounded search tool first and return its cited evidence directly;
+  // this also keeps the search capability usable during model-provider 429s.
+  if (/\bsearch_web\b/i.test(message)) {
+    const requestedQuery = message
+      .replace(/^.*?\bsearch_web\b\s*/i, "")
+      .replace(/^to\s+find\s+/i, "")
+      .trim()
+      .slice(0, 500);
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        const emit = (payload) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
+        const emitStatus = (stage, detail) => emit({ orion_status: { stage, detail, timestamp: Date.now() } });
+        const emitText = (value) => {
+          for (const chunk of String(value).match(/[\s\S]{1,72}/g) || [""]) {
+            emit({ choices: [{ delta: { content: chunk } }] });
+          }
+        };
+        (async () => {
+          emitStatus("understanding", "आपके सवाल को समझ रहा हूँ");
+          emitStatus("planning_done", "सीधी वेब खोज के लिए योजना तैयार है");
+          emitStatus("tool", "वेब पर जानकारी खोज रहा हूँ");
+          try {
+            const result = await searchWeb(requestedQuery || message, signal);
+            if (!Array.isArray(result?.results) || result.results.length === 0) {
+              emitStatus("tool_error", "वेब खोज में सत्यापित स्रोत नहीं मिले");
+              emitStatus("partial_recovery", "वेब स्रोत उपलब्ध नहीं हुए — कोई अप्रमाणित लिंक नहीं दिया गया");
+              emitText("इस समय वेब खोज से सत्यापित स्रोत नहीं मिल सके। कृपया थोड़ी देर बाद दोबारा प्रयास करें।");
+              return;
+            }
+            emitStatus("tool_completed", "वेब खोज से सत्यापित स्रोत मिले");
+            const answer = buildAgentEvidenceAnswer({
+              toolResults: [{ name: "search_web", result }],
+              failureCode: "SEARCH_SUMMARY_FALLBACK",
+            }).replace(/\n\nआंशिक परिणाम:[\s\S]*$/, "");
+            emitStatus("verification", "प्राप्त स्रोतों और URL की जाँच कर रहा हूँ");
+            emitStatus("complete", "स्रोत मिल गए — जवाब तैयार है");
+            emitText(answer);
+          } catch (error) {
+            if (error?.name === "AbortError" || signal?.aborted) {
+              emitStatus("cancelled", "काम रोक दिया गया");
+              return;
+            }
+            console.error("ORION direct web search failed:", error);
+            emitStatus("tool_error", "वेब खोज पूरी नहीं हो सकी");
+            emitStatus("partial_recovery", "वेब स्रोत उपलब्ध नहीं हुए — कोई अप्रमाणित लिंक नहीं दिया गया");
+            emitText("इस समय वेब खोज सेवा उपलब्ध नहीं है। बिना सत्यापित स्रोत के मैं कोई लिंक नहीं बताऊँगा। कृपया थोड़ी देर बाद दोबारा प्रयास करें।");
+          } finally {
+            emit({ done: true });
+            controller.close();
+          }
+        })();
+      },
+    });
+    return new Response(stream, {
+      status: 200,
+      headers: { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform", Connection: "keep-alive", "X-Accel-Buffering": "no" },
+    });
+  }
+
   async function verifyAndFinalize(draft) {
     let verification;
     try {
@@ -506,6 +588,15 @@ function runAgent(body, signal) {
       } catch (error) {
         if (error?.name === "AbortError" || signal?.aborted) throw error;
         console.error("ORION reasoning step unavailable:", error);
+        const hasVerifiedSearchSources = collectedToolResults.some(
+          (item) => item?.name === "search_web" && Array.isArray(item?.result?.results) && item.result.results.length > 0,
+        );
+        if (error?.code === "GROQ_RATE_LIMITED" && hasVerifiedSearchSources) {
+          const evidenceAnswer = buildAgentEvidenceAnswer({ toolResults: collectedToolResults, failureCode: error.code });
+          emitStatus("complete", "सत्यापित वेब स्रोत मिल गए — AI provider की सीमा के कारण स्रोत-आधारित जवाब तैयार किया");
+          emitText(evidenceAnswer.replace(/\n\nआंशिक परिणाम:[\s\S]*$/, "\n\nनोट: AI provider की rate limit के कारण अतिरिक्त भाषा-संश्लेषण उपलब्ध नहीं था; नीचे का उत्तर सीधे प्राप्त स्रोतों पर आधारित है।"));
+          return;
+        }
         const recovery = error?.code === "GROQ_RATE_LIMITED"
           ? buildAgentEvidenceAnswer({ toolResults: collectedToolResults, failureCode: error.code })
           : buildPartialRecoveryAnswer({ draft: lastDraft, toolResults: collectedToolResults, failureStage: "reasoning" });
