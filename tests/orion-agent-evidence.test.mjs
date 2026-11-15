@@ -48,7 +48,7 @@ test("builds search queries from both task topic and model suggestion", () => {
   assert.match(query, /India general facts/);
 });
 
-test("requires multiple overlapping topic terms", () => {
+test("requires multiple overlapping topic terms, including source URL metadata", () => {
   assert.equal(isRelevantAgentSource({ title: "India", content: "India is a country." }, objective), false);
   assert.equal(isRelevantAgentSource({ title: "Industry 5.0 Japan robotics", content: "Japan uses robotics and AI automation." }, objective), true);
 });
