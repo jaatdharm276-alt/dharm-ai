@@ -20,7 +20,7 @@ const MAX_HISTORY_ITEM_CHARS = 8000;
 const MAX_REQUEST_BYTES = 128 * 1024;
 const MAX_TOKENS = 6000;
 const TEMPERATURE = 0.4;
-// Best-effort per-instance protection; use shared KV/Redis for global enforcement.
+// Shared Redis protection is enforced across serverless instances; production fails closed if unavailable.
 const chatRateLimiter = createUpstashRateLimiter({ limit: 20, windowMs: 60_000, prefix: "orion:chat" });
 
 const CREATOR_NAME = "Dharmraj Jat";
