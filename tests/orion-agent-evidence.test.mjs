@@ -17,3 +17,17 @@ test("does not invent sources when tools returned none", () => {
   assert.match(answer, /पर्याप्त सत्यापित जानकारी उपलब्ध नहीं हुई/);
   assert.doesNotMatch(answer, /https:\/\//);
 });
+
+test("keeps readable source links when a non-rate-limit agent step fails", () => {
+  const answer = buildAgentEvidenceAnswer({
+    failureCode: "GROQ_PROVIDER_UNAVAILABLE",
+    toolResults: [
+      { name: "search_web", result: { results: [
+        { title: "India technology outlook", url: "https://example.org/india-tech", content: "India is expanding its advanced technology ecosystem." },
+      ] } },
+    ],
+  });
+  assert.match(answer, /India is expanding its advanced technology ecosystem/);
+  assert.match(answer, /https:\/\/example\.org\/india-tech/);
+  assert.match(answer, /आंशिक परिणाम/);
+});
