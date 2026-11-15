@@ -20,7 +20,7 @@ try {
         : {}),
     },
     body: JSON.stringify({
-      message: "search_web India government portal National Portal of India",
+      message: "search_web National Portal of India official website india.gov.in",
       messages: [],
       memories: [],
     }),
