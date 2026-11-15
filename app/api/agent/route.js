@@ -457,19 +457,19 @@ function runAgent(body, signal) {
   // A direct, explicit web-search request does not need an LLM planning round.
   // Run the bounded search tool first and return its cited evidence directly;
   // this also keeps the search capability usable during model-provider 429s.
-  if (/\\bsearch_web\\b/i.test(message)) {
+  if (/\bsearch_web\b/i.test(message)) {
     const requestedQuery = message
-      .replace(/^.*?\\bsearch_web\\b\\s*/i, "")
-      .replace(/^to\\s+find\\s+/i, "")
+      .replace(/^.*?\bsearch_web\b\s*/i, "")
+      .replace(/^to\s+find\s+/i, "")
       .trim()
       .slice(0, 500);
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       start(controller) {
-        const emit = (payload) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\\n\\n`));
+        const emit = (payload) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
         const emitStatus = (stage, detail) => emit({ orion_status: { stage, detail, timestamp: Date.now() } });
         const emitText = (value) => {
-          for (const chunk of String(value).match(/[\\s\\S]{1,72}/g) || [""]) {
+          for (const chunk of String(value).match(/[\s\\S]{1,72}/g) || [""]) {
             emit({ choices: [{ delta: { content: chunk } }] });
           }
         };
@@ -489,7 +489,7 @@ function runAgent(body, signal) {
             const answer = buildAgentEvidenceAnswer({
               toolResults: [{ name: "search_web", result }],
               failureCode: "SEARCH_SUMMARY_FALLBACK",
-            }).replace(/\\n\\nआंशिक परिणाम:[\\s\\S]*$/, "");
+            }).replace(/\n\nआंशिक परिणाम:[\s\\S]*$/, "");
             emitStatus("verification", "प्राप्त स्रोतों और URL की जाँच कर रहा हूँ");
             emitStatus("complete", "स्रोत मिल गए — जवाब तैयार है");
             emitText(answer);
