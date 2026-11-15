@@ -16,8 +16,8 @@ test("builds a readable partial answer from relevant web evidence", () => {
     ] } },
   ] });
   assert.match(answer, /Japan is investing/);
-  assert.match(answer, /Asia\\/Kolkata/);
-  assert.match(answer, /https:\\/\\/example\\.org/);
+  assert.match(answer, /Asia\/Kolkata/);
+  assert.match(answer, /https:\/\/example\.org/);
   assert.match(answer, /आंशिक परिणाम/);
 });
 
@@ -28,7 +28,7 @@ test("rejects unrelated general country pages for a specific research task", () 
     ] } },
   ] });
   assert.match(answer, /मुख्य विषय से मेल खाने वाला/);
-  assert.doesNotMatch(answer, /wikipedia\\.org/);
+  assert.doesNotMatch(answer, /wikipedia\.org/);
 });
 
 test("removes bracketed citation artifacts from snippets", () => {
@@ -37,7 +37,7 @@ test("removes bracketed citation artifacts from snippets", () => {
       { title: "Industry 5.0 India Japan", url: "https://example.org/i5", content: "Industry 5.0 [20] in India and Japan [[21]] supports robotics." },
     ] } },
   ] });
-  assert.doesNotMatch(answer, /\\[\\[?\\d+/);
+  assert.doesNotMatch(answer, /\[\[?\d+/);
 });
 
 test("builds search queries from both task topic and model suggestion", () => {
