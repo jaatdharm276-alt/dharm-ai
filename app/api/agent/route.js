@@ -454,6 +454,67 @@ function runAgent(body, signal) {
   const collectedToolResults = [];
   let lastDraft = "";
 
+  // A direct, explicit web-search request does not need an LLM planning round.
+  // Run the bounded search tool first and return its cited evidence directly;
+  // this also keeps the search capability usable during model-provider 429s.
+  if (/\\bsearch_web\\b/i.test(message)) {
+    const requestedQuery = message
+      .replace(/^.*?\\bsearch_web\\b\\s*/i, "")
+      .replace(/^to\\s+find\\s+/i, "")
+      .trim()
+      .slice(0, 500);
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        const emit = (payload) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\\n\\n`));
+        const emitStatus = (stage, detail) => emit({ orion_status: { stage, detail, timestamp: Date.now() } });
+        const emitText = (value) => {
+          for (const chunk of String(value).match(/[\\s\\S]{1,72}/g) || [""]) {
+            emit({ choices: [{ delta: { content: chunk } }] });
+          }
+        };
+        (async () => {
+          emitStatus("understanding", "आपके सवाल को समझ रहा हूँ");
+          emitStatus("planning_done", "सीधी वेब खोज के लिए योजना तैयार है");
+          emitStatus("tool", "वेब पर जानकारी खोज रहा हूँ");
+          try {
+            const result = await searchWeb(requestedQuery || message, signal);
+            if (!Array.isArray(result?.results) || result.results.length === 0) {
+              emitStatus("tool_error", "वेब खोज में सत्यापित स्रोत नहीं मिले");
+              emitStatus("partial_recovery", "वेब स्रोत उपलब्ध नहीं हुए — कोई अप्रमाणित लिंक नहीं दिया गया");
+              emitText("इस समय वेब खोज से सत्यापित स्रोत नहीं मिल सके। कृपया थोड़ी देर बाद दोबारा प्रयास करें।");
+              return;
+            }
+            emitStatus("tool_completed", "वेब खोज से सत्यापित स्रोत मिले");
+            const answer = buildAgentEvidenceAnswer({
+              toolResults: [{ name: "search_web", result }],
+              failureCode: "SEARCH_SUMMARY_FALLBACK",
+            }).replace(/\\n\\nआंशिक परिणाम:[\\s\\S]*$/, "");
+            emitStatus("verification", "प्राप्त स्रोतों और URL की जाँच कर रहा हूँ");
+            emitStatus("complete", "स्रोत मिल गए — जवाब तैयार है");
+            emitText(answer);
+          } catch (error) {
+            if (error?.name === "AbortError" || signal?.aborted) {
+              emitStatus("cancelled", "काम रोक दिया गया");
+              return;
+            }
+            console.error("ORION direct web search failed:", error);
+            emitStatus("tool_error", "वेब खोज पूरी नहीं हो सकी");
+            emitStatus("partial_recovery", "वेब स्रोत उपलब्ध नहीं हुए — कोई अप्रमाणित लिंक नहीं दिया गया");
+            emitText("इस समय वेब खोज सेवा उपलब्ध नहीं है। बिना सत्यापित स्रोत के मैं कोई लिंक नहीं बताऊँगा। कृपया थोड़ी देर बाद दोबारा प्रयास करें।");
+          } finally {
+            emit({ done: true });
+            controller.close();
+          }
+        })();
+      },
+    });
+    return new Response(stream, {
+      status: 200,
+      headers: { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform", Connection: "keep-alive", "X-Accel-Buffering": "no" },
+    });
+  }
+
   async function verifyAndFinalize(draft) {
     let verification;
     try {
