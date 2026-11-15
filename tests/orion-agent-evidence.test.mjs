@@ -51,3 +51,29 @@ test("requires multiple overlapping topic terms", () => {
   assert.equal(isRelevantAgentSource({ title: "India", content: "India is a country." }, objective), false);
   assert.equal(isRelevantAgentSource({ title: "Industry 5.0 Japan robotics", content: "Japan uses robotics and AI automation." }, objective), true);
 });
+
+test("does not leak an unverified draft when the verifier fails", async () => {
+  const { buildPartialRecoveryAnswer } = await import("../lib/orion-agent-recovery.mjs");
+  const answer = buildPartialRecoveryAnswer({
+    draft: "ABB opened a factory in 2022 and productivity increased by 40%.",
+    failureStage: "verification",
+    toolResults: [{ name: "search_web", result: { results: [
+      { title: "Industry 5.0 market overview", url: "https://example.org/industry-5" },
+    ] } }],
+  });
+  assert.doesNotMatch(answer, /ABB opened/);
+  assert.doesNotMatch(answer, /40%/);
+  assert.match(answer, /Verification पूरी न होने/);
+  assert.match(answer, /https:\/\/example\.org\/industry-5/);
+});
+
+test("evidence fallback lists relevant sources without asserting their snippets as facts", () => {
+  const answer = buildAgentEvidenceAnswer({ objective, toolResults: [
+    { name: "search_web", result: { results: [
+      { title: "Industry 5.0 Japan robotics", url: "https://example.org/japan", content: "Unsupported claim that output rose 99%." },
+    ] } },
+  ] });
+  assert.match(answer, /https:\/\/example\.org\/japan/);
+  assert.doesNotMatch(answer, /output rose 99%/);
+  assert.match(answer, /कोई तथ्यात्मक दावा/);
+});
