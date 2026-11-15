@@ -20,7 +20,7 @@ try {
         : {}),
     },
     body: JSON.stringify({
-      message: "Use search_web with this exact query: National Portal of India india.gov.in. Do not search for the definition or meaning of the word official. Only treat a result hosted on india.gov.in as a verified match. If no india.gov.in result is returned, say that no verified official portal source was found. If one is returned, answer briefly and cite that exact URL.",
+      message: "Find the National Portal of India. Use the web search tool to look it up, then give a one-sentence answer with the URL of the Government of India portal.",
       messages: [],
       memories: [],
     }),
