@@ -28,9 +28,9 @@ test("bounds bucket storage and validates configuration", () => {
   assert.throws(() => createRateLimiter({ limit: 0 }));
 });
 
-test("prefers the platform-provided real IP and falls back to forwarded IP", () => {
+test("uses only the platform-provided real IP and ignores spoofable forwarded headers", () => {
   const headers = new Headers({ "x-real-ip": "203.0.113.7", "x-forwarded-for": "198.51.100.4, 10.0.0.1" });
   assert.equal(getClientIdentifier(headers), "203.0.113.7");
-  assert.equal(getClientIdentifier(new Headers({ "x-forwarded-for": "198.51.100.4, 10.0.0.1" })), "198.51.100.4");
+  assert.equal(getClientIdentifier(new Headers({ "x-forwarded-for": "198.51.100.4, 10.0.0.1" })), "unknown");
   assert.equal(getClientIdentifier(new Headers()), "unknown");
 });
