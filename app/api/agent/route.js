@@ -8,7 +8,8 @@ import { buildTavilySearchRequest, normalizeTavilySearchResults, normalizeBingRs
 import { fetchWithRetry } from "../../../lib/orion-retry.mjs";
 import { runSpecialistsInParallel } from "../../../lib/orion-agent-coordination.mjs";
 import { buildPartialRecoveryAnswer } from "../../../lib/orion-agent-recovery.mjs";
-import { createRateLimiter, getClientIdentifier } from "../../../lib/orion-rate-limit.mjs";
+import { createUpstashRateLimiter } from "../../../lib/orion-upstash-rate-limit.mjs";
+import { getClientIdentifier } from "../../../lib/orion-rate-limit.mjs";
 import { getCreatorAnswer } from "../../../lib/orion-identity.mjs";
 import { getHanumanChalisaResponse } from "../../../lib/orion-hanuman-chalisa.mjs";
 import { validateAgentToolArgs, summarizeToolResult } from "../../../lib/orion-agent-guardrails.mjs";
@@ -29,7 +30,7 @@ const SEARCH_ENABLED = process.env.ORION_ENABLE_EXTERNAL_SEARCH !== "false";
 const SEARCH_POLICY = getExternalSearchPolicy({ enabled: SEARCH_ENABLED ? "true" : "false", apiKey: process.env.TAVILY_API_KEY });
 const MAX_SEARCH_CALLS = SEARCH_POLICY.maxCalls;
 const MAX_DELEGATIONS = 3;
-const agentRateLimiter = createRateLimiter({ limit: 10, windowMs: 60_000 });
+const agentRateLimiter = createUpstashRateLimiter({ limit: 10, windowMs: 60_000, prefix: "orion:agent" });
 
 const TOOL_DEFINITIONS = [
   {
@@ -764,7 +765,10 @@ function runAgent(body, signal) {
 
 export async function POST(request) {
   try {
-    const rate = agentRateLimiter.check(getClientIdentifier(request.headers));
+    const rate = await agentRateLimiter.check(getClientIdentifier(request.headers));
+    if (rate.unavailable) {
+      return Response.json({ error: "Shared rate-limit service is temporarily unavailable. Please retry shortly." }, { status: 503 });
+    }
     if (!rate.allowed) {
       return NextResponse.json(
         { error: "Too many agent requests. Please wait before trying again." },
