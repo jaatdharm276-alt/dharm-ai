@@ -527,6 +527,15 @@ function runAgent(body, signal) {
       } catch (error) {
         if (error?.name === "AbortError" || signal?.aborted) throw error;
         console.error("ORION reasoning step unavailable:", error);
+        const hasVerifiedSearchSources = collectedToolResults.some(
+          (item) => item?.name === "search_web" && Array.isArray(item?.result?.results) && item.result.results.length > 0,
+        );
+        if (error?.code === "GROQ_RATE_LIMITED" && hasVerifiedSearchSources) {
+          const evidenceAnswer = buildAgentEvidenceAnswer({ toolResults: collectedToolResults, failureCode: error.code });
+          emitStatus("complete", "सत्यापित वेब स्रोत मिल गए — AI provider की सीमा के कारण स्रोत-आधारित जवाब तैयार किया");
+          emitText(evidenceAnswer.replace(/\n\nआंशिक परिणाम:[\s\S]*$/, "\n\nनोट: AI provider की rate limit के कारण अतिरिक्त भाषा-संश्लेषण उपलब्ध नहीं था; नीचे का उत्तर सीधे प्राप्त स्रोतों पर आधारित है।"));
+          return;
+        }
         const recovery = error?.code === "GROQ_RATE_LIMITED"
           ? buildAgentEvidenceAnswer({ toolResults: collectedToolResults, failureCode: error.code })
           : buildPartialRecoveryAnswer({ draft: lastDraft, toolResults: collectedToolResults, failureStage: "reasoning" });
