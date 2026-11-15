@@ -196,30 +196,51 @@ async function searchWeb(query, signal) {
   }
 
   // Public RSS fallback keeps basic web lookup available when Tavily is unavailable.
-  const rssUrl = "https://www.bing.com/search?format=rss&q=" + encodeURIComponent(String(query).trim().slice(0, 500));
-  const rssResponse = await fetchWithRetry(rssUrl, {
-    method: "GET",
-    headers: { Accept: "application/rss+xml, application/xml, text/xml" },
-    cache: "no-store",
-    signal,
-  }, {
-    maxRetries: 1,
-    baseDelayMs: 800,
-    maxDelayMs: 2000,
-  });
-  if (!rssResponse.ok) {
-    const error = new Error("Web search providers unavailable (Tavily: " + tavilyFailure + "; Bing RSS HTTP " + rssResponse.status + ").");
-    error.code = "WEB_SEARCH_PROVIDERS_UNAVAILABLE";
-    throw error;
+  const fallbackProviders = [
+    {
+      name: "Bing RSS",
+      url: "https://www.bing.com/search?format=rss&q=" + encodeURIComponent(String(query).trim().slice(0, 500)),
+    },
+    {
+      name: "Google News RSS",
+      url: "https://news.google.com/rss/search?q=" + encodeURIComponent(String(query).trim().slice(0, 500)) + "&hl=en-IN&gl=IN&ceid=IN:en",
+    },
+  ];
+  const fallbackFailures = [];
+  for (const provider of fallbackProviders) {
+    try {
+      const rssResponse = await fetchWithRetry(provider.url, {
+        method: "GET",
+        headers: {
+          Accept: "application/rss+xml, application/xml, text/xml",
+          "User-Agent": "ORION-AI/1.0 (+https://dharm-ai.vercel.app)",
+        },
+        cache: "no-store",
+        signal,
+      }, {
+        maxRetries: 1,
+        baseDelayMs: 800,
+        maxDelayMs: 2000,
+      });
+      if (!rssResponse.ok) {
+        fallbackFailures.push(provider.name + " HTTP " + rssResponse.status);
+        continue;
+      }
+      const xml = await rssResponse.text();
+      const fallback = normalizeBingRssResults(xml, {
+        limit: SEARCH_POLICY.maxResults,
+        provider: provider.name,
+      });
+      if (fallback.results.length) return { ...fallback, fallbackReason: tavilyFailure };
+      fallbackFailures.push(provider.name + " returned no usable sources");
+    } catch (error) {
+      if (error?.name === "AbortError" || signal?.aborted) throw error;
+      fallbackFailures.push(provider.name + " request failed");
+    }
   }
-  const xml = await rssResponse.text();
-  const fallback = normalizeBingRssResults(xml, { limit: SEARCH_POLICY.maxResults });
-  if (!fallback.results.length) {
-    const error = new Error("Web search providers returned no usable sources (Tavily: " + tavilyFailure + ").");
-    error.code = "WEB_SEARCH_NO_RESULTS";
-    throw error;
-  }
-  return { ...fallback, fallbackReason: tavilyFailure };
+  const error = new Error("Web search providers unavailable (Tavily: " + tavilyFailure + "; " + fallbackFailures.join("; ") + ").");
+  error.code = "WEB_SEARCH_PROVIDERS_UNAVAILABLE";
+  throw error;
 }
 
 async function callModel(messages, options = {}, signal) {
