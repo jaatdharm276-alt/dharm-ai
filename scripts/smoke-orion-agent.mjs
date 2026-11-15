@@ -20,7 +20,7 @@ try {
         : {}),
     },
     body: JSON.stringify({
-      message: "search_web site:india.gov.in National Portal of India",
+      message: "search_web India government portal National Portal of India",
       messages: [],
       memories: [],
     }),
@@ -82,7 +82,7 @@ try {
     searchSucceeded,
     toolFailed,
     endpoint,
-    source: "india.gov.in",
+    citedSources: citedUrls.length,
     responseCharacters: answer.length,
     observedStages: [...new Set(stages)].slice(0, 12),
     answer: answer.slice(0, 1400),
