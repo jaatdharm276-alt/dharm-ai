@@ -186,24 +186,6 @@ function formatMessage(content) {
   if (inCode && codeLines.length) output.push('<div class="response-code-card"><div class="response-code-label">CODE</div><pre><code>' + escapeHtml(codeLines.join("\n")) + '</code></pre></div>');
   return output.join("");
 }
-function getAgentProgress(activity = [], complete = false) {
-  const latestStage = activity[activity.length - 1]?.stage;
-  if (complete && latestStage === "complete") return 100;
-  if (latestStage === "partial_recovery") return 85;
-  if (latestStage === "tool_error") return 60;
-  const progress = {
-    understanding: 8,
-    planning: 16,
-    planning_done: 25,
-    planning_fallback: 25,
-    reasoning: 35,
-    tool: 48,
-    tool_completed: 68,
-    verification: 88,
-  };
-  return Math.min(95, Math.max(4, ...activity.map((item) => progress[item.stage] || 0)));
-}
-
 function Home() {
   const [messages, setMessages] = useState([]);
   const [historyReady, setHistoryReady] = useState(false);
@@ -487,7 +469,7 @@ function Home() {
     const nextHeight =
       Math.min(
         composerRef.current.scrollHeight,
-        150
+        220
       );
 
     composerRef.current.style.height =
@@ -952,15 +934,13 @@ function Home() {
 
   const handleKeyDown = useCallback(
     (event) => {
-      if (
-        event.key === "Enter" &&
-        !event.shiftKey
-      ) {
-        event.preventDefault();
+      // Preserve IME composition (Hindi and other input methods): Enter
+      // confirms the composed text and must not submit the chat.
+      if (event.nativeEvent?.isComposing || event.keyCode === 229) return;
 
-        if (!loading) {
-          sendMessage();
-        }
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        if (!loading) sendMessage();
       }
     },
     [loading, sendMessage]
@@ -1138,7 +1118,7 @@ function Home() {
           </span>
         </button>
         <div className="top-actions">
-          {hasMessages && <span className={taskMode === "agent" ? "mode-pill agent" : "mode-pill"}>{taskMode === "agent" ? "⚡ Agent Mode" : activeTask.label}</span>}
+          {hasMessages && taskMode !== "agent" && <span className="mode-pill">{activeTask.label}</span>}
           <OrionMemoryPanel memories={memories} onChange={setMemories} />
           {hasMessages && (
             <button className="top-button" onClick={downloadChat} type="button" aria-label="Download chat" title="Download chat">
@@ -1278,40 +1258,9 @@ function Home() {
                             <strong>ORION AI</strong>
                             {loading && message.id === messages[messages.length - 1]?.id
                               ? <span className="agent-live-pill thinking-pill">◌ Thinking…</span>
-                              : taskMode === "agent" ? <span className="agent-live-pill">⚡ Agent Mode</span> : null}
+                              : null}
                           </div>
                         )}
-                        {taskMode === "agent" && message.activity?.length > 0 && (() => {
-                          const stages = message.activity.map((item) => item.stage);
-                          const latestStage = stages[stages.length - 1];
-                          const completed = latestStage === "complete";
-                          const partial = latestStage === "partial_recovery" || latestStage === "tool_error";
-                          const understood = stages.length > 1;
-                          const planned = stages.some((stage) => ["planning_done", "reasoning", "tool", "tool_completed", "tool_error", "verification", "complete", "partial_recovery"].includes(stage));
-                          const toolStarted = stages.some((stage) => ["tool", "tool_completed", "tool_error", "verification", "complete", "partial_recovery"].includes(stage));
-                          const toolDone = stages.includes("tool_completed");
-                          const verifying = stages.includes("verification");
-                          const progress = getAgentProgress(message.activity, completed && !loading);
-                          return (
-                          <div className="activity-feed agent-progress-card" aria-live="polite">
-                            <div className="activity-feed-heading"><span>▥</span><strong>Analysis Progress</strong><b>{progress}%</b></div>
-                            <div className="agent-progress-track"><span style={{ width: progress + "%" }} /></div>
-                            <div className="agent-stage-row"><span>✓</span><span>Understanding request</span><strong>{understood ? "Done" : "In progress"}</strong></div>
-                            <div className="agent-stage-row"><span>◈</span><span>Planning & task steps</span><strong>{planned ? "Done" : "Working"}</strong></div>
-                            <div className="agent-stage-row"><span>◌</span><span>Tool execution</span><strong>{toolDone ? "Done" : toolStarted ? "In progress" : "Waiting"}</strong></div>
-                            <div className="agent-stage-row"><span>○</span><span>Verification</span><strong>{completed ? "Done" : partial ? "Not completed" : verifying ? "In progress" : "Waiting"}</strong></div>
-                            <div className="agent-activity-log">
-                              {message.activity.slice(-5).map((item, index) => (
-                                <div className="activity-item" key={`${item.timestamp || index}-${index}`}>
-                                  <span className={item.stage === "tool_error" || item.stage === "partial_recovery" || item.stage === "planning_fallback" ? "activity-mark warning" : "activity-mark"} />
-                                  <span>{item.detail}</span>
-                                </div>
-                              ))}
-                            </div>
-                            <div className="agent-progress-outcome">{completed ? "Task completed" : partial ? "Partial result — not fully verified" : "Working on your request"}</div>
-                          </div>
-                          );
-                        })()}
                         {message.content ? (
                           <>
                           <div
@@ -1370,7 +1319,7 @@ function Home() {
             {!loading &&
               messages.length > 0 && (
                 <div className="chat-hint">
-                  ORION AI · {activeTask.label}
+                  ORION AI
                 </div>
               )}
             {searchOpen && hasMessages && (
@@ -2601,16 +2550,7 @@ const styles = `
 
 
 
-  .agent-progress-card{padding:12px 13px;border:1px solid rgba(58,167,207,.32);border-radius:16px;background:linear-gradient(110deg,#effbff,#f4f0ff);box-shadow:0 0 18px rgba(35,167,210,.08)}
-  .agent-progress-card .activity-feed-heading{display:flex;align-items:center;gap:8px;color:#143d79;font-size:12px}
-  .agent-progress-card .activity-feed-heading b{margin-left:auto;color:#713ed0;font-size:14px}
-  .agent-progress-track{height:9px;margin:10px 0;border-radius:999px;background:#e6def8;overflow:hidden}
-  .agent-progress-track span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#7652e8,#168fe7,#19b9cf);box-shadow:0 0 12px rgba(28,147,226,.35);transition:width .3s ease}
-  .agent-progress-card .agent-stage-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid rgba(142,164,197,.2);color:#435a75;font-size:10px}
-  .agent-progress-card .agent-stage-row strong{margin-left:auto;color:#6d819a;font-size:9px}
-  .agent-activity-log{margin-top:6px;padding-top:5px;border-top:1px solid rgba(142,164,197,.22)}
-  .agent-activity-log .activity-item{font-size:10px}
-  .agent-progress-outcome{margin-top:8px;padding-top:8px;border-top:1px solid rgba(142,164,197,.22);color:#536984;font-size:10px;font-weight:600}
+  /* Synthetic Agent progress UI styles removed; activity stays internal. */
 
 
 
@@ -2772,6 +2712,29 @@ const styles = `
     .home-dashboard{padding-bottom:calc(88px + env(safe-area-inset-bottom))}
   }
   @media(prefers-reduced-motion:reduce){.home-dashboard .feature-tile{transition:none}}
+
+
+  /* Clean conversational composer: taller multiline input, no fake activity dashboard. */
+  .composer textarea {
+    min-height: 44px;
+    max-height: 220px;
+    line-height: 1.5;
+    resize: none;
+    overflow-y: auto;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  .chat-composer, .dashboard-composer {
+    align-items: flex-end;
+    min-height: 62px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .assistant-message-heading {
+    border-bottom: 0;
+    padding-bottom: 0;
+    margin-bottom: 5px;
+  }
 
 `;
 export default Home; 
