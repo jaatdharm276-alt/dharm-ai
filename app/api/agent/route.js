@@ -580,24 +580,21 @@ function runAgent(body, signal) {
     emitStatus("understanding", "आपके सवाल को समझ रहा हूँ");
     // Brain stage 1: make an explicit plan before tool execution.
     emitStatus("planning", "काम की योजना और चरण तय कर रहा हूँ");
-    let plan;
-    try {
-      plan = await runSpecialist(
-        "planner",
-        "Break the objective into a short ordered execution plan. Identify which available tools or specialists are genuinely needed, dependencies, risks, and completion checks. Do not execute anything or invent unavailable capabilities.",
-        message,
-        signal,
-      );
-      emitStatus("planning_done", "काम की योजना तैयार है");
-      messages.push({
-        role: "system",
-        content: `ORION BRAIN PLAN (internal task guidance; do not expose hidden reasoning):\n${plan.findings}\nFollow this plan where useful, adapt if tool evidence changes the approach, and never claim an unexecuted step is complete.`,
-      });
-    } catch (error) {
-      if (error?.name === "AbortError" || signal?.aborted) throw error;
-      console.error("ORION planner unavailable; continuing without plan:", error);
-      emitStatus("planning_fallback", "योजना बनाने का एक चरण उपलब्ध नहीं था — बाकी काम सुरक्षित रूप से जारी है");
-    }
+    // Keep the planning gate deterministic and local. A separate LLM planner
+    // call used to hold the UI at 16% when the provider was slow or rate-limited,
+    // before any useful tool could run. The main Agent model still chooses tools.
+    messages.push({
+      role: "system",
+      content: [
+        "ORION EXECUTION PLAN:",
+        "1. Identify the user's requested outcome and required evidence.",
+        "2. Use available deterministic tools and web search where needed.",
+        "3. Separate sourced facts, assumptions, and unknowns.",
+        "4. Verify the draft against the collected evidence before answering.",
+        "Do not claim an unexecuted action is complete.",
+      ].join("\\n"),
+    });
+    emitStatus("planning_done", "योजना तैयार — अब ज़रूरी टूल और स्रोत चला रहा हूँ");
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
       emitStatus("reasoning", "अगला सही कदम और ज़रूरी टूल चुन रहा हूँ");
