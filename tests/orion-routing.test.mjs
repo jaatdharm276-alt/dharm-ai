@@ -21,7 +21,7 @@ test("routes colloquial Hindi and Hinglish live-research prompts to Agent mode",
 });
 
 test("routes colloquial code-review and debugging prompts to Agent mode", () => {
-  for (const query of ["code me bug dhundo", "isko check karke batao", "कोड में बग ढूँढो", "find the bug in this code"]) {
+  for (const query of ["code me bug dhundo", "isko check karke batao", "isko check karke batao", "कोड में बग ढूँढो", "find the bug in this code"]) {
     assert.equal(shouldUseAgentMode(query), true, query);
   }
 });
