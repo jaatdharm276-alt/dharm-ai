@@ -1,4 +1,12 @@
-const endpoint = process.env.ORION_AGENT_URL || "https://dharm-ai-git-feat-orion-poster-ui-live-dharm-ai.vercel.app/api/agent";
+const endpoint = process.env.ORION_AGENT_URL;
+if (!endpoint) {
+  throw new Error("ORION_AGENT_URL must be set explicitly; refusing to fall back to a stale Preview deployment.");
+}
+const parsedEndpoint = new URL(endpoint);
+if (parsedEndpoint.protocol !== "https:") {
+  throw new Error("ORION_AGENT_URL must use HTTPS.");
+}
+
 const controller = new AbortController();
 const timeout = setTimeout(() => controller.abort(), 150_000);
 
@@ -64,7 +72,7 @@ try {
   }
   if (toolFailed) throw new Error("Agent emitted a tool_error status. Stages: " + stages.join(" | "));
   if (!searchSucceeded) throw new Error("Agent did not report a successful web search with verified sources (Tavily or Bing RSS fallback). Stages: " + stages.join(" | "));
-  if (!/https?:\/\/(?:www\.)?india\.gov\.in\b/i.test(answer)) {
+  if (!/https?:\\/\\/(?:www\\.)?india\\.gov\\.in\\b/i.test(answer)) {
     throw new Error("Agent response did not cite the expected India.gov.in source. Response: " + answer.slice(0, 1200));
   }
 
