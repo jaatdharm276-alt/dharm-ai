@@ -10,6 +10,7 @@ import { runSpecialistsInParallel } from "../../../lib/orion-agent-coordination.
 import { buildPartialRecoveryAnswer } from "../../../lib/orion-agent-recovery.mjs";
 import { createRateLimiter, getClientIdentifier } from "../../../lib/orion-rate-limit.mjs";
 import { getCreatorAnswer } from "../../../lib/orion-identity.mjs";
+import { getHanumanChalisaResponse } from "../../../lib/orion-hanuman-chalisa.mjs";
 import { validateAgentToolArgs, summarizeToolResult } from "../../../lib/orion-agent-guardrails.mjs";
 import { buildAgentEvidenceAnswer } from "../../../lib/orion-agent-evidence.mjs";
 import { getAvailableAgentTools } from "../../../lib/orion-agent-tools.mjs";
@@ -393,6 +394,26 @@ function runAgent(body, signal) {
     const stream = new ReadableStream({
       start(controller) {
         const chunks = creatorAnswer.match(/[\s\S]{1,72}/gu) || [""];
+        for (const chunk of chunks) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: chunk } }] })}\n\n`));
+        }
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        controller.close();
+      },
+    });
+    return new Response(stream, {
+      headers: { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform", Connection: "keep-alive" },
+    });
+  }
+
+  // Return the fixed, complete devotional text deterministically instead of asking
+  // a generative model to reconstruct verses (which can omit or duplicate lines).
+  const hanumanChalisaAnswer = getHanumanChalisaResponse(message);
+  if (hanumanChalisaAnswer) {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        const chunks = hanumanChalisaAnswer.match(/[\s\S]{1,72}/gu) || [""];
         for (const chunk of chunks) {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: chunk } }] })}\n\n`));
         }
