@@ -596,7 +596,6 @@ function Home() {
         id: assistantId,
         role: "assistant",
         content: "",
-        activity: [],
         createdAt: Date.now(),
       };
 
@@ -696,16 +695,6 @@ function Home() {
         let buffer = "";
         let fullAnswer = "";
 
-        const updateActivity = (activity) => {
-          setMessages((current) =>
-            current.map((message) =>
-              message.id === assistantId
-                ? { ...message, activity: [...(message.activity || []), activity].slice(-24) }
-                : message
-            )
-          );
-        };
-
         const updateAssistant = (
           content
         ) => {
@@ -774,10 +763,6 @@ function Home() {
               const parsed =
                 JSON.parse(data);
 
-              if (parsed?.orion_status) {
-                updateActivity(parsed.orion_status);
-              }
-
               const delta =
                 parsed?.choices?.[0]
                   ?.delta?.content;
@@ -800,7 +785,6 @@ function Home() {
         }
 
         if (shouldEscalateAfterChat(messageText, fullAnswer) && endpoint === "/api/chat") {
-          updateActivity("Normal Chat se poora jawab nahi mila — Deep Agent अब जाँच कर रहा है");
           setTaskMode("agent");
           const agentResponse = await fetch("/api/agent", {
             method: "POST",
@@ -830,7 +814,6 @@ function Home() {
                 if (!agentLine.startsWith("data:") || agentLine === "data: [DONE]") continue;
                 try {
                   const parsed = JSON.parse(agentLine.slice(5).trim());
-                  if (parsed?.orion_status) updateActivity(parsed.orion_status);
                   const delta = parsed?.choices?.[0]?.delta?.content;
                   if (typeof delta === "string" && delta) {
                     agentAnswer += delta;
