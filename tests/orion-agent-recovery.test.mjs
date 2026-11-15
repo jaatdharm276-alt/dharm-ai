@@ -4,8 +4,8 @@ import { buildPartialRecoveryAnswer } from "../lib/orion-agent-recovery.mjs";
 
 test("withholds an unverified draft when a later agent step fails", () => {
   const answer = buildPartialRecoveryAnswer({ draft: "The calculation result is 42." });
-  assert.doesNotMatch(answer, /The calculation result is 42/);
-  assert.match(answer, /कोई पूरा परिणाम उपलब्ध नहीं है/);
+  assert.ok(!answer.includes("The calculation result is 42."));
+  assert.ok(answer.includes("कोई पूरा परिणाम उपलब्ध नहीं है"));
 });
 
 test("summarizes completed calculation results without raw JSON", () => {
@@ -13,10 +13,10 @@ test("summarizes completed calculation results without raw JSON", () => {
     failureStage: "finalization",
     toolResults: [{ name: "calculate", result: { result: 42 } }],
   });
-  assert.match(answer, /calculate/);
-  assert.match(answer, /42/);
-  assert.match(answer, /दोबारा प्रयास/);
-  assert.doesNotMatch(answer, /"result"\\s*:/);
+  assert.ok(answer.includes("calculate"));
+  assert.ok(answer.includes("42"));
+  assert.ok(answer.includes("दोबारा प्रयास"));
+  assert.ok(!answer.includes('"result":'));
 });
 
 test("renders web sources as readable titles and links without asserting snippets", () => {
@@ -27,20 +27,20 @@ test("renders web sources as readable titles and links without asserting snippet
       result: { results: [{ title: "Industry 5.0 report", url: "https://example.org/report", content: "Relevant research excerpt" }] },
     }],
   });
-  assert.match(answer, /Industry 5\\.0 report/);
-  assert.match(answer, /https:\\/\\/example\\.org\\/report/);
-  assert.doesNotMatch(answer, /Relevant research excerpt/);
-  assert.match(answer, /तथ्य सत्यापित नहीं/);
-  assert.doesNotMatch(answer, /"results"\\s*:/);
+  assert.ok(answer.includes("Industry 5.0 report"));
+  assert.ok(answer.includes("https://example.org/report"));
+  assert.ok(!answer.includes("Relevant research excerpt"));
+  assert.ok(answer.includes("तथ्य सत्यापित नहीं"));
+  assert.ok(!answer.includes('"results":'));
 });
 
 test("does not invent a result when no partial work exists", () => {
   const answer = buildPartialRecoveryAnswer();
-  assert.match(answer, /पूरा नहीं कर पाया/);
-  assert.doesNotMatch(answer, /successfully completed/i);
+  assert.ok(answer.includes("पूरा नहीं कर पाया"));
+  assert.ok(!answer.includes("successfully completed"));
 });
 
 test("ignores malformed tool result entries", () => {
   const answer = buildPartialRecoveryAnswer({ toolResults: [null, {}, { name: "search_web" }] });
-  assert.match(answer, /कोई पूरा परिणाम उपलब्ध नहीं है/);
+  assert.ok(answer.includes("कोई पूरा परिणाम उपलब्ध नहीं है"));
 });
