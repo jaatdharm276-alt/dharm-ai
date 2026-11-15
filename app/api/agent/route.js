@@ -12,7 +12,7 @@ import { createRateLimiter, getClientIdentifier } from "../../../lib/orion-rate-
 import { getCreatorAnswer } from "../../../lib/orion-identity.mjs";
 import { getHanumanChalisaResponse } from "../../../lib/orion-hanuman-chalisa.mjs";
 import { validateAgentToolArgs, summarizeToolResult } from "../../../lib/orion-agent-guardrails.mjs";
-import { buildAgentEvidenceAnswer } from "../../../lib/orion-agent-evidence.mjs";
+import { buildAgentEvidenceAnswer, buildObjectiveSearchQuery } from "../../../lib/orion-agent-evidence.mjs";
 import { getAvailableAgentTools } from "../../../lib/orion-agent-tools.mjs";
 
 export const runtime = "nodejs";
@@ -319,7 +319,8 @@ async function executeTool(name, rawArgs, context) {
     }
     context.searchCalls += 1;
     try {
-      const results = await searchWeb(args.query, context.signal);
+      const objectiveQuery = buildObjectiveSearchQuery(context.objective, args.query);
+      const results = await searchWeb(objectiveQuery, context.signal);
       if (Array.isArray(results?.results) && results.results.length > 0) {
         context.searchResults = results;
         return results;
@@ -510,6 +511,7 @@ function runAgent(body, signal) {
             const answer = buildAgentEvidenceAnswer({
               toolResults: [{ name: "search_web", result }],
               failureCode: "SEARCH_SUMMARY_FALLBACK",
+              objective: message,
             }).replace(/\n\nआंशिक परिणाम:[\s\S]*$/, "");
             emitStatus("verification", "प्राप्त स्रोतों और URL की जाँच कर रहा हूँ");
             emitStatus("complete", "स्रोत मिल गए — जवाब तैयार है");
@@ -616,6 +618,7 @@ function runAgent(body, signal) {
           const evidenceAnswer = buildAgentEvidenceAnswer({
             toolResults: collectedToolResults,
             failureCode: error?.code || "AGENT_REASONING_FAILED",
+            objective: message,
           });
           const providerNote = error?.code === "GROQ_RATE_LIMITED"
             ? "नोट: AI provider की rate limit के कारण अतिरिक्त भाषा-संश्लेषण उपलब्ध नहीं था; यह उत्तर सीधे प्राप्त स्रोतों पर आधारित है।"
