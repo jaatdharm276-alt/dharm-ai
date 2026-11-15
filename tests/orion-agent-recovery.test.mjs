@@ -29,7 +29,7 @@ test("renders web sources as readable titles and links, not serialized payloads"
   });
   assert.match(answer, /Industry 5\.0 report/);
   assert.match(answer, /https:\/\/example\.org\/report/);
-  assert.match(answer, /Relevant research excerpt/);
+  assert.doesNotMatch(answer, /Relevant research excerpt/);\n  assert.match(answer, /तथ्य सत्यापित नहीं/);
   assert.doesNotMatch(answer, /"results"\s*:/);
 });
 
