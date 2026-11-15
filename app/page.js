@@ -6,7 +6,7 @@ import { extractSources } from "../lib/orion-sources.mjs";
 import { escapeHtml } from "../lib/orion-html.mjs";
 import { formatChatTranscript } from "../lib/orion-export.mjs";
 import { mergeRecognizedSegments } from "../lib/orion-voice.mjs";
-import { shouldUseAgentMode } from "../lib/orion-routing.mjs";
+import { shouldUseAgentMode, shouldEscalateAfterChat } from "../lib/orion-routing.mjs";
 
 import {
   useCallback,
@@ -642,7 +642,7 @@ function Home() {
             ? "/api/agent"
             : "/api/chat";
 
-        const response = await fetch(
+        let response = await fetch(
           endpoint,
           {
             method: "POST",
@@ -660,6 +660,23 @@ function Home() {
             }),
           }
         );
+
+        // If normal Chat fails at the transport/provider layer, transparently
+        // retry the same prompt through the deeper Agent engine in this message.
+        if (!response.ok && endpoint === "/api/chat") {
+          setTaskMode("agent");
+          response = await fetch("/api/agent", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: controller.signal,
+            body: JSON.stringify({
+              message: messageText,
+              taskMode: "agent",
+              messages: buildHistory(messages),
+              memories: normalizeMemories(memories),
+            }),
+          });
+        }
 
         if (!response.ok) {
           let errorMessage =
@@ -800,10 +817,50 @@ function Home() {
           }
         }
 
-        if (!fullAnswer.trim()) {
-          updateAssistant(
-            "Mujhe abhi koi response nahi mila. Please dobara try karo."
-          );
+        if (shouldEscalateAfterChat(messageText, fullAnswer) && endpoint === "/api/chat") {
+          updateActivity("Normal Chat se poora jawab nahi mila — Deep Agent अब जाँच कर रहा है");
+          setTaskMode("agent");
+          const agentResponse = await fetch("/api/agent", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: controller.signal,
+            body: JSON.stringify({
+              message: messageText,
+              taskMode: "agent",
+              messages: buildHistory([...messages, userMessage]),
+              memories: normalizeMemories(memories),
+            }),
+          });
+          if (!agentResponse.ok || !agentResponse.body) {
+            updateAssistant(fullAnswer || "Normal Chat aur Agent dono abhi jawab nahi de paaye. Kripya dobara try karein.");
+          } else {
+            const agentReader = agentResponse.body.getReader();
+            let agentBuffer = "";
+            let agentAnswer = "";
+            while (true) {
+              const { value, done } = await agentReader.read();
+              if (done) break;
+              agentBuffer += decoder.decode(value, { stream: true });
+              const agentLines = agentBuffer.split("\n");
+              agentBuffer = agentLines.pop() || "";
+              for (const rawAgentLine of agentLines) {
+                const agentLine = rawAgentLine.trim();
+                if (!agentLine.startsWith("data:") || agentLine === "data: [DONE]") continue;
+                try {
+                  const parsed = JSON.parse(agentLine.slice(5).trim());
+                  if (parsed?.orion_status) updateActivity(parsed.orion_status);
+                  const delta = parsed?.choices?.[0]?.delta?.content;
+                  if (typeof delta === "string" && delta) {
+                    agentAnswer += delta;
+                    updateAssistant(agentAnswer);
+                  }
+                } catch { /* Ignore malformed stream frames and continue. */ }
+              }
+            }
+            if (!agentAnswer.trim()) updateAssistant("Agent Mode bhi abhi verified jawab nahi de paaya. Kripya dobara try karein.");
+          }
+        } else if (!fullAnswer.trim()) {
+          updateAssistant("Mujhe abhi koi response nahi mila. Please dobara try karo.");
         }
       } catch (requestError) {
         if (
