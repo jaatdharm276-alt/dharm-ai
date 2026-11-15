@@ -3,6 +3,7 @@ import { selectRelevantMemories } from "../../../lib/orion-memory.mjs";
 import { createRateLimiter, getClientIdentifier } from "../../../lib/orion-rate-limit.mjs";
 import { getCreatorAnswer } from "../../../lib/orion-identity.mjs";
 import { getOfflineQuickAnswer } from "../../../lib/orion-quick-actions.mjs";
+import { getHanumanChalisaResponse } from "../../../lib/orion-hanuman-chalisa.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -811,6 +812,13 @@ async function handleChatRequest(
   const creatorAnswer = getCreatorAnswer(message);
   if (creatorAnswer) {
     return streamResponse(createTextStream(creatorAnswer));
+  }
+
+  // Keep devotional fixed-text requests deterministic in the normal Chat route too.
+  // Most users stay in Chat mode; Agent-only handling would otherwise be bypassed.
+  const hanumanChalisaAnswer = getHanumanChalisaResponse(message);
+  if (hanumanChalisaAnswer) {
+    return streamResponse(createTextStream(hanumanChalisaAnswer));
   }
 
   // Common utility requests are answered locally without consuming provider
