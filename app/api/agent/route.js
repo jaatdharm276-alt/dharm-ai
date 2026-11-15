@@ -319,7 +319,8 @@ async function executeTool(name, rawArgs, context) {
     }
     context.searchCalls += 1;
     try {
-      const objectiveQuery = buildObjectiveSearchQuery(context.objective, args.query);\n      const results = await searchWeb(objectiveQuery, context.signal);
+      const objectiveQuery = buildObjectiveSearchQuery(context.objective, args.query);
+      const results = await searchWeb(objectiveQuery, context.signal);
       if (Array.isArray(results?.results) && results.results.length > 0) {
         context.searchResults = results;
         return results;
