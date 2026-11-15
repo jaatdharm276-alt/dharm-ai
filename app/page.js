@@ -934,15 +934,13 @@ function Home() {
 
   const handleKeyDown = useCallback(
     (event) => {
-      if (
-        event.key === "Enter" &&
-        !event.shiftKey
-      ) {
-        event.preventDefault();
+      // Preserve IME composition (Hindi and other input methods): Enter
+      // confirms the composed text and must not submit the chat.
+      if (event.nativeEvent?.isComposing || event.keyCode === 229) return;
 
-        if (!loading) {
-          sendMessage();
-        }
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        if (!loading) sendMessage();
       }
     },
     [loading, sendMessage]
@@ -1120,7 +1118,7 @@ function Home() {
           </span>
         </button>
         <div className="top-actions">
-          {hasMessages && <span className={taskMode === "agent" ? "mode-pill agent" : "mode-pill"}>{taskMode === "agent" ? "⚡ Agent Mode" : activeTask.label}</span>}
+          {hasMessages && taskMode !== "agent" && <span className="mode-pill">{activeTask.label}</span>}
           <OrionMemoryPanel memories={memories} onChange={setMemories} />
           {hasMessages && (
             <button className="top-button" onClick={downloadChat} type="button" aria-label="Download chat" title="Download chat">
@@ -1321,7 +1319,7 @@ function Home() {
             {!loading &&
               messages.length > 0 && (
                 <div className="chat-hint">
-                  ORION AI · {activeTask.label}
+                  ORION AI
                 </div>
               )}
             {searchOpen && hasMessages && (
@@ -2552,16 +2550,7 @@ const styles = `
 
 
 
-  .agent-progress-card{padding:12px 13px;border:1px solid rgba(58,167,207,.32);border-radius:16px;background:linear-gradient(110deg,#effbff,#f4f0ff);box-shadow:0 0 18px rgba(35,167,210,.08)}
-  .agent-progress-card .activity-feed-heading{display:flex;align-items:center;gap:8px;color:#143d79;font-size:12px}
-  .agent-progress-card .activity-feed-heading b{margin-left:auto;color:#713ed0;font-size:14px}
-  .agent-progress-track{height:9px;margin:10px 0;border-radius:999px;background:#e6def8;overflow:hidden}
-  .agent-progress-track span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#7652e8,#168fe7,#19b9cf);box-shadow:0 0 12px rgba(28,147,226,.35);transition:width .3s ease}
-  .agent-progress-card .agent-stage-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid rgba(142,164,197,.2);color:#435a75;font-size:10px}
-  .agent-progress-card .agent-stage-row strong{margin-left:auto;color:#6d819a;font-size:9px}
-  .agent-activity-log{margin-top:6px;padding-top:5px;border-top:1px solid rgba(142,164,197,.22)}
-  .agent-activity-log .activity-item{font-size:10px}
-  .agent-progress-outcome{margin-top:8px;padding-top:8px;border-top:1px solid rgba(142,164,197,.22);color:#536984;font-size:10px;font-weight:600}
+  /* Synthetic Agent progress UI styles removed; activity stays internal. */
 
 
 
