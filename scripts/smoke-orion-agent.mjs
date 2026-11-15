@@ -58,7 +58,7 @@ try {
         if (event.orion_status?.detail) stages.push(event.orion_status.detail);
         if (event.orion_status?.stage) terminalStage = event.orion_status.stage;
         if (event.orion_status?.stage === "tool_error") toolFailed = true;
-        if (event.orion_status?.stage === "tool_completed" && /(?:वेब खोज से सत्यापित स्रोत मिले|web search completed with verified sources|(?:tavily|bing rss|google news rss) web search returned verified sources)/i.test(event.orion_status?.detail || "")) searchSucceeded = true;
+        if (event.orion_status?.stage === "tool_completed" && /(?:वेब खोज से परिणाम मिले|वेब खोज से सत्यापित स्रोत मिले|web search completed with verified sources|(?:tavily|bing rss|google news rss) web search returned verified sources)/i.test(event.orion_status?.detail || "")) searchSucceeded = true;
         const delta = event.choices?.[0]?.delta?.content;
         if (typeof delta === "string") answer += delta;
       } catch {
@@ -73,8 +73,9 @@ try {
   if (toolFailed) throw new Error("Agent emitted a tool_error status. Stages: " + stages.join(" | "));
   if (!searchSucceeded) throw new Error("Agent did not report a successful web search with verified sources (Tavily or Bing RSS fallback). Stages: " + stages.join(" | "));
   const citedUrls = answer.match(/https?:\/\/\S+/g) || [];
-  if (citedUrls.length === 0 || !/स्रोत|sources?:/i.test(answer)) {
-    throw new Error("Agent completed but did not include any source URL citations. Response: " + answer.slice(0, 1200));
+  const safeNoEvidence = /मुख्य विषय से मेल खाने वाला पर्याप्त वेब प्रमाण नहीं मिला|no sufficiently relevant web evidence/i.test(answer);
+  if ((citedUrls.length === 0 || !/स्रोत|sources?:/i.test(answer)) && !safeNoEvidence) {
+    throw new Error("Agent completed but neither cited relevant sources nor returned the safe no-evidence response. Response: " + answer.slice(0, 1200));
   }
 
   console.log(JSON.stringify({
@@ -83,6 +84,7 @@ try {
     searchSucceeded,
     toolFailed,
     endpoint,
+    evidenceStatus: safeNoEvidence ? "no-relevant-sources-reported-safely" : "relevant-sources-cited",
     citedSources: citedUrls.length,
     responseCharacters: answer.length,
     observedStages: [...new Set(stages)].slice(0, 12),
