@@ -12,7 +12,7 @@ import { createRateLimiter, getClientIdentifier } from "../../../lib/orion-rate-
 import { getCreatorAnswer } from "../../../lib/orion-identity.mjs";
 import { getHanumanChalisaResponse } from "../../../lib/orion-hanuman-chalisa.mjs";
 import { validateAgentToolArgs, summarizeToolResult } from "../../../lib/orion-agent-guardrails.mjs";
-import { buildAgentEvidenceAnswer } from "../../../lib/orion-agent-evidence.mjs";
+import { buildAgentEvidenceAnswer, buildObjectiveSearchQuery } from "../../../lib/orion-agent-evidence.mjs";
 import { getAvailableAgentTools } from "../../../lib/orion-agent-tools.mjs";
 
 export const runtime = "nodejs";
@@ -319,7 +319,7 @@ async function executeTool(name, rawArgs, context) {
     }
     context.searchCalls += 1;
     try {
-      const results = await searchWeb(args.query, context.signal);
+      const objectiveQuery = buildObjectiveSearchQuery(context.objective, args.query);\n      const results = await searchWeb(objectiveQuery, context.signal);
       if (Array.isArray(results?.results) && results.results.length > 0) {
         context.searchResults = results;
         return results;
