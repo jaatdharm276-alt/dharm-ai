@@ -72,3 +72,25 @@ test("fails closed when the Upstash service errors", async () => {
     restore();
   }
 });
+
+test("redacts fetch exceptions so bearer credentials cannot leak into logs", async () => {
+  const secret = "super-secret-test-token";
+  process.env.UPSTASH_REDIS_REST_URL = "https://example.upstash.io";
+  process.env.UPSTASH_REDIS_REST_TOKEN = secret;
+  process.env.NODE_ENV = "production";
+  const originalError = console.error;
+  const logged = [];
+  console.error = (...args) => logged.push(args.join(" "));
+  globalThis.fetch = async () => {
+    throw new TypeError(`Request failed with Authorization: Bearer ${secret}`);
+  };
+  try {
+    const result = await createUpstashRateLimiter({ limit: 2 }).check("client");
+    assert.equal(result.unavailable, true);
+    assert.equal(logged.length, 1);
+    assert.equal(logged.join(" ").includes(secret), false);
+  } finally {
+    console.error = originalError;
+    restore();
+  }
+});
