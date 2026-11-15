@@ -248,7 +248,11 @@ async function callModel(messages, options = {}, signal) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) { const error = new Error("GROQ_API_KEY is not configured."); error.code = "GROQ_KEY_MISSING"; throw error; }
 
-  const response = await fetchWithRetry(GROQ_API_URL, {
+  const timeoutSignal = AbortSignal.timeout(30_000);
+  const requestSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
+  let response;
+  try {
+    response = await fetchWithRetry(GROQ_API_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -263,12 +267,20 @@ async function callModel(messages, options = {}, signal) {
       ...(options.tools ? { tools: options.tools, tool_choice: "auto" } : {}),
     }),
     cache: "no-store",
-    signal,
-  }, {
-    maxRetries: 3,
-    baseDelayMs: 2000,
-    maxDelayMs: 15000,
-  });
+    signal: requestSignal,
+    }, {
+      maxRetries: 2,
+      baseDelayMs: 1000,
+      maxDelayMs: 5000,
+    });
+  } catch (error) {
+    if (timeoutSignal.aborted && !signal?.aborted) {
+      const timeoutError = new Error("The AI provider did not respond within 30 seconds.");
+      timeoutError.code = "GROQ_REQUEST_TIMEOUT";
+      throw timeoutError;
+    }
+    throw error;
+  }
 
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
