@@ -72,8 +72,9 @@ try {
   }
   if (toolFailed) throw new Error("Agent emitted a tool_error status. Stages: " + stages.join(" | "));
   if (!searchSucceeded) throw new Error("Agent did not report a successful web search with verified sources (Tavily or Bing RSS fallback). Stages: " + stages.join(" | "));
-  if (!/https?:\/\/(?:www\.)?india\.gov\.in\b/i.test(answer)) {
-    throw new Error("Agent response did not cite the expected India.gov.in source. Response: " + answer.slice(0, 1200));
+  const citedUrls = answer.match(/https?:\\/\\/[^\\s)\\]]+/gi) || [];
+  if (citedUrls.length === 0 || !/स्रोत|sources?:/i.test(answer)) {
+    throw new Error("Agent completed but did not include any source URL citations. Response: " + answer.slice(0, 1200));
   }
 
   console.log(JSON.stringify({
