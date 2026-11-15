@@ -12,7 +12,7 @@ try {
         : {}),
     },
     body: JSON.stringify({
-      message: "Use search_web to find the official National Portal of India (India.gov.in). Answer briefly and cite the exact source URL.",
+      message: "Use search_web to find the official National Portal of India at site:india.gov.in. Answer briefly and cite the exact source URL.",
       messages: [],
       memories: [],
     }),
