@@ -519,11 +519,11 @@ function runAgent(body, signal) {
               emitText("इस समय वेब खोज से सत्यापित स्रोत नहीं मिल सके। कृपया थोड़ी देर बाद दोबारा प्रयास करें।");
               return;
             }
-            emitStatus("tool_completed", "वेब खोज से सत्यापित स्रोत मिले");
+            emitStatus("tool_completed", "वेब खोज से परिणाम मिले; प्रासंगिकता जाँची गई");
             const answer = buildAgentEvidenceAnswer({
               toolResults: [{ name: "search_web", result }],
               failureCode: "SEARCH_SUMMARY_FALLBACK",
-              objective: message,
+              objective: requestedQuery || message,
             }).replace(/\n\nआंशिक परिणाम:[\s\S]*$/, "");
             emitStatus("verification", "प्राप्त स्रोतों और URL की जाँच कर रहा हूँ");
             emitStatus("complete", "स्रोत मिल गए — जवाब तैयार है");

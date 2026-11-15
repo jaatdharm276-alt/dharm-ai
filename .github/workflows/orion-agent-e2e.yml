@@ -25,8 +25,24 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Wait for the PR preview deployment
+        env:
+          ORION_AGENT_URL: https://dharm-ai-git-fix-orion-production-hardening-dharm-ai.vercel.app/api/agent
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          for attempt in $(seq 1 60); do
+            status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --header "x-vercel-protection-bypass: ${VERCEL_AUTOMATION_BYPASS_SECRET}" "$ORION_AGENT_URL" || true)
+            if [ "$status" = "405" ]; then
+              echo "PR preview is ready (API route returned HTTP 405 to GET)."
+              exit 0
+            fi
+            echo "Waiting for preview deployment (attempt $attempt/60, HTTP ${status:-none})..."
+            sleep 5
+          done
+          echo "PR preview did not become ready within five minutes."
+          exit 1
       - name: Test deployed ORION Agent end-to-end
         env:
-          ORION_AGENT_URL: https://dharm-ai.vercel.app/api/agent
+          ORION_AGENT_URL: https://dharm-ai-git-fix-orion-production-hardening-dharm-ai.vercel.app/api/agent
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: node scripts/smoke-orion-agent.mjs
