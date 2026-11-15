@@ -469,7 +469,7 @@ function runAgent(body, signal) {
         const emit = (payload) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
         const emitStatus = (stage, detail) => emit({ orion_status: { stage, detail, timestamp: Date.now() } });
         const emitText = (value) => {
-          for (const chunk of String(value).match(/[\s\\S]{1,72}/g) || [""]) {
+          for (const chunk of String(value).match(/[\s\S]{1,72}/g) || [""]) {
             emit({ choices: [{ delta: { content: chunk } }] });
           }
         };
@@ -489,7 +489,7 @@ function runAgent(body, signal) {
             const answer = buildAgentEvidenceAnswer({
               toolResults: [{ name: "search_web", result }],
               failureCode: "SEARCH_SUMMARY_FALLBACK",
-            }).replace(/\n\nआंशिक परिणाम:[\s\\S]*$/, "");
+            }).replace(/\n\nआंशिक परिणाम:[\s\S]*$/, "");
             emitStatus("verification", "प्राप्त स्रोतों और URL की जाँच कर रहा हूँ");
             emitStatus("complete", "स्रोत मिल गए — जवाब तैयार है");
             emitText(answer);
