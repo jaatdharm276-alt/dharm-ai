@@ -1,0 +1,36 @@
+name: ORION Lockfile Generation
+
+on:
+  push:
+    branches:
+      - hardening/orion-production-security
+    paths:
+      - "package.json"
+      - ".github/workflows/orion-lockfile.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Generate lockfile from npm registry
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Validate clean install from lockfile
+        run: npm ci --no-audit --no-fund
+      - name: Upload generated lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: orion-package-lock
+          path: package-lock.json
+          if-no-files-found: error
+          retention-days: 1
