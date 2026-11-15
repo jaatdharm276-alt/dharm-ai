@@ -604,7 +604,7 @@ function runAgent(body, signal) {
         "3. Separate sourced facts, assumptions, and unknowns.",
         "4. Verify the draft against the collected evidence before answering.",
         "Do not claim an unexecuted action is complete.",
-      ].join("\\n"),
+      ].join("\n"),
     });
     emitStatus("planning_done", "योजना तैयार — अब ज़रूरी टूल और स्रोत चला रहा हूँ");
 
