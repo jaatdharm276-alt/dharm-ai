@@ -20,7 +20,7 @@ try {
         : {}),
     },
     body: JSON.stringify({
-      message: "Find the National Portal of India. Use the web search tool to look it up, then give a one-sentence answer with the URL of the Government of India portal.",
+      message: "search_web site:india.gov.in National Portal of India",
       messages: [],
       memories: [],
     }),
