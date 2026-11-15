@@ -15,7 +15,7 @@ test("builds a readable partial answer from relevant web evidence", () => {
       { title: "Japan Industry 5.0 robotics AI", url: "https://example.org/japan-industry", content: "Japan is investing in Industry 5.0 robotics and AI automation." },
     ] } },
   ] });
-  assert.match(answer, /Japan is investing/);
+  assert.doesNotMatch(answer, /Japan is investing/);\n  assert.match(answer, /कोई तथ्यात्मक दावा/);
   assert.match(answer, /Asia\/Kolkata/);
   assert.match(answer, /https:\/\/example\.org/);
   assert.match(answer, /आंशिक परिणाम/);
