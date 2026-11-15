@@ -511,6 +511,7 @@ function runAgent(body, signal) {
             const answer = buildAgentEvidenceAnswer({
               toolResults: [{ name: "search_web", result }],
               failureCode: "SEARCH_SUMMARY_FALLBACK",
+              objective: message,
             }).replace(/\n\nआंशिक परिणाम:[\s\S]*$/, "");
             emitStatus("verification", "प्राप्त स्रोतों और URL की जाँच कर रहा हूँ");
             emitStatus("complete", "स्रोत मिल गए — जवाब तैयार है");
@@ -617,6 +618,7 @@ function runAgent(body, signal) {
           const evidenceAnswer = buildAgentEvidenceAnswer({
             toolResults: collectedToolResults,
             failureCode: error?.code || "AGENT_REASONING_FAILED",
+            objective: message,
           });
           const providerNote = error?.code === "GROQ_RATE_LIMITED"
             ? "नोट: AI provider की rate limit के कारण अतिरिक्त भाषा-संश्लेषण उपलब्ध नहीं था; यह उत्तर सीधे प्राप्त स्रोतों पर आधारित है।"
