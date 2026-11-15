@@ -413,11 +413,11 @@ function runAgent(body, signal) {
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       start(controller) {
-        const chunks = hanumanChalisaAnswer.match(/[\\s\\S]{1,72}/gu) || [""];
+        const chunks = hanumanChalisaAnswer.match(/[\s\S]{1,72}/gu) || [""];
         for (const chunk of chunks) {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: chunk } }] })}\\n\\n`));
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: chunk } }] })}\n\n`));
         }
-        controller.enqueue(encoder.encode("data: [DONE]\\n\\n"));
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         controller.close();
       },
     });
