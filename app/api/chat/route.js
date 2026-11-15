@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { selectRelevantMemories } from "../../../lib/orion-memory.mjs";
-import { createRateLimiter, getClientIdentifier } from "../../../lib/orion-rate-limit.mjs";
+import { createUpstashRateLimiter } from "../../../lib/orion-upstash-rate-limit.mjs";
+import { getClientIdentifier } from "../../../lib/orion-rate-limit.mjs";
 import { getCreatorAnswer } from "../../../lib/orion-identity.mjs";
 import { getOfflineQuickAnswer } from "../../../lib/orion-quick-actions.mjs";
 import { getHanumanChalisaResponse } from "../../../lib/orion-hanuman-chalisa.mjs";
@@ -20,7 +21,7 @@ const MAX_REQUEST_BYTES = 128 * 1024;
 const MAX_TOKENS = 6000;
 const TEMPERATURE = 0.4;
 // Best-effort per-instance protection; use shared KV/Redis for global enforcement.
-const chatRateLimiter = createRateLimiter({ limit: 20, windowMs: 60_000 });
+const chatRateLimiter = createUpstashRateLimiter({ limit: 20, windowMs: 60_000, prefix: "orion:chat" });
 
 const CREATOR_NAME = "Dharmraj Jat";
 const ORIGINAL_PROJECT = "Dharm AI";
@@ -857,7 +858,10 @@ export async function POST(
   request
 ) {
   try {
-    const rate = chatRateLimiter.check(getClientIdentifier(request.headers));
+    const rate = await chatRateLimiter.check(getClientIdentifier(request.headers));
+    if (rate.unavailable) {
+      return Response.json({ error: "Shared rate-limit service is temporarily unavailable. Please retry shortly." }, { status: 503 });
+    }
     if (!rate.allowed) {
       return new Response(JSON.stringify({ error: "Too many chat requests. Please wait before trying again." }), {
         status: 429,
