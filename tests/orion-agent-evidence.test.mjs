@@ -51,6 +51,7 @@ test("builds search queries from both task topic and model suggestion", () => {
 test("requires multiple overlapping topic terms, including source URL metadata", () => {
   assert.equal(isRelevantAgentSource({ title: "India", content: "India is a country." }, objective), false);
   assert.equal(isRelevantAgentSource({ title: "Industry 5.0 Japan robotics", content: "Japan uses robotics and AI automation." }, objective), true);
+  assert.equal(isRelevantAgentSource({ title: "Official research page", content: "", url: "https://example.org/industry-5-japan-robotics" }, objective), true);
 });
 
 test("does not leak an unverified draft when the verifier fails", async () => {
