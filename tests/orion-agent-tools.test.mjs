@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getAvailableAgentTools, getAgentToolChoice } from "../lib/orion-agent-tools.mjs";
+import { getAvailableAgentTools, shouldDisableAgentTools } from "../lib/orion-agent-tools.mjs";
 
 const tools = [
   { type: "function", function: { name: "calculate" } },
@@ -29,8 +29,8 @@ test("does not mutate the original tool definitions", () => {
   assert.equal(result.length, 1);
 });
 
-test("disables further tool calls after search results or a search failure", () => {
-  assert.equal(getAgentToolChoice({}), "auto");
-  assert.equal(getAgentToolChoice({ searchResults: { results: [{ url: "https://example.com" }] } }), "none");
-  assert.equal(getAgentToolChoice({ searchFailure: "provider unavailable" }), "none");
+test("omits the tools field after search results or a search failure", () => {
+  assert.equal(shouldDisableAgentTools({}), false);
+  assert.equal(shouldDisableAgentTools({ searchResults: { results: [{ url: "https://example.com" }] } }), true);
+  assert.equal(shouldDisableAgentTools({ searchFailure: "provider unavailable" }), true);
 });
