@@ -944,7 +944,7 @@ function Home() {
         if (!loading) sendMessage();
       }
     },
-    [loading, sendMessage]
+    [loading, sendMessage, enterToSend]
   );
 
   const filteredMessages = useMemo(() => {
@@ -1166,7 +1166,7 @@ function Home() {
           <div className="orion-help-item"><strong>Chat कैसे भेजें?</strong><p>अपना सवाल लिखें और Send दबाएँ। Enter-to-send बंद हो तो Enter नई लाइन बनाएगा।</p></div>
           <div className="orion-help-item"><strong>Voice typing कैसे इस्तेमाल करें?</strong><p>Composer में microphone दबाएँ और browser की microphone permission दें।</p></div>
           <div className="orion-help-item"><strong>Chat history कहाँ मिलेगी?</strong><p>ऊपर बाएँ History खोलें। वहाँ chats खोज और pin कर सकते हैं।</p></div>
-          <a className="orion-feedback-link" href="mailto:support@dharm-ai.example?subject=ORION%20AI%20Feedback">Send feedback by email ↗</a>
+          <a className="orion-feedback-link" href="https://github.com/jaatdharm276-alt/dharm-ai/issues/new" target="_blank" rel="noopener noreferrer">Send feedback by email ↗</a>
           <p className="orion-modal-note">Email app आपके device पर खुलेगा। कोई message अपने-आप नहीं भेजा जाएगा।</p>
         </section>
       </div>}
