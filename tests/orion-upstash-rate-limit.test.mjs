@@ -99,7 +99,7 @@ test("rejects pasted multi-line env blocks and quoted credential values without 
   const originalError = console.error;
   let calls = 0;
   process.env.NODE_ENV = "production";
-  process.env.UPSTASH_REDIS_REST_URL = 'UPSTASH_REDIS_REST_URL="https://example.upstash.io"\\nUPSTASH_REDIS_REST_TOKEN="secret"';
+  process.env.UPSTASH_REDIS_REST_URL = 'UPSTASH_REDIS_REST_URL="https://example.upstash.io"\nUPSTASH_REDIS_REST_TOKEN="secret"';
   process.env.UPSTASH_REDIS_REST_TOKEN = '"secret"';
   globalThis.fetch = async () => {
     calls += 1;
