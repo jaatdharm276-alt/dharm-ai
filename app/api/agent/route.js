@@ -312,6 +312,14 @@ async function callModel(messages, options = {}, signal) {
       const error = new Error("Groq API returned " + response.status + ": " + detail.slice(0, 1000));
       error.code = response.status === 429 ? "GROQ_RATE_LIMITED" : "GROQ_PROVIDER_HTTP_ERROR";
       error.providerStatus = response.status;
+      const retryAfter = response.headers.get("retry-after");
+      if (response.status === 429 && retryAfter) {
+        const seconds = Number(retryAfter);
+        const parsedMs = Number.isFinite(seconds) && seconds >= 0
+          ? seconds * 1000
+          : Math.max(0, Date.parse(retryAfter) - Date.now());
+        if (Number.isFinite(parsedMs) && parsedMs > 0) error.retryAfterMs = Math.min(10_000, parsedMs);
+      }
       throw error;
     }
   } catch (error) {
@@ -329,6 +337,14 @@ async function callModel(messages, options = {}, signal) {
     const error = new Error("The AI provider could not complete the agent step.");
     error.code = response.status === 401 || response.status === 403 ? "GROQ_AUTH_REJECTED" : response.status === 429 ? "GROQ_RATE_LIMITED" : response.status >= 500 ? "GROQ_PROVIDER_UNAVAILABLE" : "GROQ_PROVIDER_HTTP_ERROR";
     error.providerStatus = response.status;
+    const retryAfter = response.headers.get("retry-after");
+    if (response.status === 429 && retryAfter) {
+      const seconds = Number(retryAfter);
+      const parsedMs = Number.isFinite(seconds) && seconds >= 0
+        ? seconds * 1000
+        : Math.max(0, Date.parse(retryAfter) - Date.now());
+      if (Number.isFinite(parsedMs) && parsedMs > 0) error.retryAfterMs = Math.min(10_000, parsedMs);
+    }
     throw error;
   }
 
@@ -636,10 +652,21 @@ Return one JSON object only with keys "verdict", "answer", and "findings". "verd
             },
           },
         },
-      ), { signal, maxRetries: 1, delayMs: 900 });
+      ), {
+        signal,
+        maxRetries: 1,
+        delayMs: 900,
+        maxRetryAfterMs: 10_000,
+        onRetry: ({ attempt, waitMs, status, code }) => {
+          console.info("ORION verifier retry scheduled:", { attempt, waitMs, status, code });
+        },
+      });
     } catch (error) {
       if (error?.name === "AbortError" || signal?.aborted) throw error;
-      console.warn("ORION verifier unavailable after bounded retry:", { code: error?.code || "UNKNOWN", status: error?.providerStatus || error?.status || null });
+      console.warn("ORION verifier unavailable after bounded retry:", {
+        code: String(error?.code || "UNKNOWN").slice(0, 80),
+        status: error?.providerStatus || error?.status || null,
+      });
       return { answer: buildPartialRecoveryAnswer({ draft, toolResults: collectedToolResults, failureStage: "verification" }), partial: true };
     }
 
