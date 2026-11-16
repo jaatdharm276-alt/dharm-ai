@@ -14,6 +14,7 @@ import { getCreatorAnswer } from "../../../lib/orion-identity.mjs";
 import { getHanumanChalisaResponse } from "../../../lib/orion-hanuman-chalisa.mjs";
 import { validateAgentToolArgs, summarizeToolResult } from "../../../lib/orion-agent-guardrails.mjs";
 import { appendRelevantSourceCitations, buildAgentEvidenceAnswer, buildObjectiveSearchQuery } from "../../../lib/orion-agent-evidence.mjs";
+import { buildVerifierEvidenceSummary, parseVerifierOutput } from "../../../lib/orion-agent-verifier.mjs";
 import { getAvailableAgentTools } from "../../../lib/orion-agent-tools.mjs";
 
 export const runtime = "nodejs";
@@ -307,7 +308,7 @@ async function callModel(messages, options = {}, signal) {
     }
   } catch (error) {
     if (timeoutSignal.aborted && !signal?.aborted) {
-      const timeoutError = new Error("The AI provider did not respond within 30 seconds.");
+      const timeoutError = new Error("The AI provider did not respond within 55 seconds.");
       timeoutError.code = "GROQ_REQUEST_TIMEOUT";
       throw timeoutError;
     }
@@ -590,12 +591,7 @@ function runAgent(body, signal) {
       .filter((item) => item?.name === "search_web")
       .flatMap((item) => Array.isArray(item?.result?.results) ? item.result.results : [])
       .slice(0, 5);
-    const evidenceSummary = searchResults.map((source, index) => [
-      `[${index + 1}] ${String(source?.title || "Web source").slice(0, 140)}`,
-      `URL: ${String(source?.url || "").slice(0, 500)}`,
-      `Evidence: ${String(source?.content || source?.snippet || "").replace(/\\s+/g, " ").slice(0, 260)}`,
-    ].join("\\n")).join("\\n");
-    const compactEvidence = evidenceSummary.slice(0, 1450) || "No web source URLs were collected.";
+    const compactEvidence = buildVerifierEvidenceSummary(searchResults);
     let verification;
     try {
       verification = await runSpecialist(
@@ -627,8 +623,7 @@ Use PASS only when the answer's factual claims are supported by the supplied evi
     }
 
     const output = String(verification.findings || "").trim();
-    const verdict = output.match(/^VERDICT:\\s*(PASS|PARTIAL)\\b/im)?.[1]?.toUpperCase();
-    const answer = output.match(/^ANSWER:\\s*([\\s\\S]*?)(?=^FINDINGS:|$)/im)?.[1]?.trim();
+    const { verdict, answer } = parseVerifierOutput(output);
     if (verdict === "PASS" && answer) return { answer: appendRelevantSourceCitations(answer, collectedToolResults, message), partial: false };
     return {
       answer: buildPartialRecoveryAnswer({
