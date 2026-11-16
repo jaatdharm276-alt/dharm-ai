@@ -759,7 +759,7 @@ function runAgent(body, signal) {
   });
   return new Response(stream, {
     status: 200,
-    headers: { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform", Connection: "keep-alive", "X-Accel-Buffering": "no" },
+    headers: { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform", Connection: "keep-alive", "X-Accel-Buffering": "no", "X-ORION-Deployment-SHA": process.env.VERCEL_GIT_COMMIT_SHA || "unknown" },
   });
 }
 
