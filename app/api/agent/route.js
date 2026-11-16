@@ -601,16 +601,56 @@ function runAgent(body, signal) {
         .map((item) => `${item?.name || "tool"}: ${summarizeToolResult(item?.result, 1200)}`)
         .join("\n")
         .slice(0, 1200);
-      const revised = await callModel([
+      const finalMessages = [
         {
           role: "system",
-          content: "You are ORION AI. Produce a concise, accurate Hindi/Hinglish answer. Use only the supplied draft, verification findings, and evidence. Preserve relevant source URLs, distinguish uncertainty, and do not call tools or reveal hidden reasoning.",
+          content: "You are ORION AI. Produce a concise, accurate Hindi/Hinglish answer. Use only the supplied draft, verification findings, and evidence. Preserve relevant source URLs and distinguish uncertainty. The only declared tool is search_web; if called, it returns cached task evidence and does not start another network search.",
         },
         {
           role: "user",
           content: `Objective:\n${String(message).slice(0, 300)}\n\nDraft:\n${String(draft).slice(0, 1200)}\n\nIndependent verification findings:\n${String(verification.findings).slice(0, 500)}\n\nCollected evidence:\n${evidenceSummary}`,
         },
-      ], { temperature: 0.15, max_tokens: 400 }, signal);
+      ];
+      const finalizerTools = TOOL_DEFINITIONS.filter((tool) => tool?.function?.name === "search_web");
+      let revised = await callModel(finalMessages, {
+        tools: finalizerTools,
+        temperature: 0.15,
+        max_tokens: 400,
+      }, signal);
+      for (let round = 0; round < 2 && Array.isArray(revised.tool_calls) && revised.tool_calls.length; round += 1) {
+        const toolMessages = [];
+        for (const toolCall of revised.tool_calls) {
+          if (toolCall?.function?.name !== "search_web") throw new Error("Finalizer requested a tool outside the cached search allowlist.");
+          if (context.toolCalls >= MAX_TOOL_CALLS) throw new Error("Finalizer tool-call budget exhausted.");
+          let args = {};
+          try {
+            args = JSON.parse(toolCall.function.arguments || "{}");
+          } catch {
+            throw new Error("Finalizer returned invalid cached-search arguments.");
+          }
+          context.toolCalls += 1;
+          const result = await executeTool("search_web", args, context);
+          collectedToolResults.push({ name: "search_web", result });
+          toolMessages.push({
+            role: "tool",
+            tool_call_id: toolCall.id,
+            content: JSON.stringify(result).slice(0, 5000),
+          });
+        }
+        finalMessages.push(
+          revised,
+          ...toolMessages,
+          { role: "system", content: "Use the cached search result above and now provide the final answer. Do not call search_web again." },
+        );
+        revised = await callModel(finalMessages, {
+          tools: finalizerTools,
+          temperature: 0.15,
+          max_tokens: 400,
+        }, signal);
+      }
+      if (Array.isArray(revised.tool_calls) && revised.tool_calls.length) {
+        throw new Error("Finalizer kept requesting cached search tools after the retry budget.");
+      }
       return String(revised.content || draft).trim();
     } catch (error) {
       if (error?.name === "AbortError" || signal?.aborted) throw error;
