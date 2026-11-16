@@ -75,7 +75,7 @@ jobs:
                 exit 0
               fi
             fi
-            echo "Waiting for current or test-only-compatible deployment (attempt $attempt/60, HTTP ${status:-none}, deployed SHA: ${deployed_sha:-not-ready})..."
+            echo "Waiting for exact expected deployment commit (attempt $attempt/60, HTTP ${status:-none}, deployed SHA: ${deployed_sha:-not-ready})..."
             sleep 5
           done
           echo "The deployment did not expose the expected commit SHA within five minutes."
