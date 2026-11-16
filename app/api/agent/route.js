@@ -618,8 +618,8 @@ Use PASS only if the main claims are directly supported and the answer cites a r
     }
 
     const output = String(verification.findings || "").trim();
-    const verdict = output.match(/^VERDICT:\\s*(PASS|PARTIAL)\\b/im)?.[1]?.toUpperCase();
-    const answer = output.match(/^ANSWER:\\s*([\\s\\S]*?)(?=^FINDINGS:|$)/im)?.[1]?.trim();
+    const verdict = output.match(/^VERDICT:\s*(PASS|PARTIAL)\b/im)?.[1]?.toUpperCase();
+    const answer = output.match(/^ANSWER:\s*([\s\S]*?)(?=^FINDINGS:|$)/im)?.[1]?.trim();
     if (verdict === "PASS" && answer) return { answer, partial: false };
     return {
       answer: buildPartialRecoveryAnswer({
