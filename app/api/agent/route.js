@@ -722,7 +722,7 @@ function runAgent(body, signal) {
       final = await callModel([
         ...messages,
         { role: "system", content: "Tool budget is exhausted. Give the best verified answer from the evidence already collected. Clearly state any unavailable capability." },
-      ], { temperature: 0.2, max_tokens: 3500 }, signal);
+      ], { temperature: 0.2, max_tokens: 1200 }, signal);
       lastDraft = String(final.content || "").trim();
     } catch (error) {
       if (error?.name === "AbortError" || signal?.aborted) throw error;
