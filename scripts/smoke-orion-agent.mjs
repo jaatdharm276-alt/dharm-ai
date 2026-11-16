@@ -30,7 +30,7 @@ try {
         : {}),
     },
     body: JSON.stringify({
-      message: "भारत के National Portal (india.gov.in) की आधिकारिक भूमिका क्या है? केवल india.gov.in के आधिकारिक स्रोत से उत्तर दें और उसका URL उद्धृत करें।",
+      message: "भारत के Press Information Bureau (PIB) की भूमिका क्या है? केवल pib.gov.in के आधिकारिक स्रोत से संक्षेप में बताएं और उसका URL उद्धृत करें।",
       messages: [],
       memories: [],
     }),
@@ -92,7 +92,7 @@ try {
       toolFailed,
       searchSucceeded,
       answer,
-      expectedHost: "india.gov.in",
+      expectedHost: "pib.gov.in",
     });
   } catch (error) {
     throw new Error(
