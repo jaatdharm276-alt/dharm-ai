@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  appendRelevantSourceCitations,
   buildAgentEvidenceAnswer,
   buildObjectiveSearchQuery,
   isRelevantAgentSource,
@@ -78,4 +79,38 @@ test("evidence fallback lists relevant sources without asserting their snippets 
   assert.match(answer, /https:\/\/example\.org\/japan/);
   assert.doesNotMatch(answer, /output rose 99%/);
   assert.match(answer, /कोई तथ्यात्मक दावा/);
+});
+
+test("appends exact HTTPS URLs from relevant collected sources", () => {
+  const answer = "PIB भारत सरकार की मीडिया सूचना एजेंसी है।";
+  const result = appendRelevantSourceCitations(answer, [
+    { name: "search_web", result: { results: [
+      { title: "Press Information Bureau", url: "https://www.pib.gov.in/PressReleasePage.aspx", content: "Press Information Bureau disseminates information about Government policies, programmes and initiatives." },
+      { title: "Unrelated weather page", url: "https://weather.example.com/", content: "Hourly weather in another city." },
+      { title: "Insecure mirror", url: "http://www.pib.gov.in/old", content: "Press Information Bureau government news." },
+    ] } },
+  ], "Press Information Bureau PIB भारत सरकार की भूमिका");
+  assert.match(result, /https:\/\/www\.pib\.gov\.in\/PressReleasePage\.aspx/);
+  assert.doesNotMatch(result, /weather\.example\.com/);
+  assert.doesNotMatch(result, /http:\/\/www\.pib\.gov\.in/);
+});
+
+test("does not invent citations when no relevant HTTPS result exists", () => {
+  const answer = "स्रोत उपलब्ध नहीं हैं।";
+  const result = appendRelevantSourceCitations(answer, [
+    { name: "search_web", result: { results: [
+      { title: "Unrelated source", url: "https://weather.example.com/", content: "Weather forecast." },
+    ] } },
+  ], "Press Information Bureau PIB government communications");
+  assert.equal(result, answer);
+});
+
+test("does not duplicate a source URL already present in the answer", () => {
+  const answer = "PIB information. https://www.pib.gov.in/";
+  const result = appendRelevantSourceCitations(answer, [
+    { name: "search_web", result: { results: [
+      { title: "Press Information Bureau", url: "https://www.pib.gov.in/", content: "Press Information Bureau government information media." },
+    ] } },
+  ], "Press Information Bureau PIB government information");
+  assert.equal((result.match(/https:\/\/www\.pib\.gov\.in\//g) || []).length, 1);
 });
