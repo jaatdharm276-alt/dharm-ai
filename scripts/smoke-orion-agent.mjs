@@ -30,7 +30,7 @@ try {
         : {}),
     },
     body: JSON.stringify({
-      message: "भारत सरकार के राष्ट्रीय पोर्टल india.gov.in का मुख्य उद्देश्य क्या है? संक्षेप में बताएं और आधिकारिक india.gov.in स्रोत का URL दें।",
+      message: "भारत के National Portal (india.gov.in) की आधिकारिक भूमिका क्या है? केवल india.gov.in के आधिकारिक स्रोत से उत्तर दें और उसका URL उद्धृत करें।",
       messages: [],
       memories: [],
     }),
