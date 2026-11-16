@@ -209,10 +209,32 @@ function Home() {
   const [composerToolsOpen, setComposerToolsOpen] = useState(false);
   const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
   const [historyQuery, setHistoryQuery] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [enterToSend, setEnterToSend] = useState(true);
+  const [compactChat, setCompactChat] = useState(false);
+  const [preferencesReady, setPreferencesReady] = useState(false);
   const [pinnedSessionIds, setPinnedSessionIds] = useState(() => {
     if (typeof window === "undefined") return [];
     try { return JSON.parse(window.localStorage.getItem("orion-ai-pinned-sessions-v1") || "[]"); } catch { return []; }
   });
+
+  useEffect(() => {
+    try {
+      setEnterToSend(window.localStorage.getItem("orion-enter-to-send-v1") !== "false");
+      setCompactChat(window.localStorage.getItem("orion-compact-chat-v1") === "true");
+    } catch {} finally {
+      setPreferencesReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!preferencesReady) return;
+    try {
+      window.localStorage.setItem("orion-enter-to-send-v1", String(enterToSend));
+      window.localStorage.setItem("orion-compact-chat-v1", String(compactChat));
+    } catch {}
+  }, [enterToSend, compactChat, preferencesReady]);
 
   const messagesRef = useRef(null);
   const scrollAnimationFrameRef = useRef(null);
@@ -921,12 +943,12 @@ function Home() {
       // confirms the composed text and must not submit the chat.
       if (event.nativeEvent?.isComposing || event.keyCode === 229) return;
 
-      if (event.key === "Enter" && !event.shiftKey) {
+      if (event.key === "Enter" && !event.shiftKey && enterToSend) {
         event.preventDefault();
         if (!loading) sendMessage();
       }
     },
-    [loading, sendMessage]
+    [loading, sendMessage, enterToSend]
   );
 
   const filteredMessages = useMemo(() => {
@@ -1086,7 +1108,7 @@ function Home() {
   <>
     <style>{styles}</style>
 
-    <main className="orion-app">
+    <main className={compactChat ? "orion-app orion-compact-chat" : "orion-app"}>
       <div className="orion-glow glow-one" />
       <div className="orion-glow glow-two" />
 
@@ -1126,8 +1148,31 @@ function Home() {
             </div>) : <p className="history-empty">{historyQuery ? "No matching chats." : "Your conversations will appear here."}</p>}
             {pinnedSessionIds.some((id) => chatSessions.some((session) => session.id === id)) && <div className="history-pinned-label">PINNED</div>}
           </div>
-          <div className="history-drawer-bottom"><span>⚙ Settings</span><span>ⓘ Help & feedback</span></div>
+          <div className="history-drawer-bottom">
+            <button type="button" className="history-footer-action" onClick={() => { setSettingsOpen(true); setHistoryDrawerOpen(false); }}>⚙ Settings</button>
+            <button type="button" className="history-footer-action" onClick={() => { setHelpOpen(true); setHistoryDrawerOpen(false); }}>ⓘ Help & feedback</button>
+          </div>
         </aside>
+      </div>}
+
+      {settingsOpen && <div className="orion-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSettingsOpen(false); }}>
+        <section className="orion-modal" role="dialog" aria-modal="true" aria-labelledby="orion-settings-title">
+          <div className="orion-modal-head"><div><small>PERSONALIZE</small><h2 id="orion-settings-title">Settings</h2></div><button type="button" onClick={() => setSettingsOpen(false)} aria-label="Close settings">×</button></div>
+          <div className="orion-setting-row"><div><strong>Enter to send</strong><p>Enter भेजने के लिए, Shift + Enter नई लाइन के लिए।</p></div><button type="button" role="switch" aria-checked={enterToSend} className={enterToSend ? "orion-switch active" : "orion-switch"} onClick={() => setEnterToSend(value => !value)}><span /></button></div>
+          <div className="orion-setting-row"><div><strong>Compact chat</strong><p>Messages के बीच की जगह कम रखें।</p></div><button type="button" role="switch" aria-checked={compactChat} className={compactChat ? "orion-switch active" : "orion-switch"} onClick={() => setCompactChat(value => !value)}><span /></button></div>
+          <p className="orion-modal-note">आपकी preferences इसी device पर save होती हैं।</p>
+        </section>
+      </div>}
+
+      {helpOpen && <div className="orion-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setHelpOpen(false); }}>
+        <section className="orion-modal" role="dialog" aria-modal="true" aria-labelledby="orion-help-title">
+          <div className="orion-modal-head"><div><small>ORION SUPPORT</small><h2 id="orion-help-title">Help & Feedback</h2></div><button type="button" onClick={() => setHelpOpen(false)} aria-label="Close help">×</button></div>
+          <div className="orion-help-item"><strong>Chat कैसे भेजें?</strong><p>अपना सवाल लिखें और Send दबाएँ। Enter-to-send बंद हो तो Enter नई लाइन बनाएगा।</p></div>
+          <div className="orion-help-item"><strong>Voice typing कैसे इस्तेमाल करें?</strong><p>Composer में microphone दबाएँ और browser की microphone permission दें।</p></div>
+          <div className="orion-help-item"><strong>Chat history कहाँ मिलेगी?</strong><p>ऊपर बाएँ History खोलें। वहाँ chats खोज और pin कर सकते हैं।</p></div>
+          <a className="orion-feedback-link" href="https://github.com/jaatdharm276-alt/dharm-ai/issues/new" target="_blank" rel="noopener noreferrer">Send feedback on GitHub ↗</a>
+          <p className="orion-modal-note">GitHub पर नया issue खुलेगा। अपना feedback लिखकर स्वयं submit करें।</p>
+        </section>
       </div>}
 
       {!hasMessages ? (
@@ -2642,6 +2687,24 @@ const styles = `
   @media(max-width:700px){.assistant-message .message-content{max-width:calc(100% - 39px);padding:11px 12px 7px}.user-message .message-content{max-width:88%}.assistant-avatar{width:27px;height:27px;flex-basis:27px}}
 
 
+  .history-footer-action{padding:0;border:0;background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer}
+  .orion-modal-backdrop{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:18px;background:rgba(3,18,39,.48);backdrop-filter:blur(7px)}
+  .orion-modal{width:min(100%,460px);max-height:min(82vh,680px);overflow:auto;padding:22px;border:1px solid #b9dafa;border-radius:22px;background:#fff;box-shadow:0 22px 70px rgba(4,39,78,.28);color:#173b60}
+  .orion-modal-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px}
+  .orion-modal-head small{color:#1688d8;font-size:10px;font-weight:800;letter-spacing:.16em}
+  .orion-modal-head h2{margin:5px 0 0;font-size:24px}
+  .orion-modal-head>button{width:34px;height:34px;border:0;border-radius:11px;background:#eef6ff;color:#315b80;font-size:23px;cursor:pointer}
+  .orion-setting-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:15px 0;border-top:1px solid #e4eef8}
+  .orion-setting-row strong,.orion-help-item strong{font-size:14px}
+  .orion-setting-row p,.orion-help-item p{margin:5px 0 0;color:#617b94;font-size:12px;line-height:1.55}
+  .orion-switch{width:46px;height:27px;flex:0 0 46px;padding:3px;border:0;border-radius:99px;background:#c7d4e1;cursor:pointer;transition:background .18s}
+  .orion-switch span{display:block;width:21px;height:21px;border-radius:50%;background:#fff;box-shadow:0 1px 4px #678;transition:transform .18s}
+  .orion-switch.active{background:#1688d8}.orion-switch.active span{transform:translateX(19px)}
+  .orion-modal-note{margin:15px 0 0;color:#8194a8;font-size:11px;line-height:1.5}
+  .orion-help-item{padding:13px 0;border-top:1px solid #e4eef8}
+  .orion-feedback-link{display:inline-flex;margin-top:12px;padding:11px 15px;border-radius:12px;background:#087bc3;color:#fff;text-decoration:none;font-size:13px;font-weight:700}
+  .orion-compact-chat .message{margin-bottom:7px!important}.orion-compact-chat .assistant-message .message-content{padding-top:9px;padding-bottom:8px}
+  @media(prefers-reduced-motion:reduce){.orion-switch,.orion-switch span{transition:none}}
   .history-search{display:flex;align-items:center;gap:9px;margin-top:12px;padding:10px 12px;border:1px solid #d5e4f4;border-radius:13px;background:#fff;color:#6c829b}
   .history-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:#244563;font-size:13px}
   .history-session{padding:6px 8px;gap:4px}
