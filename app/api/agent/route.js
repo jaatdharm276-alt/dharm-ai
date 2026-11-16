@@ -13,7 +13,7 @@ import { getClientIdentifier } from "../../../lib/orion-rate-limit.mjs";
 import { getCreatorAnswer } from "../../../lib/orion-identity.mjs";
 import { getHanumanChalisaResponse } from "../../../lib/orion-hanuman-chalisa.mjs";
 import { validateAgentToolArgs, summarizeToolResult } from "../../../lib/orion-agent-guardrails.mjs";
-import { buildAgentEvidenceAnswer, buildObjectiveSearchQuery } from "../../../lib/orion-agent-evidence.mjs";
+import { appendRelevantSourceCitations, buildAgentEvidenceAnswer, buildObjectiveSearchQuery } from "../../../lib/orion-agent-evidence.mjs";
 import { getAvailableAgentTools } from "../../../lib/orion-agent-tools.mjs";
 
 export const runtime = "nodejs";
@@ -629,7 +629,7 @@ Use PASS only when the answer's factual claims are supported by the supplied evi
     const output = String(verification.findings || "").trim();
     const verdict = output.match(/^VERDICT:\\s*(PASS|PARTIAL)\\b/im)?.[1]?.toUpperCase();
     const answer = output.match(/^ANSWER:\\s*([\\s\\S]*?)(?=^FINDINGS:|$)/im)?.[1]?.trim();
-    if (verdict === "PASS" && answer) return { answer, partial: false };
+    if (verdict === "PASS" && answer) return { answer: appendRelevantSourceCitations(answer, collectedToolResults, message), partial: false };
     return {
       answer: buildPartialRecoveryAnswer({
         draft: answer || String(draft || "").trim(),
