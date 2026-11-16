@@ -12,6 +12,7 @@ on:
       - "scripts/smoke-orion-agent.mjs"
       - "lib/orion-agent-e2e-assertions.mjs"
       - "app/api/agent/route.js"
+      - "app/api/health/route.js"
       - ".github/workflows/orion-agent-e2e.yml"
 
 permissions:
@@ -48,21 +49,25 @@ jobs:
             exit 1
           fi
           echo "ORION_AGENT_URL=${deployment_base}/api/agent" >> "$GITHUB_ENV"
+          echo "ORION_HEALTH_URL=${deployment_base}/api/health" >> "$GITHUB_ENV"
           echo "ORION_EXPECTED_DEPLOYMENT_SHA=$expected_sha" >> "$GITHUB_ENV"
-      - name: Wait for target deployment endpoint
+      - name: Wait for exact deployment commit
         env:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
           for attempt in $(seq 1 60); do
-            status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --header "x-vercel-protection-bypass: ${VERCEL_AUTOMATION_BYPASS_SECRET}" "$ORION_AGENT_URL" || true)
-            if [ "$status" = "405" ]; then
-              echo "Deployment endpoint is responding; the POST smoke test will verify its exact commit SHA."
+            headers_file="$(mktemp)"
+            status=$(curl --silent --show-error --dump-header "$headers_file" --output /dev/null --write-out '%{http_code}' --header "x-vercel-protection-bypass: ${VERCEL_AUTOMATION_BYPASS_SECRET}" "$ORION_HEALTH_URL" || true)
+            deployed_sha=$(awk 'tolower($1) == "x-orion-deployment-sha:" { gsub("\\r", "", $2); print $2 }' "$headers_file" | tail -n 1)
+            rm -f "$headers_file"
+            if [ "$status" = "200" ] && [ "$deployed_sha" = "$ORION_EXPECTED_DEPLOYMENT_SHA" ]; then
+              echo "Exact deployment is ready: $deployed_sha"
               exit 0
             fi
-            echo "Waiting for deployment (attempt $attempt/60, HTTP ${status:-none})..."
+            echo "Waiting for exact deployment (attempt $attempt/60, HTTP ${status:-none}, deployed SHA: ${deployed_sha:-not-ready})..."
             sleep 5
           done
-          echo "Deployment endpoint did not become ready within five minutes."
+          echo "The deployment did not expose the expected commit SHA within five minutes."
           exit 1
       - name: Test deployed ORION Agent end-to-end
         env:
