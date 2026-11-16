@@ -138,7 +138,7 @@ const SPECIALIST_INSTRUCTIONS = {
   research_analyst: "You are the research analyst. Analyze only the supplied evidence. Separate facts, assumptions, and unknowns. Do not invent sources or current facts.",
   coder: "You are the coding specialist. Propose concrete implementation details, edge cases, and tests. Do not claim code was changed or run.",
   security_reviewer: "You are the security specialist. Look for trust-boundary, privacy, authorization, injection, abuse, and failure-mode risks. Give mitigations.",
-  verifier: "You are the verification specialist. Independently check the proposed result against the stated objective and constraints. Identify gaps and unsupported claims.",
+  verifier: "You are the final verification specialist. Independently check the proposed result against the objective and supplied evidence. Return a structured verdict and a corrected user-facing answer; never invent facts or citations.",
 };
 
 function errorResponse(message, status) {
@@ -583,11 +583,31 @@ function runAgent(body, signal) {
   }
 
   async function verifyAndFinalize(draft) {
+    const evidenceSummary = collectedToolResults
+      .map((item) => `${item?.name || "tool"}: ${summarizeToolResult(item?.result, 1000)}`)
+      .join("\n")
+      .slice(0, 2200);
     let verification;
     try {
       verification = await runSpecialist(
         "verifier",
-        `Check this proposed answer against the objective and the tool evidence in the conversation. Flag factual gaps, unsupported claims, missed requirements, and safety issues. If it is sound, say so briefly.\n\nProposed answer:\n${String(draft).slice(0, 6500)}`,
+        `Review the proposed answer against the objective and supplied tool evidence. Do not use outside knowledge to fill gaps. Return exactly:
+VERDICT: PASS or PARTIAL
+ANSWER:
+A concise, accurate final answer in the user's language. Preserve only source URLs present in the evidence.
+FINDINGS:
+One brief sentence explaining whether the answer is supported.
+
+Objective:
+${String(message).slice(0, 500)}
+
+Proposed answer:
+${String(draft).slice(0, 1800)}
+
+Tool evidence:
+${evidenceSummary}
+
+Use PASS only if the main claims are directly supported and the answer cites a relevant source URL. Otherwise use PARTIAL and clearly state what could not be verified.`,
         message,
         signal,
       );
@@ -596,67 +616,19 @@ function runAgent(body, signal) {
       console.error("ORION verifier unavailable:", error);
       return { answer: buildPartialRecoveryAnswer({ draft, toolResults: collectedToolResults, failureStage: "verification" }), partial: true };
     }
-    try {
-      const evidenceSummary = collectedToolResults
-        .map((item) => `${item?.name || "tool"}: ${summarizeToolResult(item?.result, 1200)}`)
-        .join("\n")
-        .slice(0, 1200);
-      const finalMessages = [
-        {
-          role: "system",
-          content: "You are ORION AI. Produce a concise, accurate Hindi/Hinglish answer. Use only the supplied draft, verification findings, and evidence. Preserve relevant source URLs and distinguish uncertainty. The only declared tool is search_web; if called, it returns cached task evidence and does not start another network search.",
-        },
-        {
-          role: "user",
-          content: `Objective:\n${String(message).slice(0, 300)}\n\nDraft:\n${String(draft).slice(0, 1200)}\n\nIndependent verification findings:\n${String(verification.findings).slice(0, 500)}\n\nCollected evidence:\n${evidenceSummary}`,
-        },
-      ];
-      const finalizerTools = TOOL_DEFINITIONS.filter((tool) => tool?.function?.name === "search_web");
-      let revised = await callModel(finalMessages, {
-        tools: finalizerTools,
-        temperature: 0.15,
-        max_tokens: 400,
-      }, signal);
-      for (let round = 0; round < 2 && Array.isArray(revised.tool_calls) && revised.tool_calls.length; round += 1) {
-        const toolMessages = [];
-        for (const toolCall of revised.tool_calls) {
-          if (toolCall?.function?.name !== "search_web") throw new Error("Finalizer requested a tool outside the cached search allowlist.");
-          if (context.toolCalls >= MAX_TOOL_CALLS) throw new Error("Finalizer tool-call budget exhausted.");
-          let args = {};
-          try {
-            args = JSON.parse(toolCall.function.arguments || "{}");
-          } catch {
-            throw new Error("Finalizer returned invalid cached-search arguments.");
-          }
-          context.toolCalls += 1;
-          const result = await executeTool("search_web", args, context);
-          collectedToolResults.push({ name: "search_web", result });
-          toolMessages.push({
-            role: "tool",
-            tool_call_id: toolCall.id,
-            content: JSON.stringify(result).slice(0, 5000),
-          });
-        }
-        finalMessages.push(
-          revised,
-          ...toolMessages,
-          { role: "system", content: "Use the cached search result above and now provide the final answer. Do not call search_web again." },
-        );
-        revised = await callModel(finalMessages, {
-          tools: finalizerTools,
-          temperature: 0.15,
-          max_tokens: 400,
-        }, signal);
-      }
-      if (Array.isArray(revised.tool_calls) && revised.tool_calls.length) {
-        throw new Error("Finalizer kept requesting cached search tools after the retry budget.");
-      }
-      return String(revised.content || draft).trim();
-    } catch (error) {
-      if (error?.name === "AbortError" || signal?.aborted) throw error;
-      console.error("ORION finalization unavailable:", error);
-      return { answer: buildPartialRecoveryAnswer({ draft, toolResults: collectedToolResults, failureStage: "finalization" }), partial: true };
-    }
+
+    const output = String(verification.findings || "").trim();
+    const verdict = output.match(/^VERDICT:\\s*(PASS|PARTIAL)\\b/im)?.[1]?.toUpperCase();
+    const answer = output.match(/^ANSWER:\\s*([\\s\\S]*?)(?=^FINDINGS:|$)/im)?.[1]?.trim();
+    if (verdict === "PASS" && answer) return { answer, partial: false };
+    return {
+      answer: buildPartialRecoveryAnswer({
+        draft: answer || String(draft || "").trim(),
+        toolResults: collectedToolResults,
+        failureStage: "verification",
+      }),
+      partial: true,
+    };
   }
 
   const encoder = new TextEncoder();
