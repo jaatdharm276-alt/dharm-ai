@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createUpstashRateLimiter } from "../lib/orion-upstash-rate-limit.mjs";
+import { createUpstashRateLimiter, normalizeUpstashConfig } from "../lib/orion-upstash-rate-limit.mjs";
 
 const originalFetch = globalThis.fetch;
 const originalEnv = {
@@ -89,6 +89,28 @@ test("redacts fetch exceptions so bearer credentials cannot leak into logs", asy
     assert.equal(result.unavailable, true);
     assert.equal(logged.length, 1);
     assert.equal(logged.join(" ").includes(secret), false);
+  } finally {
+    console.error = originalError;
+    restore();
+  }
+});
+
+test("rejects pasted multi-line env blocks and quoted credential values without making a request", async () => {
+  const originalError = console.error;
+  let calls = 0;
+  process.env.NODE_ENV = "production";
+  process.env.UPSTASH_REDIS_REST_URL = 'UPSTASH_REDIS_REST_URL="https://example.upstash.io"\\nUPSTASH_REDIS_REST_TOKEN="secret"';
+  process.env.UPSTASH_REDIS_REST_TOKEN = '"secret"';
+  globalThis.fetch = async () => {
+    calls += 1;
+    return new Response(JSON.stringify({ result: [1, 60000] }), { status: 200 });
+  };
+  console.error = () => {};
+  try {
+    assert.equal(normalizeUpstashConfig(process.env.UPSTASH_REDIS_REST_URL, process.env.UPSTASH_REDIS_REST_TOKEN), null);
+    const result = await createUpstashRateLimiter({ limit: 2 }).check("client");
+    assert.equal(result.unavailable, true);
+    assert.equal(calls, 0);
   } finally {
     console.error = originalError;
     restore();
