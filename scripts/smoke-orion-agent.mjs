@@ -85,13 +85,22 @@ try {
     }
   }
 
-  const evidence = assertVerifiedAgentResponse({
-    terminalStage,
-    toolFailed,
-    searchSucceeded,
-    answer,
-    expectedHost: "india.gov.in",
-  });
+  let evidence;
+  try {
+    evidence = assertVerifiedAgentResponse({
+      terminalStage,
+      toolFailed,
+      searchSucceeded,
+      answer,
+      expectedHost: "india.gov.in",
+    });
+  } catch (error) {
+    throw new Error(
+      error.message +
+      "\\nObserved stages: " + [...new Set(stages)].join(" | ") +
+      "\\nAgent response: " + answer.slice(0, 1200),
+    );
+  }
 
   console.log(JSON.stringify({
     status: "passed",
