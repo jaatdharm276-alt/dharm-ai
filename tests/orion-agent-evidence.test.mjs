@@ -43,11 +43,14 @@ test("removes bracketed citation artifacts from snippets", () => {
   assert.doesNotMatch(answer, /\[\[?\d+/);
 });
 
-test("builds search queries from both task topic and model suggestion", () => {
-  const query = buildObjectiveSearchQuery(objective, "India general facts");
-  assert.match(query, /Industry 5.0/);
-  assert.match(query, /Japan/);
-  assert.match(query, /India general facts/);
+test("accepts aligned search suggestions but discards unrelated model-generated queries", () => {
+  const aligned = buildObjectiveSearchQuery(objective, "Industry 5.0 robotics Japan");
+  assert.match(aligned, /Industry 5.0/);
+  assert.match(aligned, /Japan/);
+  assert.match(aligned, /robotics/);
+  const unrelated = buildObjectiveSearchQuery(objective, "Kansas City Royals baseball");
+  assert.match(unrelated, /Industry 5.0/);
+  assert.doesNotMatch(unrelated, /Kansas City|Royals|baseball/);
 });
 
 test("requires topical overlap in source text and rejects URL-only keyword matches", () => {
