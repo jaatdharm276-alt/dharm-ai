@@ -1,4 +1,5 @@
 name: ORION Live Agent Search E2E
+# The preview smoke test verifies the exact deployed commit before calling the Agent.
 
 on:
   workflow_dispatch:
