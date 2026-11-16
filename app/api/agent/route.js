@@ -295,7 +295,7 @@ async function callModel(messages, options = {}, signal) {
       const detail = await response.text().catch(() => "");
       const isTpmLimit = response.status === 429 && /tokens per minute/i.test(detail);
       if (isTpmLimit && attempt === 0) {
-        const retrySeconds = Number(detail.match(/try again in ([0-9]+(?:\\.[0-9]+)?)s/i)?.[1] || 5);
+        const retrySeconds = Number(detail.match(/try again in ([0-9]+(?:\.[0-9]+)?)s/i)?.[1] || 5);
         const delayMs = Math.min(20_000, Math.max(1_000, Math.ceil(retrySeconds * 1000) + 500));
         await waitForProviderRetry(delayMs, requestSignal);
         continue;
