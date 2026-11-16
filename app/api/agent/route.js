@@ -265,11 +265,11 @@ async function callModel(messages, options = {}, signal) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) { const error = new Error("GROQ_API_KEY is not configured."); error.code = "GROQ_KEY_MISSING"; throw error; }
 
-  const timeoutSignal = AbortSignal.timeout(45_000);
+  const timeoutSignal = AbortSignal.timeout(55_000);
   const requestSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
   let response;
   try {
-    for (let attempt = 0; attempt < 2; attempt += 1) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
       response = await fetchWithRetry(GROQ_API_URL, {
         method: "POST",
         headers: {
@@ -294,9 +294,9 @@ async function callModel(messages, options = {}, signal) {
       if (response.ok) break;
       const detail = await response.text().catch(() => "");
       const isTpmLimit = response.status === 429 && /tokens per minute/i.test(detail);
-      if (isTpmLimit && attempt === 0) {
+      if (isTpmLimit && attempt < 2) {
         const retrySeconds = Number(detail.match(/try again in ([0-9]+(?:\.[0-9]+)?)s/i)?.[1] || 5);
-        const delayMs = Math.min(20_000, Math.max(1_000, Math.ceil(retrySeconds * 1000) + 2500));
+        const delayMs = Math.min(20_000, Math.max(1_000, Math.ceil(retrySeconds * 1000) + 2000));
         await waitForProviderRetry(delayMs, requestSignal);
         continue;
       }
@@ -600,7 +600,7 @@ function runAgent(body, signal) {
       const evidenceSummary = collectedToolResults
         .map((item) => `${item?.name || "tool"}: ${summarizeToolResult(item?.result, 1200)}`)
         .join("\n")
-        .slice(0, 3200);
+        .slice(0, 1200);
       const revised = await callModel([
         {
           role: "system",
@@ -608,9 +608,9 @@ function runAgent(body, signal) {
         },
         {
           role: "user",
-          content: `Objective:\n${String(message).slice(0, 900)}\n\nDraft:\n${String(draft).slice(0, 2600)}\n\nIndependent verification findings:\n${String(verification.findings).slice(0, 1000)}\n\nCollected evidence:\n${evidenceSummary}`,
+          content: `Objective:\n${String(message).slice(0, 300)}\n\nDraft:\n${String(draft).slice(0, 1200)}\n\nIndependent verification findings:\n${String(verification.findings).slice(0, 500)}\n\nCollected evidence:\n${evidenceSummary}`,
         },
-      ], { temperature: 0.15, max_tokens: 600 }, signal);
+      ], { temperature: 0.15, max_tokens: 400 }, signal);
       return String(revised.content || draft).trim();
     } catch (error) {
       if (error?.name === "AbortError" || signal?.aborted) throw error;
