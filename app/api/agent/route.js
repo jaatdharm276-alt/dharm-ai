@@ -14,7 +14,7 @@ import { getCreatorAnswer } from "../../../lib/orion-identity.mjs";
 import { getHanumanChalisaResponse } from "../../../lib/orion-hanuman-chalisa.mjs";
 import { validateAgentToolArgs, summarizeToolResult } from "../../../lib/orion-agent-guardrails.mjs";
 import { buildAgentEvidenceAnswer, buildObjectiveSearchQuery } from "../../../lib/orion-agent-evidence.mjs";
-import { getAvailableAgentTools, getAgentToolChoice } from "../../../lib/orion-agent-tools.mjs";
+import { getAvailableAgentTools, shouldDisableAgentTools } from "../../../lib/orion-agent-tools.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -613,9 +613,11 @@ function runAgent(body, signal) {
       emitStatus("reasoning", "अगला सही कदम और ज़रूरी टूल चुन रहा हूँ");
       let assistant;
       try {
+        const toolOptions = shouldDisableAgentTools(context)
+          ? {}
+          : { tools: getAvailableAgentTools(TOOL_DEFINITIONS, context) };
         assistant = await callModel(messages, {
-          tools: getAvailableAgentTools(TOOL_DEFINITIONS, context),
-          tool_choice: getAgentToolChoice(context),
+          ...toolOptions,
           temperature: 0.25,
           max_tokens: 3500,
         }, signal);
