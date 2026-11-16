@@ -1,4 +1,5 @@
 name: ORION AI CI
+# Keep this gate enabled for the production-security hardening PR.
 
 on:
   push:
