@@ -8,6 +8,7 @@ on:
       - main
       - "orion-ai/**"
       - "hardening/orion-production-security"
+      - "feature/orion-local-offline-engine"
   pull_request:
     branches:
       - main
