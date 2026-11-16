@@ -13,7 +13,7 @@ import { getClientIdentifier } from "../../../lib/orion-rate-limit.mjs";
 import { getCreatorAnswer } from "../../../lib/orion-identity.mjs";
 import { getHanumanChalisaResponse } from "../../../lib/orion-hanuman-chalisa.mjs";
 import { validateAgentToolArgs, summarizeToolResult } from "../../../lib/orion-agent-guardrails.mjs";
-import { appendRelevantSourceCitations, buildAgentEvidenceAnswer, buildObjectiveSearchQuery } from "../../../lib/orion-agent-evidence.mjs";
+import { appendRelevantSourceCitations, buildAgentEvidenceAnswer, buildObjectiveSearchQuery, filterRelevantAgentSources } from "../../../lib/orion-agent-evidence.mjs";
 import { buildVerifierEvidenceSummary, parseVerifierOutput } from "../../../lib/orion-agent-verifier.mjs";
 import { getAvailableAgentTools } from "../../../lib/orion-agent-tools.mjs";
 
@@ -154,7 +154,7 @@ function indiaDateTime() {
   }).format(new Date());
 }
 
-async function searchWeb(query, signal) {
+async function searchWeb(query, signal, objective = "") {
   const apiKey = process.env.TAVILY_API_KEY;
   if (!SEARCH_POLICY.allowed) {
     return { available: false, message: SEARCH_POLICY.reason };
@@ -184,8 +184,11 @@ async function searchWeb(query, signal) {
         limit: SEARCH_POLICY.maxResults,
         accessMode: SEARCH_POLICY.authMode,
       });
-      if (normalized.results.length) return normalized;
-      tavilyFailure = "Tavily returned no usable sources.";
+      const relevantResults = filterRelevantAgentSources(normalized.results, objective);
+      if (relevantResults.length) return { ...normalized, results: relevantResults };
+      tavilyFailure = normalized.results.length
+        ? "Tavily returned no topic-relevant sources."
+        : "Tavily returned no usable sources.";
     } else {
       const detail = await response.text().catch(() => "");
       const retryAfter = response.headers.get("retry-after");
@@ -234,8 +237,11 @@ async function searchWeb(query, signal) {
         limit: SEARCH_POLICY.maxResults,
         provider: provider.name,
       });
-      if (fallback.results.length) return { ...fallback, fallbackReason: tavilyFailure };
-      fallbackFailures.push(provider.name + " returned no usable sources");
+      const relevantResults = filterRelevantAgentSources(fallback.results, objective);
+      if (relevantResults.length) return { ...fallback, results: relevantResults, fallbackReason: tavilyFailure };
+      fallbackFailures.push(provider.name + (fallback.results.length
+        ? " returned no topic-relevant sources"
+        : " returned no usable sources"));
     } catch (error) {
       if (error?.name === "AbortError" || signal?.aborted) throw error;
       fallbackFailures.push(provider.name + " request failed");
@@ -367,7 +373,7 @@ async function executeTool(name, rawArgs, context) {
     context.searchCalls += 1;
     try {
       const objectiveQuery = buildObjectiveSearchQuery(context.objective, args.query);
-      const results = await searchWeb(objectiveQuery, context.signal);
+      const results = await searchWeb(objectiveQuery, context.signal, context.objective);
       if (Array.isArray(results?.results) && results.results.length > 0) {
         context.searchResults = results;
         return results;

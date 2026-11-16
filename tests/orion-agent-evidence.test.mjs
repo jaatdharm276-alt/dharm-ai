@@ -5,6 +5,7 @@ import {
   buildAgentEvidenceAnswer,
   buildObjectiveSearchQuery,
   isRelevantAgentSource,
+  filterRelevantAgentSources,
 } from "../lib/orion-agent-evidence.mjs";
 
 const objective = "भारत और जापान में Industry 5.0 के विकास की तुलना करो। 2022 से 2026 तक Robotics, AI और Automation के वास्तविक आँकड़े खोजो।";
@@ -114,4 +115,14 @@ test("does not duplicate a source URL already present in the answer", () => {
     ] } },
   ], "Press Information Bureau PIB government information");
   assert.equal((result.match(/https:\/\/www\.pib\.gov\.in\//g) || []).length, 1);
+});
+
+
+test("filters irrelevant search results before they are sent to the model", () => {
+  const sources = filterRelevantAgentSources([
+    { title: "Press Information Bureau", content: "The Press Information Bureau is the nodal agency of Government of India." },
+    { title: "Kansas City Royals", content: "Latest Major League Baseball team news and updates." },
+  ], "What is the role of Press Information Bureau PIB in India?");
+  assert.equal(sources.length, 1);
+  assert.equal(sources[0].title, "Press Information Bureau");
 });
