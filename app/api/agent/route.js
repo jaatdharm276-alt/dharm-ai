@@ -583,31 +583,40 @@ function runAgent(body, signal) {
   }
 
   async function verifyAndFinalize(draft) {
-    const evidenceSummary = collectedToolResults
-      .map((item) => `${item?.name || "tool"}: ${summarizeToolResult(item?.result, 1000)}`)
-      .join("\n")
-      .slice(0, 2200);
+    // Keep source URLs at the beginning of the verifier task. runSpecialist
+    // bounds task input, so putting evidence after a long draft silently
+    // dropped citations from the model context.
+    const searchResults = collectedToolResults
+      .filter((item) => item?.name === "search_web")
+      .flatMap((item) => Array.isArray(item?.result?.results) ? item.result.results : [])
+      .slice(0, 5);
+    const evidenceSummary = searchResults.map((source, index) => [
+      `[${index + 1}] ${String(source?.title || "Web source").slice(0, 140)}`,
+      `URL: ${String(source?.url || "").slice(0, 500)}`,
+      `Evidence: ${String(source?.content || source?.snippet || "").replace(/\\s+/g, " ").slice(0, 260)}`,
+    ].join("\\n")).join("\\n");
+    const compactEvidence = evidenceSummary.slice(0, 1450) || "No web source URLs were collected.";
     let verification;
     try {
       verification = await runSpecialist(
         "verifier",
-        `Review the proposed answer against the objective and supplied tool evidence. Do not use outside knowledge to fill gaps. Return exactly:
+        `SOURCE EVIDENCE (use exact URLs below; do not invent or alter them):
+${compactEvidence}
+
+OBJECTIVE:
+${String(message).slice(0, 420)}
+
+DRAFT:
+${String(draft || "").slice(0, 700)}
+
+Return exactly:
 VERDICT: PASS or PARTIAL
 ANSWER:
-A concise, accurate final answer in the user's language. Preserve only source URLs present in the evidence.
+A concise final answer in the user's language. Cite relevant evidence with its exact URL.
 FINDINGS:
-One brief sentence explaining whether the answer is supported.
+One sentence on whether the answer is supported.
 
-Objective:
-${String(message).slice(0, 500)}
-
-Proposed answer:
-${String(draft).slice(0, 1800)}
-
-Tool evidence:
-${evidenceSummary}
-
-Use PASS only if the main claims are directly supported and the answer cites a relevant source URL. Otherwise use PARTIAL and clearly state what could not be verified.`,
+Use PASS only when the answer's factual claims are supported by the supplied evidence and at least one relevant source URL is cited. Otherwise use PARTIAL. Never claim you opened or verified a source beyond the supplied search evidence.`,
         message,
         signal,
       );
@@ -618,8 +627,8 @@ Use PASS only if the main claims are directly supported and the answer cites a r
     }
 
     const output = String(verification.findings || "").trim();
-    const verdict = output.match(/^VERDICT:\s*(PASS|PARTIAL)\b/im)?.[1]?.toUpperCase();
-    const answer = output.match(/^ANSWER:\s*([\s\S]*?)(?=^FINDINGS:|$)/im)?.[1]?.trim();
+    const verdict = output.match(/^VERDICT:\\s*(PASS|PARTIAL)\\b/im)?.[1]?.toUpperCase();
+    const answer = output.match(/^ANSWER:\\s*([\\s\\S]*?)(?=^FINDINGS:|$)/im)?.[1]?.trim();
     if (verdict === "PASS" && answer) return { answer, partial: false };
     return {
       answer: buildPartialRecoveryAnswer({
