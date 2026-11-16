@@ -32,14 +32,14 @@ jobs:
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
-            branch_slug="${GITHUB_HEAD_REF//\\//-}"
+            branch_slug="${GITHUB_HEAD_REF//\//-}"
             deployment_base="https://dharm-ai-git-${branch_slug}-dharm-ai.vercel.app"
             expected_sha="$PR_HEAD_SHA"
           elif [[ "$GITHUB_REF_NAME" == "main" ]]; then
             deployment_base="https://dharm-ai.vercel.app"
             expected_sha="$GITHUB_SHA"
           else
-            branch_slug="${GITHUB_REF_NAME//\\//-}"
+            branch_slug="${GITHUB_REF_NAME//\//-}"
             deployment_base="https://dharm-ai-git-${branch_slug}-dharm-ai.vercel.app"
             expected_sha="$GITHUB_SHA"
           fi
@@ -49,7 +49,7 @@ jobs:
           fi
           echo "ORION_AGENT_URL=${deployment_base}/api/agent" >> "$GITHUB_ENV"
           echo "ORION_EXPECTED_DEPLOYMENT_SHA=$expected_sha" >> "$GITHUB_ENV"
-      - name: Wait for the exact PR preview endpoint
+      - name: Wait for target deployment endpoint
         env:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
@@ -67,5 +67,4 @@ jobs:
       - name: Test deployed ORION Agent end-to-end
         env:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-          ORION_EXPECTED_DEPLOYMENT_SHA: ${{ env.ORION_EXPECTED_DEPLOYMENT_SHA }}
         run: node scripts/smoke-orion-agent.mjs
