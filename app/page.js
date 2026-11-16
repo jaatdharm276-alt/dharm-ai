@@ -213,6 +213,7 @@ function Home() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [enterToSend, setEnterToSend] = useState(true);
   const [compactChat, setCompactChat] = useState(false);
+  const [preferencesReady, setPreferencesReady] = useState(false);
   const [pinnedSessionIds, setPinnedSessionIds] = useState(() => {
     if (typeof window === "undefined") return [];
     try { return JSON.parse(window.localStorage.getItem("orion-ai-pinned-sessions-v1") || "[]"); } catch { return []; }
@@ -222,15 +223,18 @@ function Home() {
     try {
       setEnterToSend(window.localStorage.getItem("orion-enter-to-send-v1") !== "false");
       setCompactChat(window.localStorage.getItem("orion-compact-chat-v1") === "true");
-    } catch {}
+    } catch {} finally {
+      setPreferencesReady(true);
+    }
   }, []);
 
   useEffect(() => {
+    if (!preferencesReady) return;
     try {
       window.localStorage.setItem("orion-enter-to-send-v1", String(enterToSend));
       window.localStorage.setItem("orion-compact-chat-v1", String(compactChat));
     } catch {}
-  }, [enterToSend, compactChat]);
+  }, [enterToSend, compactChat, preferencesReady]);
 
   const messagesRef = useRef(null);
   const scrollAnimationFrameRef = useRef(null);
@@ -1166,8 +1170,8 @@ function Home() {
           <div className="orion-help-item"><strong>Chat कैसे भेजें?</strong><p>अपना सवाल लिखें और Send दबाएँ। Enter-to-send बंद हो तो Enter नई लाइन बनाएगा।</p></div>
           <div className="orion-help-item"><strong>Voice typing कैसे इस्तेमाल करें?</strong><p>Composer में microphone दबाएँ और browser की microphone permission दें।</p></div>
           <div className="orion-help-item"><strong>Chat history कहाँ मिलेगी?</strong><p>ऊपर बाएँ History खोलें। वहाँ chats खोज और pin कर सकते हैं।</p></div>
-          <a className="orion-feedback-link" href="https://github.com/jaatdharm276-alt/dharm-ai/issues/new" target="_blank" rel="noopener noreferrer">Send feedback by email ↗</a>
-          <p className="orion-modal-note">Email app आपके device पर खुलेगा। कोई message अपने-आप नहीं भेजा जाएगा।</p>
+          <a className="orion-feedback-link" href="https://github.com/jaatdharm276-alt/dharm-ai/issues/new" target="_blank" rel="noopener noreferrer">Send feedback on GitHub ↗</a>
+          <p className="orion-modal-note">GitHub पर नया issue खुलेगा। अपना feedback लिखकर स्वयं submit करें।</p>
         </section>
       </div>}
 
