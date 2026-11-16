@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - "orion-ai/**"
+      - "hardening/orion-production-security"
     paths:
       - "android/**"
       - ".github/workflows/android-apk.yml"
