@@ -6,7 +6,7 @@ import {
 } from "../lib/orion-agent-e2e-assertions.mjs";
 
 const sha = "a".repeat(40);
-const goodAnswer = "भारत सरकार का राष्ट्रीय पोर्टल सरकारी जानकारी और ऑनलाइन सेवाओं तक एक केंद्रीय पहुँच प्रदान करता है। आधिकारिक स्रोत: https://www.india.gov.in/";
+const goodAnswer = "भारत सरकार का राष्ट्रीय पोर्टल सरकारी जानकारी और ऑनलाइन सेवाओं तक एक केंद्रीय पहुँच प्रदान करता है। आधिकारिक स्रोत: https://www.pib.gov.in/";
 
 test("requires the deployed API commit to match the expected PR head", () => {
   assert.equal(assertDeploymentCommit(sha, sha), sha);
@@ -23,10 +23,10 @@ test("accepts a completed answer with a citation on the expected official host",
     toolFailed: false,
     searchSucceeded: true,
     answer: goodAnswer,
-    expectedHost: "india.gov.in",
+    expectedHost: "pib.gov.in",
   });
   assert.equal(result.citedSources, 1);
-  assert.deepEqual(result.matchingSourceHosts, ["www.india.gov.in"]);
+  assert.deepEqual(result.matchingSourceHosts, ["www.pib.gov.in"]);
 });
 
 test("rejects reasoning and verification fallback even when it includes URLs", () => {
@@ -43,7 +43,7 @@ test("rejects unrelated citations such as Wikipedia for an official portal query
     terminalStage: "complete",
     toolFailed: false,
     searchSucceeded: true,
-    answer: "यह सरकारी पोर्टल है। Sources: https://en.wikipedia.org/wiki/India.gov.in",
+    answer: "यह सरकारी पोर्टल है। Sources: https://en.wikipedia.org/wiki/Press_Information_Bureau",
   }), /expected official host/);
 });
 
