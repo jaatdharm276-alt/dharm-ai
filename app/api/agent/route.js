@@ -265,7 +265,7 @@ async function callModel(messages, options = {}, signal) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) { const error = new Error("GROQ_API_KEY is not configured."); error.code = "GROQ_KEY_MISSING"; throw error; }
 
-  const timeoutSignal = AbortSignal.timeout(30_000);
+  const timeoutSignal = AbortSignal.timeout(45_000);
   const requestSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
   let response;
   try {
@@ -280,7 +280,7 @@ async function callModel(messages, options = {}, signal) {
           model: MODEL,
           messages,
           temperature: options.temperature ?? 0.25,
-          max_tokens: options.max_tokens ?? 1200,
+          max_tokens: options.max_tokens ?? 1000,
           stream: false,
           ...(options.tools ? { tools: options.tools, tool_choice: options.tool_choice ?? "auto" } : {}),
         }),
@@ -296,7 +296,7 @@ async function callModel(messages, options = {}, signal) {
       const isTpmLimit = response.status === 429 && /tokens per minute/i.test(detail);
       if (isTpmLimit && attempt === 0) {
         const retrySeconds = Number(detail.match(/try again in ([0-9]+(?:\.[0-9]+)?)s/i)?.[1] || 5);
-        const delayMs = Math.min(20_000, Math.max(1_000, Math.ceil(retrySeconds * 1000) + 500));
+        const delayMs = Math.min(20_000, Math.max(1_000, Math.ceil(retrySeconds * 1000) + 2500));
         await waitForProviderRetry(delayMs, requestSignal);
         continue;
       }
@@ -340,7 +340,7 @@ async function runSpecialist(role, task, objective, signal) {
   const result = await callModel([
     { role: "system", content: system },
     { role: "user", content: `Main objective:\n${objective.slice(0, 5000)}\n\nSpecialist task:\n${String(task).slice(0, 3000)}` },
-  ], { temperature: 0.2, max_tokens: 600 }, signal);
+  ], { temperature: 0.2, max_tokens: 500 }, signal);
 
   return { role, findings: String(result.content || "").slice(0, 7000) };
 }
@@ -610,7 +610,7 @@ function runAgent(body, signal) {
           role: "user",
           content: `Objective:\n${String(message).slice(0, 900)}\n\nDraft:\n${String(draft).slice(0, 2600)}\n\nIndependent verification findings:\n${String(verification.findings).slice(0, 1000)}\n\nCollected evidence:\n${evidenceSummary}`,
         },
-      ], { temperature: 0.15, max_tokens: 900 }, signal);
+      ], { temperature: 0.15, max_tokens: 600 }, signal);
       return String(revised.content || draft).trim();
     } catch (error) {
       if (error?.name === "AbortError" || signal?.aborted) throw error;
@@ -656,7 +656,7 @@ function runAgent(body, signal) {
         assistant = await callModel(messages, {
           tools: getAvailableAgentTools(TOOL_DEFINITIONS, context),
           temperature: 0.25,
-          max_tokens: 1200,
+          max_tokens: 1000,
         }, signal);
       } catch (error) {
         if (error?.name === "AbortError" || signal?.aborted) throw error;
