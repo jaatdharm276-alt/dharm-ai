@@ -263,7 +263,7 @@ async function callModel(messages, options = {}, signal) {
       model: MODEL,
       messages,
       temperature: options.temperature ?? 0.25,
-      max_tokens: options.max_tokens ?? 1800,
+      max_tokens: options.max_tokens ?? 1200,
       stream: false,
       ...(options.tools ? { tools: options.tools, tool_choice: options.tool_choice ?? "auto" } : {}),
     }),
@@ -308,8 +308,8 @@ async function runSpecialist(role, task, objective, signal) {
 
   const result = await callModel([
     { role: "system", content: system },
-    { role: "user", content: `Main objective:\n${objective.slice(0, 5000)}\n\nSpecialist task:\n${String(task).slice(0, 5000)}` },
-  ], { temperature: 0.2, max_tokens: 1000 }, signal);
+    { role: "user", content: `Main objective:\n${objective.slice(0, 5000)}\n\nSpecialist task:\n${String(task).slice(0, 3000)}` },
+  ], { temperature: 0.2, max_tokens: 600 }, signal);
 
   return { role, findings: String(result.content || "").slice(0, 7000) };
 }
@@ -566,11 +566,20 @@ function runAgent(body, signal) {
       return { answer: buildPartialRecoveryAnswer({ draft, toolResults: collectedToolResults, failureStage: "verification" }), partial: true };
     }
     try {
+      const evidenceSummary = collectedToolResults
+        .map((item) => `${item?.name || "tool"}: ${summarizeToolResult(item?.result, 1200)}`)
+        .join("\n")
+        .slice(0, 3200);
       const revised = await callModel([
-        ...messages,
-        { role: "assistant", content: String(draft).slice(0, 6500) },
-        { role: "system", content: `Independent verification findings:\n${verification.findings}\n\nProduce the final user-facing answer. Correct any identified errors, preserve valid source URLs, and clearly state unresolved uncertainty. Do not mention hidden reasoning.` },
-      ], { temperature: 0.15, max_tokens: 1400 }, signal);
+        {
+          role: "system",
+          content: "You are ORION AI. Produce a concise, accurate Hindi/Hinglish answer. Use only the supplied draft, verification findings, and evidence. Preserve relevant source URLs, distinguish uncertainty, and do not call tools or reveal hidden reasoning.",
+        },
+        {
+          role: "user",
+          content: `Objective:\n${String(message).slice(0, 900)}\n\nDraft:\n${String(draft).slice(0, 2600)}\n\nIndependent verification findings:\n${String(verification.findings).slice(0, 1000)}\n\nCollected evidence:\n${evidenceSummary}`,
+        },
+      ], { temperature: 0.15, max_tokens: 900 }, signal);
       return String(revised.content || draft).trim();
     } catch (error) {
       if (error?.name === "AbortError" || signal?.aborted) throw error;
@@ -616,7 +625,7 @@ function runAgent(body, signal) {
         assistant = await callModel(messages, {
           tools: getAvailableAgentTools(TOOL_DEFINITIONS, context),
           temperature: 0.25,
-          max_tokens: 1800,
+          max_tokens: 1200,
         }, signal);
       } catch (error) {
         if (error?.name === "AbortError" || signal?.aborted) throw error;
