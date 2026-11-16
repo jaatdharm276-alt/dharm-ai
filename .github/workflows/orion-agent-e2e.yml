@@ -1,4 +1,5 @@
 name: ORION Live Agent Search E2E
+# The preview smoke test verifies the exact deployed commit before calling the Agent.
 
 on:
   workflow_dispatch:
@@ -8,8 +9,16 @@ on:
   push:
     branches:
       - main
+      - "hardening/orion-production-security"
     paths:
       - "scripts/smoke-orion-agent.mjs"
+      - "lib/orion-agent-e2e-assertions.mjs"
+      - "lib/orion-agent-evidence.mjs"
+      - "lib/orion-agent-verifier.mjs"
+      - "tests/orion-agent-evidence.test.mjs"
+      - "tests/orion-agent-verifier.test.mjs"
+      - "app/api/agent/route.js"
+      - "app/api/health/route.js"
       - ".github/workflows/orion-agent-e2e.yml"
 
 permissions:
@@ -21,26 +30,73 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Wait for the latest Production API
+      - name: Resolve deployment URL and expected commit
         env:
-          ORION_AGENT_URL: https://dharm-ai.vercel.app/api/agent
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            branch_slug="${GITHUB_HEAD_REF//\//-}"
+            deployment_base="https://dharm-ai-git-${branch_slug}-dharm-ai.vercel.app"
+            expected_sha="$PR_HEAD_SHA"
+          elif [[ "$GITHUB_REF_NAME" == "main" ]]; then
+            deployment_base="https://dharm-ai.vercel.app"
+            expected_sha="$GITHUB_SHA"
+          else
+            branch_slug="${GITHUB_REF_NAME//\//-}"
+            deployment_base="https://dharm-ai-git-${branch_slug}-dharm-ai.vercel.app"
+            expected_sha="$GITHUB_SHA"
+          fi
+          if [[ ! "$expected_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Could not resolve the expected full commit SHA."
+            exit 1
+          fi
+          echo "ORION_AGENT_URL=${deployment_base}/api/agent" >> "$GITHUB_ENV"
+          echo "ORION_HEALTH_URL=${deployment_base}/api/health" >> "$GITHUB_ENV"
+          echo "ORION_EXPECTED_PR_SHA=$expected_sha" >> "$GITHUB_ENV"
+      - name: Wait for exact deployment commit
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
           for attempt in $(seq 1 60); do
-            status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$ORION_AGENT_URL" || true)
-            if [ "$status" = "405" ]; then
-              echo "Production API is ready (API route returned HTTP 405 to GET)."
-              exit 0
+            headers_file="$(mktemp)"
+            status=$(curl --silent --show-error --dump-header "$headers_file" --output /dev/null --write-out '%{http_code}' --header "x-vercel-protection-bypass: ${VERCEL_AUTOMATION_BYPASS_SECRET}" "$ORION_HEALTH_URL" || true)
+            deployed_sha=$(awk 'tolower($1) == "x-orion-deployment-sha:" { gsub("\\r", "", $2); print $2 }' "$headers_file" | tail -n 1)
+            rm -f "$headers_file"
+            if [ "$status" = "200" ] && [[ "$deployed_sha" =~ ^[0-9a-f]{40}$ ]]; then
+              if [ "$deployed_sha" = "$ORION_EXPECTED_PR_SHA" ]; then
+                echo "Exact PR-head deployment is ready: $deployed_sha"
+                echo "ORION_EXPECTED_DEPLOYMENT_SHA=$deployed_sha" >> "$GITHUB_ENV"
+                exit 0
+              fi
+              if git merge-base --is-ancestor "$deployed_sha" "$ORION_EXPECTED_PR_SHA"; then
+                changed_files=$(git diff --name-only "$deployed_sha" "$ORION_EXPECTED_PR_SHA")
+                safe_diff=true
+                while IFS= read -r changed_file; do
+                  [ -z "$changed_file" ] && continue
+                  case "$changed_file" in
+                    tests/*|scripts/smoke-orion-agent.mjs|lib/orion-agent-e2e-assertions.mjs|.github/workflows/*) ;;
+                    *) safe_diff=false ;;
+                  esac
+                done <<< "$changed_files"
+                if [ "$safe_diff" = "true" ]; then
+                  echo "Using latest Ready runtime commit $deployed_sha; newer PR commits only change tests/workflows."
+                  echo "ORION_EXPECTED_DEPLOYMENT_SHA=$deployed_sha" >> "$GITHUB_ENV"
+                  exit 0
+                fi
+              fi
             fi
-            echo "Waiting for Production API (attempt $attempt/60, HTTP ${status:-none})..."
+            echo "Waiting for current or test-only-compatible deployment (attempt $attempt/60, HTTP ${status:-none}, deployed SHA: ${deployed_sha:-not-ready})..."
             sleep 5
           done
-          echo "Production API did not become ready within five minutes."
+          echo "The deployment did not expose the expected commit SHA within five minutes."
           exit 1
-      - name: Test latest Production ORION Agent end-to-end
+      - name: Test deployed ORION Agent end-to-end
         env:
-          ORION_AGENT_URL: https://dharm-ai.vercel.app/api/agent
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: node scripts/smoke-orion-agent.mjs

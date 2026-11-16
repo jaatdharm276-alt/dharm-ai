@@ -9,6 +9,7 @@ export async function GET() {
     headers: {
       "Cache-Control": "no-store, max-age=0",
       "X-Content-Type-Options": "nosniff",
+      "X-ORION-Deployment-SHA": process.env.VERCEL_GIT_COMMIT_SHA || "unknown",
     },
   });
 }
