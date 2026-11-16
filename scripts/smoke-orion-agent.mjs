@@ -1,3 +1,8 @@
+import {
+  assertDeploymentCommit,
+  assertVerifiedAgentResponse,
+} from "../lib/orion-agent-e2e-assertions.mjs";
+
 const endpoint = process.env.ORION_AGENT_URL;
 if (!endpoint) {
   throw new Error("ORION_AGENT_URL must be set explicitly; refusing to fall back to a stale Preview deployment.");
@@ -5,6 +10,11 @@ if (!endpoint) {
 const parsedEndpoint = new URL(endpoint);
 if (parsedEndpoint.protocol !== "https:") {
   throw new Error("ORION_AGENT_URL must use HTTPS.");
+}
+
+const expectedDeploymentSha = process.env.ORION_EXPECTED_DEPLOYMENT_SHA;
+if (!expectedDeploymentSha) {
+  throw new Error("ORION_EXPECTED_DEPLOYMENT_SHA must be set to the exact Git commit being tested.");
 }
 
 const controller = new AbortController();
@@ -20,7 +30,7 @@ try {
         : {}),
     },
     body: JSON.stringify({
-      message: "search_web National Portal of India official website india.gov.in",
+      message: "भारत सरकार के राष्ट्रीय पोर्टल india.gov.in का मुख्य उद्देश्य क्या है? संक्षेप में बताएं और आधिकारिक india.gov.in स्रोत का URL दें।",
       messages: [],
       memories: [],
     }),
@@ -32,6 +42,9 @@ try {
     throw new Error("ORION Agent API returned HTTP " + response.status + ": " + detail);
   }
   if (!response.body) throw new Error("ORION Agent API did not return a response stream.");
+
+  const deploymentSha = response.headers.get("x-orion-deployment-sha");
+  assertDeploymentCommit(deploymentSha, expectedDeploymentSha);
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -58,7 +71,12 @@ try {
         if (event.orion_status?.detail) stages.push(event.orion_status.detail);
         if (event.orion_status?.stage) terminalStage = event.orion_status.stage;
         if (event.orion_status?.stage === "tool_error") toolFailed = true;
-        if (event.orion_status?.stage === "tool_completed" && /(?:वेब खोज से परिणाम मिले|वेब खोज से सत्यापित स्रोत मिले|web search completed with verified sources|(?:tavily|bing rss|google news rss) web search returned verified sources)/i.test(event.orion_status?.detail || "")) searchSucceeded = true;
+        if (
+          event.orion_status?.stage === "tool_completed" &&
+          /वेब खोज से (?:परिणाम मिले|सत्यापित स्रोत मिले)|web search completed with verified sources/i.test(event.orion_status?.detail || "")
+        ) {
+          searchSucceeded = true;
+        }
         const delta = event.choices?.[0]?.delta?.content;
         if (typeof delta === "string") answer += delta;
       } catch {
@@ -67,16 +85,13 @@ try {
     }
   }
 
-  if (terminalStage !== "complete") {
-    throw new Error("Agent did not reach complete status (terminal stage: " + (terminalStage || "missing") + "). Stages: " + stages.join(" | ") + ". Response: " + answer.slice(0, 1200));
-  }
-  if (toolFailed) throw new Error("Agent emitted a tool_error status. Stages: " + stages.join(" | "));
-  if (!searchSucceeded) throw new Error("Agent did not report a successful web search with verified sources (Tavily or Bing RSS fallback). Stages: " + stages.join(" | "));
-  const citedUrls = answer.match(/https?:\/\/\S+/g) || [];
-  const safeNoEvidence = /मुख्य विषय से मेल खाने वाला पर्याप्त वेब प्रमाण नहीं मिला|no sufficiently relevant web evidence/i.test(answer);
-  if ((citedUrls.length === 0 || !/स्रोत|sources?:/i.test(answer)) && !safeNoEvidence) {
-    throw new Error("Agent completed but neither cited relevant sources nor returned the safe no-evidence response. Response: " + answer.slice(0, 1200));
-  }
+  const evidence = assertVerifiedAgentResponse({
+    terminalStage,
+    toolFailed,
+    searchSucceeded,
+    answer,
+    expectedHost: "india.gov.in",
+  });
 
   console.log(JSON.stringify({
     status: "passed",
@@ -84,8 +99,11 @@ try {
     searchSucceeded,
     toolFailed,
     endpoint,
-    evidenceStatus: safeNoEvidence ? "no-relevant-sources-reported-safely" : "relevant-sources-cited",
-    citedSources: citedUrls.length,
+    deploymentSha,
+    expectedDeploymentSha,
+    evidenceStatus: "verified-agent-answer",
+    citedSources: evidence.citedSources,
+    matchingSourceHosts: evidence.matchingSourceHosts,
     responseCharacters: answer.length,
     observedStages: [...new Set(stages)].slice(0, 12),
     answer: answer.slice(0, 1400),
