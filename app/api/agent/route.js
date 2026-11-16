@@ -263,7 +263,7 @@ async function callModel(messages, options = {}, signal) {
       model: MODEL,
       messages,
       temperature: options.temperature ?? 0.25,
-      max_tokens: options.max_tokens ?? 3500,
+      max_tokens: options.max_tokens ?? 1800,
       stream: false,
       ...(options.tools ? { tools: options.tools, tool_choice: options.tool_choice ?? "auto" } : {}),
     }),
@@ -309,7 +309,7 @@ async function runSpecialist(role, task, objective, signal) {
   const result = await callModel([
     { role: "system", content: system },
     { role: "user", content: `Main objective:\n${objective.slice(0, 5000)}\n\nSpecialist task:\n${String(task).slice(0, 5000)}` },
-  ], { temperature: 0.2, max_tokens: 1800 }, signal);
+  ], { temperature: 0.2, max_tokens: 1000 }, signal);
 
   return { role, findings: String(result.content || "").slice(0, 7000) };
 }
@@ -570,7 +570,7 @@ function runAgent(body, signal) {
         ...messages,
         { role: "assistant", content: String(draft).slice(0, 6500) },
         { role: "system", content: `Independent verification findings:\n${verification.findings}\n\nProduce the final user-facing answer. Correct any identified errors, preserve valid source URLs, and clearly state unresolved uncertainty. Do not mention hidden reasoning.` },
-      ], { temperature: 0.15, max_tokens: 3500 }, signal);
+      ], { temperature: 0.15, max_tokens: 1400 }, signal);
       return String(revised.content || draft).trim();
     } catch (error) {
       if (error?.name === "AbortError" || signal?.aborted) throw error;
@@ -616,7 +616,7 @@ function runAgent(body, signal) {
         assistant = await callModel(messages, {
           tools: getAvailableAgentTools(TOOL_DEFINITIONS, context),
           temperature: 0.25,
-          max_tokens: 3500,
+          max_tokens: 1800,
         }, signal);
       } catch (error) {
         if (error?.name === "AbortError" || signal?.aborted) throw error;
