@@ -14,7 +14,7 @@ import { getCreatorAnswer } from "../../../lib/orion-identity.mjs";
 import { getHanumanChalisaResponse } from "../../../lib/orion-hanuman-chalisa.mjs";
 import { validateAgentToolArgs, summarizeToolResult } from "../../../lib/orion-agent-guardrails.mjs";
 import { appendRelevantSourceCitations, buildAgentEvidenceAnswer, buildObjectiveSearchQuery, filterRelevantAgentSources } from "../../../lib/orion-agent-evidence.mjs";
-import { buildVerifierEvidenceSummary, parseVerifierOutput } from "../../../lib/orion-agent-verifier.mjs";
+import { buildVerifierEvidenceSummary, parseVerifierOutput, runVerifierWithRetry } from "../../../lib/orion-agent-verifier.mjs";
 import { getAvailableAgentTools } from "../../../lib/orion-agent-tools.mjs";
 
 export const runtime = "nodejs";
@@ -602,7 +602,7 @@ function runAgent(body, signal) {
     const compactEvidence = buildVerifierEvidenceSummary(searchResults);
     let verification;
     try {
-      verification = await runSpecialist(
+      verification = await runVerifierWithRetry(() => runSpecialist(
         "verifier",
         `SOURCE EVIDENCE (use exact URLs below; do not invent or alter them):
 ${compactEvidence}
@@ -636,10 +636,10 @@ Return one JSON object only with keys "verdict", "answer", and "findings". "verd
             },
           },
         },
-      );
+      ), { signal, maxRetries: 1, delayMs: 900 });
     } catch (error) {
       if (error?.name === "AbortError" || signal?.aborted) throw error;
-      console.error("ORION verifier unavailable:", error);
+      console.warn("ORION verifier unavailable after bounded retry:", { code: error?.code || "UNKNOWN", status: error?.providerStatus || error?.status || null });
       return { answer: buildPartialRecoveryAnswer({ draft, toolResults: collectedToolResults, failureStage: "verification" }), partial: true };
     }
 
