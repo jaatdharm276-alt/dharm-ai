@@ -190,14 +190,13 @@ async function searchWeb(query, signal, objective = "") {
         ? "Tavily returned no topic-relevant sources."
         : "Tavily returned no usable sources.";
     } else {
-      const detail = await response.text().catch(() => "");
       const retryAfter = response.headers.get("retry-after");
       tavilyFailure = "Tavily HTTP " + response.status + (retryAfter ? " (Retry-After: " + retryAfter + ")" : "");
-      console.error("ORION web search provider error:", response.status, detail.slice(0, 1000));
+      // Provider response bodies are untrusted and may contain sensitive details; do not log them.
     }
   } catch (error) {
     if (error?.name === "AbortError" || signal?.aborted) throw error;
-    tavilyFailure = error?.code || error?.message || "Tavily request failed";
+    tavilyFailure = String(error?.code || "TAVILY_REQUEST_FAILED").slice(0, 80);
     console.error("ORION Tavily search failed; trying public RSS fallback:", tavilyFailure);
   }
 
@@ -309,7 +308,7 @@ async function callModel(messages, options = {}, signal) {
         await waitForProviderRetry(delayMs, requestSignal);
         continue;
       }
-      const error = new Error("Groq API returned " + response.status + ": " + detail.slice(0, 1000));
+      const error = new Error("The AI provider returned HTTP " + response.status + ".");
       error.code = response.status === 429 ? "GROQ_RATE_LIMITED" : "GROQ_PROVIDER_HTTP_ERROR";
       error.providerStatus = response.status;
       const retryAfter = response.headers.get("retry-after");
@@ -333,7 +332,7 @@ async function callModel(messages, options = {}, signal) {
 
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
-    console.error("ORION agent provider error:", response.status, detail.slice(0, 1200));
+    // Never log provider response bodies: they may contain sensitive request or account details.
     const error = new Error("The AI provider could not complete the agent step.");
     error.code = response.status === 401 || response.status === 403 ? "GROQ_AUTH_REJECTED" : response.status === 429 ? "GROQ_RATE_LIMITED" : response.status >= 500 ? "GROQ_PROVIDER_UNAVAILABLE" : "GROQ_PROVIDER_HTTP_ERROR";
     error.providerStatus = response.status;
