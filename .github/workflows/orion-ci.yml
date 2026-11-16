@@ -1,5 +1,6 @@
 name: ORION AI CI
 # Keep this gate enabled for the production-security hardening PR.
+# Validate the final verifier flow and Upstash config checks before merge.
 
 on:
   push:
