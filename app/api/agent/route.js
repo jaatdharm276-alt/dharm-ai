@@ -245,6 +245,22 @@ async function searchWeb(query, signal) {
   throw error;
 }
 
+function waitForProviderRetry(ms, signal) {
+  if (signal?.aborted) return Promise.reject(signal.reason || new DOMException("Aborted", "AbortError"));
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", abort);
+      resolve();
+    }, ms);
+    function abort() {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", abort);
+      reject(signal.reason || new DOMException("Aborted", "AbortError"));
+    }
+    signal?.addEventListener("abort", abort, { once: true });
+  });
+}
+
 async function callModel(messages, options = {}, signal) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) { const error = new Error("GROQ_API_KEY is not configured."); error.code = "GROQ_KEY_MISSING"; throw error; }
@@ -253,27 +269,42 @@ async function callModel(messages, options = {}, signal) {
   const requestSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
   let response;
   try {
-    response = await fetchWithRetry(GROQ_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      messages,
-      temperature: options.temperature ?? 0.25,
-      max_tokens: options.max_tokens ?? 1200,
-      stream: false,
-      ...(options.tools ? { tools: options.tools, tool_choice: options.tool_choice ?? "auto" } : {}),
-    }),
-    cache: "no-store",
-    signal: requestSignal,
-    }, {
-      maxRetries: 2,
-      baseDelayMs: 1000,
-      maxDelayMs: 5000,
-    });
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      response = await fetchWithRetry(GROQ_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          messages,
+          temperature: options.temperature ?? 0.25,
+          max_tokens: options.max_tokens ?? 1200,
+          stream: false,
+          ...(options.tools ? { tools: options.tools, tool_choice: options.tool_choice ?? "auto" } : {}),
+        }),
+        cache: "no-store",
+        signal: requestSignal,
+      }, {
+        maxRetries: 2,
+        baseDelayMs: 1000,
+        maxDelayMs: 5000,
+      });
+      if (response.ok) break;
+      const detail = await response.text().catch(() => "");
+      const isTpmLimit = response.status === 429 && /tokens per minute/i.test(detail);
+      if (isTpmLimit && attempt === 0) {
+        const retrySeconds = Number(detail.match(/try again in ([0-9]+(?:\\.[0-9]+)?)s/i)?.[1] || 5);
+        const delayMs = Math.min(20_000, Math.max(1_000, Math.ceil(retrySeconds * 1000) + 500));
+        await waitForProviderRetry(delayMs, requestSignal);
+        continue;
+      }
+      const error = new Error("Groq API returned " + response.status + ": " + detail.slice(0, 1000));
+      error.code = response.status === 429 ? "GROQ_RATE_LIMITED" : "GROQ_PROVIDER_HTTP_ERROR";
+      error.providerStatus = response.status;
+      throw error;
+    }
   } catch (error) {
     if (timeoutSignal.aborted && !signal?.aborted) {
       const timeoutError = new Error("The AI provider did not respond within 30 seconds.");
