@@ -74,23 +74,6 @@ jobs:
                 echo "ORION_EXPECTED_DEPLOYMENT_SHA=$deployed_sha" >> "$GITHUB_ENV"
                 exit 0
               fi
-              if git merge-base --is-ancestor "$deployed_sha" "$ORION_EXPECTED_PR_SHA"; then
-                changed_files=$(git diff --name-only "$deployed_sha" "$ORION_EXPECTED_PR_SHA")
-                safe_diff=true
-                while IFS= read -r changed_file; do
-                  [ -z "$changed_file" ] && continue
-                  case "$changed_file" in
-                    tests/*|scripts/smoke-orion-agent.mjs|lib/orion-agent-e2e-assertions.mjs|.github/workflows/*) ;;
-                    *) safe_diff=false ;;
-                  esac
-                done <<< "$changed_files"
-                if [ "$safe_diff" = "true" ]; then
-                  echo "Using latest Ready runtime commit $deployed_sha; newer PR commits only change tests/workflows."
-                  echo "ORION_EXPECTED_DEPLOYMENT_SHA=$deployed_sha" >> "$GITHUB_ENV"
-                  exit 0
-                fi
-              fi
-            fi
             echo "Waiting for current or test-only-compatible deployment (attempt $attempt/60, HTTP ${status:-none}, deployed SHA: ${deployed_sha:-not-ready})..."
             sleep 5
           done
