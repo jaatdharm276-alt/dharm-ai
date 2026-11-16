@@ -26,6 +26,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -52,7 +54,7 @@ jobs:
           fi
           echo "ORION_AGENT_URL=${deployment_base}/api/agent" >> "$GITHUB_ENV"
           echo "ORION_HEALTH_URL=${deployment_base}/api/health" >> "$GITHUB_ENV"
-          echo "ORION_EXPECTED_DEPLOYMENT_SHA=$expected_sha" >> "$GITHUB_ENV"
+          echo "ORION_EXPECTED_PR_SHA=$expected_sha" >> "$GITHUB_ENV"
       - name: Wait for exact deployment commit
         env:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
@@ -62,11 +64,30 @@ jobs:
             status=$(curl --silent --show-error --dump-header "$headers_file" --output /dev/null --write-out '%{http_code}' --header "x-vercel-protection-bypass: ${VERCEL_AUTOMATION_BYPASS_SECRET}" "$ORION_HEALTH_URL" || true)
             deployed_sha=$(awk 'tolower($1) == "x-orion-deployment-sha:" { gsub("\\r", "", $2); print $2 }' "$headers_file" | tail -n 1)
             rm -f "$headers_file"
-            if [ "$status" = "200" ] && [ "$deployed_sha" = "$ORION_EXPECTED_DEPLOYMENT_SHA" ]; then
-              echo "Exact deployment is ready: $deployed_sha"
-              exit 0
+            if [ "$status" = "200" ] && [[ "$deployed_sha" =~ ^[0-9a-f]{40}$ ]]; then
+              if [ "$deployed_sha" = "$ORION_EXPECTED_PR_SHA" ]; then
+                echo "Exact PR-head deployment is ready: $deployed_sha"
+                echo "ORION_EXPECTED_DEPLOYMENT_SHA=$deployed_sha" >> "$GITHUB_ENV"
+                exit 0
+              fi
+              if git merge-base --is-ancestor "$deployed_sha" "$ORION_EXPECTED_PR_SHA"; then
+                changed_files=$(git diff --name-only "$deployed_sha" "$ORION_EXPECTED_PR_SHA")
+                safe_diff=true
+                while IFS= read -r changed_file; do
+                  [ -z "$changed_file" ] && continue
+                  case "$changed_file" in
+                    tests/*|scripts/smoke-orion-agent.mjs|lib/orion-agent-e2e-assertions.mjs|.github/workflows/*) ;;
+                    *) safe_diff=false ;;
+                  esac
+                done <<< "$changed_files"
+                if [ "$safe_diff" = "true" ]; then
+                  echo "Using latest Ready runtime commit $deployed_sha; newer PR commits only change tests/workflows."
+                  echo "ORION_EXPECTED_DEPLOYMENT_SHA=$deployed_sha" >> "$GITHUB_ENV"
+                  exit 0
+                fi
+              fi
             fi
-            echo "Waiting for exact deployment (attempt $attempt/60, HTTP ${status:-none}, deployed SHA: ${deployed_sha:-not-ready})..."
+            echo "Waiting for current or test-only-compatible deployment (attempt $attempt/60, HTTP ${status:-none}, deployed SHA: ${deployed_sha:-not-ready})..."
             sleep 5
           done
           echo "The deployment did not expose the expected commit SHA within five minutes."
