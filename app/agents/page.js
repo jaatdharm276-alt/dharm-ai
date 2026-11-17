@@ -14,6 +14,7 @@ export default function AgentControlRoom() {
   const [task, setTask] = useState("");
   const [answer, setAnswer] = useState("");
   const [status, setStatus] = useState("idle");
+  const terminalStageRef = useRef("");
   const [error, setError] = useState("");
   const [events, setEvents] = useState([]);
   const controllerRef = useRef(null);
@@ -27,6 +28,7 @@ export default function AgentControlRoom() {
     controllerRef.current = controller;
     setAnswer("");
     setError("");
+    terminalStageRef.current = "";
     setEvents([{ stage: "started", detail: "Task submitted to ORION Agent", timestamp: Date.now() }]);
     setStatus("running");
 
@@ -62,6 +64,7 @@ export default function AgentControlRoom() {
           try {
             const data = JSON.parse(line.slice(5).trim());
             if (data?.orion_status && typeof data.orion_status.stage === "string") {
+              terminalStageRef.current = data.orion_status.stage;
               setEvents((current) => [...current.slice(-39), data.orion_status]);
             }
             const delta = data?.choices?.[0]?.delta?.content;
@@ -74,7 +77,8 @@ export default function AgentControlRoom() {
           }
         }
       }
-      setStatus("completed");
+      const terminalStage = terminalStageRef.current;
+      setStatus(terminalStage === "complete" ? "completed" : terminalStage === "partial_recovery" || terminalStage === "deadline_exceeded" ? "partial" : terminalStage === "cancelled" ? "cancelled" : "failed");
     } catch (err) {
       if (err?.name === "AbortError") {
         setStatus("cancelled");
@@ -126,7 +130,8 @@ export default function AgentControlRoom() {
               <span aria-live="polite" style={{ color: status === "failed" ? "#b42318" : "#667085", fontSize: 13 }}>
                 {status === "idle" && "Ready"}
                 {status === "running" && "Running through the ORION Agent API"}
-                {status === "completed" && "Response stream completed"}
+                {status === "completed" && "Verified response completed"}
+                {status === "partial" && "Partial result — verification did not fully complete"}
                 {status === "cancelled" && "Task cancelled"}
                 {status === "failed" && "Task failed"}
               </span>
