@@ -27,14 +27,17 @@ async function fetchWithNetworkRetry(input, init, maxRetries = 1) {
       if (!isNetworkFailure || attempt >= maxRetries) throw error;
       attempt += 1;
       await new Promise((resolve, reject) => {
-        const timer = setTimeout(resolve, 450);
+        const signal = init?.signal;
+        const cleanup = () => signal?.removeEventListener("abort", abort);
+        const timer = setTimeout(() => { cleanup(); resolve(); }, 450);
         const abort = () => {
           clearTimeout(timer);
-          reject(init.signal.reason || new DOMException("Aborted", "AbortError"));
+          cleanup();
+          reject(signal.reason || new DOMException("Aborted", "AbortError"));
         };
-        if (init?.signal) {
-          if (init.signal.aborted) abort();
-          else init.signal.addEventListener("abort", abort, { once: true });
+        if (signal) {
+          if (signal.aborted) abort();
+          else signal.addEventListener("abort", abort, { once: true });
         }
       });
     }
