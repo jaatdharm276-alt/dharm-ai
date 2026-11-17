@@ -721,7 +721,7 @@ Return one JSON object only with keys "verdict", "answer", and "findings". "verd
         signal,
         {
           reasoning_effort: "low",
-          response_format: { type: "json_object" },,
+          response_format: { type: "json_object" },
         },
       ), {
         signal,
