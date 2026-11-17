@@ -666,15 +666,18 @@ Return one JSON object only with keys "verdict", "answer", and "findings". "verd
         code: String(error?.code || "UNKNOWN").slice(0, 80),
         status: error?.providerStatus || error?.status || null,
       });
-      emitStatus("verification_diagnostic", "Verifier unavailable after retry; code=" + String(error?.code || "UNKNOWN").slice(0, 80) + "; status=" + String(error?.providerStatus || error?.status || "none"));
-      return { answer: buildPartialRecoveryAnswer({ draft, toolResults: collectedToolResults, failureStage: "verification" }), partial: true };
+      return {
+        answer: buildPartialRecoveryAnswer({ draft, toolResults: collectedToolResults, failureStage: "verification" }),
+        partial: true,
+        diagnostic: { kind: "provider_error", code: String(error?.code || "UNKNOWN").slice(0, 80), status: error?.providerStatus || error?.status || null },
+      };
     }
 
     const output = String(verification.findings || "").trim();
     const { verdict, answer } = parseVerifierOutput(output);
     if (verdict === "PASS" && answer) return { answer: appendRelevantSourceCitations(answer, collectedToolResults, message), partial: false };
-    emitStatus("verification_result", "Verifier verdict=" + String(verdict || "MISSING") + "; findings=" + output.slice(0, 320));
     return {
+      diagnostic: { kind: "verdict", verdict: String(verdict || "MISSING"), findings: output.slice(0, 320) },
       answer: buildPartialRecoveryAnswer({
         draft: answer || String(draft || "").trim(),
         toolResults: collectedToolResults,
@@ -754,6 +757,8 @@ Return one JSON object only with keys "verdict", "answer", and "findings". "verd
         lastDraft = answer;
         emitStatus("verification", "जवाब और उपलब्ध सबूतों की जाँच कर रहा हूँ");
         const verified = await verifyAndFinalize(answer || "Task complete nahi ho saka. Kripya request ko thoda aur specific karein.");
+        if (verified.diagnostic?.kind === "provider_error") emitStatus("verification_diagnostic", "Verifier provider error; code=" + verified.diagnostic.code + "; status=" + String(verified.diagnostic.status || "none"));
+        else if (verified.diagnostic?.kind === "verdict") emitStatus("verification_result", "Verifier verdict=" + verified.diagnostic.verdict + "; findings=" + verified.diagnostic.findings);
         if (context.toolErrors > 0) {
           emitStatus("partial_recovery", "एक या अधिक जरूरी टूल विफल हुए — जवाब को पूर्ण सत्यापित नहीं माना गया");
           emitText(buildPartialRecoveryAnswer({ draft: verified.answer || answer, toolResults: collectedToolResults, failureStage: "tool" }));
@@ -835,11 +840,13 @@ Return one JSON object only with keys "verdict", "answer", and "findings". "verd
 
     emitStatus("verification", "मिले हुए नतीजों की अंतिम जाँच कर रहा हूँ");
     const verified = await verifyAndFinalize(evidenceDraft);
+    if (verified.diagnostic?.kind === "provider_error") emitStatus("verification_diagnostic", "Verifier provider error; code=" + verified.diagnostic.code + "; status=" + String(verified.diagnostic.status || "none"));
+    else if (verified.diagnostic?.kind === "verdict") emitStatus("verification_result", "Verifier verdict=" + verified.diagnostic.verdict + "; findings=" + verified.diagnostic.findings);
     if (context.toolErrors > 0) {
       emitStatus("partial_recovery", "एक या अधिक जरूरी टूल विफल हुए — जवाब को पूर्ण सत्यापित नहीं माना गया");
       emitText(buildPartialRecoveryAnswer({ draft: verified.answer || lastDraft, toolResults: collectedToolResults, failureStage: "tool" }));
     } else {
-      emitStatus(verified.partial ? "partial_recovery" : "complete", verified.partial ? "जाँच सेवा उपलब्ध नहीं थी — आंशिक जवाब सुरक्षित रखा है" : "जाँच पूरी — जवाब तैयार है");
+      emitStatus(verified.partial ? "partial_recovery" : "complete", verified.partial ? (verified.diagnostic?.kind === "provider_error" ? "Verifier सेवा में त्रुटि आई — आंशिक जवाब सुरक्षित रखा है" : "Verifier ने PASS नहीं दिया — आंशिक जवाब सुरक्षित रखा है") : "जाँच पूरी — जवाब तैयार है");
       emitText(verified.answer || verified);
     }
   } catch (error) {
