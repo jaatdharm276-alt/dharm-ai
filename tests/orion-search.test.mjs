@@ -56,3 +56,16 @@ test("normalizes safe Bing RSS results and decodes XML entities", () => {
 test("Bing RSS parser returns no results for malformed or empty XML", () => {
   assert.deepEqual(normalizeBingRssResults("<rss></rss>").results, []);
 });
+
+test("requests full-page markdown only when a Tavily API key is configured", () => {
+  const keyed = buildTavilySearchRequest({ apiKey: "tvly-test", query: "official PIB role" });
+  assert.equal(JSON.parse(keyed.init.body).include_raw_content, "markdown");
+  const keyless = buildTavilySearchRequest({ query: "official PIB role" });
+  assert.equal(Object.hasOwn(JSON.parse(keyless.init.body), "include_raw_content"), false);
+});
+
+test("prefers extracted full-page content and marks its evidence mode", () => {
+  const output = normalizeTavilySearchResults({ results: [{ title: "Official PIB", url: "https://pib.gov.in/", content: "Short snippet", raw_content: "Full official page content with agency role." }] });
+  assert.equal(output.results[0].content, "Full official page content with agency role.");
+  assert.equal(output.results[0].contentMode, "full_page");
+});

@@ -911,6 +911,43 @@ function Home() {
     shouldFollowRef.current = true;
   }, []);
 
+  const deleteChatSession = useCallback((sessionId) => {
+    const session = chatSessions.find((item) => item.id === sessionId);
+    if (!session || !window.confirm(`Delete “${session.title || "this chat"}”?`)) return;
+    const nextSessions = chatSessions.filter((item) => item.id !== sessionId);
+    setChatSessions(nextSessions);
+    setPinnedSessionIds((ids) => {
+      const next = ids.filter((id) => id !== sessionId);
+      window.localStorage.setItem("orion-ai-pinned-sessions-v1", JSON.stringify(next));
+      return next;
+    });
+    window.localStorage.setItem("orion-ai-chat-sessions-v1", JSON.stringify(nextSessions));
+    if (activeSessionId === sessionId) {
+      if (abortRef.current) abortRef.current.abort();
+      setLoading(false);
+      setMessages([]);
+      setActiveSessionId(null);
+      setInput("");
+      window.localStorage.removeItem("orion-ai-active-session-v1");
+      window.localStorage.removeItem("orion-ai-chat-history-v1");
+    }
+  }, [chatSessions, activeSessionId]);
+
+  const deleteAllChatSessions = useCallback(() => {
+    if (!chatSessions.length || !window.confirm("Delete all chat history? This cannot be undone.")) return;
+    if (abortRef.current) abortRef.current.abort();
+    setLoading(false);
+    setChatSessions([]);
+    setPinnedSessionIds([]);
+    setMessages([]);
+    setActiveSessionId(null);
+    setInput("");
+    window.localStorage.removeItem("orion-ai-chat-sessions-v1");
+    window.localStorage.removeItem("orion-ai-active-session-v1");
+    window.localStorage.removeItem("orion-ai-chat-history-v1");
+    window.localStorage.removeItem("orion-ai-pinned-sessions-v1");
+  }, [chatSessions.length]);
+
   const runQuickAction = useCallback((mode, prompt) => {
     sendMessage(prompt, mode);
   }, [sendMessage]);
@@ -1114,19 +1151,27 @@ function Home() {
 
       {historyDrawerOpen && <div className="history-drawer-backdrop" onClick={() => setHistoryDrawerOpen(false)}>
         <aside className="history-drawer" aria-label="Chat history" onClick={(event) => event.stopPropagation()}>
-          <div className="history-drawer-head"><strong>Chat history</strong><button type="button" onClick={() => setHistoryDrawerOpen(false)} aria-label="Close history">×</button></div>
+          <div className="history-drawer-head"><strong><span className="drawer-brand-mark">✦</span> ORION AI</strong><button type="button" onClick={() => setHistoryDrawerOpen(false)} aria-label="Close menu">×</button></div>
           <button type="button" className="history-new-chat" onClick={() => { startNewChat(); setHistoryQuery(""); setHistoryDrawerOpen(false); }}>＋ New chat</button>
+          <nav className="drawer-navigation" aria-label="ORION navigation">
+            <button type="button" className="active" onClick={() => { startNewChat(); setHistoryDrawerOpen(false); }}>⌂ <span>Home</span></button>
+            <button type="button" onClick={() => { startNewChat(); setHistoryDrawerOpen(false); }}>▦ <span>Tools</span></button>
+            <button type="button" onClick={() => { setTaskMode("agent"); setHistoryDrawerOpen(false); composerRef.current?.focus(); }}>✧ <span>Agent</span></button>
+            <button type="button" onClick={() => { document.querySelector('[aria-label="Manage ORION memory"]')?.click(); setHistoryDrawerOpen(false); }}>◈ <span>Memory</span></button>
+          </nav>
+          <div className="drawer-history-title"><strong>Chat history</strong><span>{chatSessions.length}</span></div>
           <label className="history-search"><span>⌕</span><input value={historyQuery} onChange={(event) => setHistoryQuery(event.target.value)} placeholder="Search chats..." aria-label="Search chat history" /></label>
           <div className="history-drawer-list">
             {chatSessions.filter((session) => String(session.title || "").toLowerCase().includes(historyQuery.trim().toLowerCase())).length ? chatSessions.filter((session) => String(session.title || "").toLowerCase().includes(historyQuery.trim().toLowerCase())).sort((a, b) => Number(pinnedSessionIds.includes(b.id)) - Number(pinnedSessionIds.includes(a.id)) || (b.updatedAt || 0) - (a.updatedAt || 0)).map((session) => <div key={session.id} className={session.id === activeSessionId ? "history-session active" : "history-session"}>
               <button type="button" className="history-session-open" onClick={() => { openChatSession(session); setHistoryDrawerOpen(false); }}>
-                <span className="history-session-icon">◷</span><span><strong>{session.title || "Conversation"}</strong><small>{session.mode === "agent" ? "Agent mode" : "Chat"} · {new Date(session.updatedAt || Date.now()).toLocaleDateString("en-IN")}</small></span>
+                <span className="history-session-icon">▢</span><span><strong>{session.title || "Conversation"}</strong><small>{session.mode === "agent" ? "Agent mode" : "Chat"} · {new Date(session.updatedAt || Date.now()).toLocaleDateString("en-IN")}</small></span>
               </button>
               <button type="button" className={pinnedSessionIds.includes(session.id) ? "history-pin pinned" : "history-pin"} aria-label={pinnedSessionIds.includes(session.id) ? "Unpin chat" : "Pin chat"} title={pinnedSessionIds.includes(session.id) ? "Unpin chat" : "Pin chat"} onClick={() => setPinnedSessionIds((ids) => ids.includes(session.id) ? ids.filter((id) => id !== session.id) : [...ids, session.id])}>⌖</button>
+              <button type="button" className="history-delete" aria-label="Delete chat" title="Delete chat" onClick={() => deleteChatSession(session.id)}>▤</button>
             </div>) : <p className="history-empty">{historyQuery ? "No matching chats." : "Your conversations will appear here."}</p>}
-            {pinnedSessionIds.some((id) => chatSessions.some((session) => session.id === id)) && <div className="history-pinned-label">PINNED</div>}
           </div>
-          <div className="history-drawer-bottom"><span>⚙ Settings</span><span>ⓘ Help & feedback</span></div>
+          <button type="button" className="history-delete-all" onClick={deleteAllChatSessions} disabled={!chatSessions.length}>▤ Delete all chats</button>
+          <div className="history-drawer-bottom"><span>⚙ Settings</span><span>ⓘ Help & feedback</span><strong>Powered by Dharm AI</strong></div>
         </aside>
       </div>}
 
@@ -2696,6 +2741,63 @@ const styles = `
   }
   @media(prefers-reduced-motion:reduce){.home-dashboard .feature-tile{transition:none}}
 
+
+  /* ORION neon companion skin: compact hidden drawer, expandable navigation and chat controls. */
+  .orion-app{color:#eef7ff;background:radial-gradient(ellipse at 50% -12%,rgba(19,112,224,.25),transparent 46%),radial-gradient(ellipse at 10% 42%,rgba(24,67,153,.2),transparent 42%),linear-gradient(180deg,#020b1d 0%,#04142c 56%,#020918 100%)}
+  .orion-topbar{background:linear-gradient(105deg,rgba(2,13,34,.96),rgba(5,31,69,.96),rgba(2,13,34,.96));border-bottom:1px solid rgba(75,178,255,.48);box-shadow:0 5px 25px rgba(0,90,190,.22)}
+  .orion-topbar .brand-text{color:#f3fbff;text-shadow:0 0 8px #fff,0 0 18px #168dff,0 0 32px rgba(26,148,255,.9)}
+  .orion-topbar .brand-copy small{color:#c5e8ff}
+  .orion-topbar .brand-orbit{border-color:#4cbaff;background:linear-gradient(145deg,#071b42,#103a76);color:#e6faff;box-shadow:0 0 15px #087fe8,0 0 28px rgba(35,151,255,.5)}
+  .orion-topbar .history-toggle{border-color:#57c5ff;background:rgba(3,22,54,.9);color:#effaff;box-shadow:0 0 12px rgba(25,145,255,.5),inset 0 0 12px rgba(42,151,255,.15)}
+  .orion-topbar .top-button{border-color:rgba(119,202,255,.5);background:rgba(255,255,255,.08);color:#e8f7ff}
+  .orion-topbar .new-chat-button{border:1px solid #6bcaff;background:linear-gradient(110deg,#0876c8,#1749a5);color:#fff;box-shadow:0 0 13px rgba(25,143,255,.45)}
+  .home-dashboard{max-width:1040px}
+  .orion-reference-hero{min-height:clamp(220px,34vw,330px);border:1px solid rgba(74,174,255,.75);background:radial-gradient(ellipse at 20% 45%,rgba(14,133,242,.28),transparent 45%),linear-gradient(112deg,#061b3c 0%,#0a3971 55%,#061b3c 100%);box-shadow:0 9px 30px rgba(3,61,125,.25),0 0 23px rgba(25,142,255,.28),inset 0 0 28px rgba(64,170,255,.12)}
+  .orion-reference-copy .orion-hero-eyebrow{color:#9de5ff;text-shadow:0 0 10px rgba(40,174,255,.8)}
+  .orion-reference-copy h1,.orion-reference-copy h1 span{color:#fff;text-shadow:0 0 8px #fff,0 0 18px #148fff,0 0 32px rgba(20,140,255,.85)}
+  .orion-reference-copy .orion-hero-subtitle{color:#d5f0ff}.orion-reference-copy .orion-hero-description{color:#b9dfff}
+  .orion-reference-robot{width:42%;max-width:240px;filter:drop-shadow(0 0 16px rgba(38,168,255,.8))}
+  .dashboard-section-heading h2{color:#e8f6ff}.dashboard-section-heading .section-kicker{color:#5dcaff;letter-spacing:.16em}
+  .home-dashboard .feature-tile{border:1px solid rgba(55,174,255,.72);background:linear-gradient(145deg,rgba(3,29,65,.96),rgba(5,16,43,.98));box-shadow:0 5px 18px rgba(0,96,190,.2),0 0 13px rgba(43,147,232,.16),inset 0 0 18px rgba(29,123,220,.12);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+  .home-dashboard .feature-tile strong{color:#f2f9ff}.home-dashboard .feature-tile small{color:#b9d9f4}
+  .home-dashboard .feature-tile:active,.home-dashboard .feature-tile:hover{transform:translateY(-2px);border-color:#9be7ff;box-shadow:0 8px 24px rgba(19,128,230,.25),0 0 20px rgba(43,147,232,.32)}
+  .home-dashboard .tile-icon{box-shadow:0 0 14px rgba(31,145,235,.35);text-shadow:0 0 9px rgba(24,142,255,.9)}
+  .home-dashboard .dashboard-composer{border:1px solid #47baff;background:linear-gradient(110deg,rgba(4,27,62,.98),rgba(7,33,78,.98));box-shadow:0 7px 22px rgba(0,85,180,.28),0 0 18px rgba(32,148,235,.35)}
+  .home-dashboard .dashboard-composer textarea{color:#f5fbff}.home-dashboard .dashboard-composer textarea::placeholder{color:#9db9d8}
+  .home-dashboard .dashboard-footer{color:#c6e8ff}.home-dashboard .dashboard-footer strong{color:#e9faff;text-shadow:0 0 10px #168dff}
+  .home-dashboard .bottom-navigation{border:1px solid rgba(80,177,255,.5);background:rgba(3,18,43,.95);box-shadow:0 -5px 22px rgba(0,91,177,.25)}
+  .history-toggle{border-radius:13px}
+  .history-drawer-backdrop{background:rgba(0,5,18,.7);backdrop-filter:blur(8px)}
+  .history-drawer{width:min(340px,88vw);border-right:1px solid rgba(81,190,255,.72);background:linear-gradient(180deg,#061a3a 0%,#07132e 100%);box-shadow:12px 0 42px rgba(0,110,255,.25),inset -1px 0 rgba(120,207,255,.12);color:#eaf7ff}
+  .history-drawer-head{color:#f2fbff;border-bottom:1px solid rgba(93,176,244,.2)}
+  .history-drawer-head button{background:rgba(38,116,204,.22);color:#eaf8ff}
+  .drawer-brand-mark{display:inline-grid;place-items:center;width:32px;height:32px;margin-right:7px;border:1px solid #49baff;border-radius:50%;color:#e9faff;text-shadow:0 0 12px #168dff;box-shadow:0 0 13px rgba(28,151,255,.55)}
+  .history-new-chat{margin-top:12px;border:1px solid #49baff;background:linear-gradient(110deg,#0b4d9d,#162c73);color:#fff;box-shadow:0 0 14px rgba(26,145,255,.24)}
+  .drawer-navigation{display:grid;gap:5px;margin:14px 0;padding-bottom:14px;border-bottom:1px solid rgba(105,179,240,.22)}
+  .drawer-navigation button{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid transparent;border-radius:12px;background:transparent;color:#d7edff;text-align:left;font-size:17px}
+  .drawer-navigation button span{font-size:13px;font-weight:700}
+  .drawer-navigation button.active,.drawer-navigation button:focus-visible{border-color:#5f9dff;background:linear-gradient(100deg,rgba(74,68,224,.5),rgba(17,112,210,.25));box-shadow:0 0 14px rgba(60,123,255,.22)}
+  .drawer-history-title{display:flex;align-items:center;justify-content:space-between;color:#e8f7ff;font-size:13px;font-weight:800}
+  .drawer-history-title span{color:#9cc9ee;font-size:11px}
+  .history-search{border-color:rgba(105,183,246,.5);background:rgba(4,22,51,.9);color:#b9dfff}
+  .history-search input{color:#f4faff}.history-search input::placeholder{color:#8baacb}
+  .history-drawer-list{gap:5px;min-height:70px}
+  .history-session{border:1px solid transparent;border-radius:10px}
+  .history-session.active,.history-session:active{border-color:rgba(86,179,255,.55);background:rgba(30,103,187,.25)}
+  .history-session-icon{background:rgba(29,113,194,.28);color:#8edaff}
+  .history-session strong{color:#eaf6ff}.history-session small,.history-empty{color:#94b5d6}
+  .history-pin{color:#9dc7e8}.history-pin.pinned{background:rgba(28,119,205,.3);color:#8de0ff}
+  .history-delete{width:30px;height:30px;flex:0 0 30px;border:1px solid rgba(255,102,126,.35);border-radius:9px;background:rgba(150,31,57,.2);color:#ff8296;font-size:16px}
+  .history-delete:hover{background:rgba(190,36,65,.4);color:#fff}
+  .history-delete-all{width:100%;margin-top:10px;padding:10px;border:1px solid rgba(255,93,119,.75);border-radius:12px;background:linear-gradient(100deg,rgba(125,22,53,.7),rgba(74,24,58,.85));color:#ffe9ef;font-weight:800}
+  .history-delete-all:disabled{opacity:.4}
+  .history-drawer-bottom{border-color:rgba(105,179,240,.22);color:#9bbbd9}.history-drawer-bottom strong{color:#c8edff;text-shadow:0 0 10px #168dff}
+  .assistant-message .message-content,.assistant-card{border-color:rgba(76,165,255,.3);background:linear-gradient(145deg,#071b39,#0a1d3e);color:#eaf5ff}
+  .assistant-message-heading{color:#9edcff}.assistant-message .message-content p,.assistant-message .message-content li{color:#e7f3ff}
+  .user-message .message-content{border-color:rgba(69,163,255,.55);background:linear-gradient(135deg,#0b3970,#1b2866);color:#fff}
+  .chat-screen{color:#eaf5ff}
+  @media(max-width:700px){.orion-reference-hero{min-height:190px}.orion-reference-robot{width:40%;max-width:155px}.history-drawer{width:min(340px,88vw)}.home-dashboard .feature-tile{min-height:84px}}
+  @media(prefers-reduced-motion:reduce){.home-dashboard .feature-tile{transition:none}}
 
   /* Clean conversational composer: taller multiline input, no fake activity dashboard. */
   .composer textarea {

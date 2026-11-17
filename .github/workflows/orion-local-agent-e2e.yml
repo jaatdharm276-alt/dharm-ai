@@ -1,0 +1,111 @@
+name: ORION Local Agent E2E (Vercel-independent)
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: orion-local-agent-e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  local-agent-e2e:
+    # Secrets are intentionally required: the real agent uses Groq, Tavily full-page
+    # evidence, and a shared Upstash limiter in production mode. No Vercel deployment is used.
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact tested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production application
+        run: npm run build
+
+      - name: Verify required secrets are configured
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+        run: |
+          missing=()
+          [ -n "$GROQ_API_KEY" ] || missing+=("GROQ_API_KEY")
+          [ -n "$TAVILY_API_KEY" ] || missing+=("TAVILY_API_KEY")
+          [ -n "$UPSTASH_REDIS_REST_URL" ] || missing+=("UPSTASH_REDIS_REST_URL")
+          [ -n "$UPSTASH_REDIS_REST_TOKEN" ] || missing+=("UPSTASH_REDIS_REST_TOKEN")
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Missing GitHub Actions secrets: ${missing[*]}"
+            echo "Add these in Settings > Secrets and variables > Actions. Do not put values in repository files."
+            exit 1
+          fi
+
+      - name: Start local production server
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+          ORION_ENABLE_EXTERNAL_SEARCH: "true"
+          ORION_EXPECTED_DEPLOYMENT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          VERCEL_GIT_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PORT: "3000"
+        run: |
+          npm run start -- --hostname 127.0.0.1 > /tmp/orion-next-start.log 2>&1 &
+          echo $! > /tmp/orion-next.pid
+          ready=false
+          for attempt in $(seq 1 60); do
+            if curl --silent --fail http://127.0.0.1:3000/api/health > /tmp/orion-health.json; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ready" != "true" ]; then
+            cat /tmp/orion-next-start.log
+            echo "::error::Local Next.js production server did not become healthy."
+            exit 1
+          fi
+          cat /tmp/orion-health.json
+          actual_sha=$(curl --silent --head http://127.0.0.1:3000/api/health | awk 'tolower($1) == "x-orion-deployment-sha:" {gsub("\r", "", $2); print $2}' | tail -n 1)
+          expected_sha="${{ github.event.pull_request.head.sha || github.sha }}"
+          if [ "$actual_sha" != "$expected_sha" ]; then
+            echo "::error::Local server SHA mismatch. Expected $expected_sha, received ${actual_sha:-missing}."
+            exit 1
+          fi
+          echo "Local server is healthy on exact commit $actual_sha"
+
+      - name: Run real local Agent search and verification E2E
+        env:
+          ORION_AGENT_URL: http://127.0.0.1:3000/api/agent
+          ORION_EXPECTED_DEPLOYMENT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/smoke-orion-agent-local.mjs
+
+      - name: Show server logs on failure
+        if: failure()
+        run: |
+          if [ -f /tmp/orion-next-start.log ]; then
+            tail -n 160 /tmp/orion-next-start.log
+          fi
+
+      - name: Stop local server
+        if: always()
+        run: |
+          if [ -f /tmp/orion-next.pid ]; then
+            kill "$(cat /tmp/orion-next.pid)" 2>/dev/null || true
+          fi

@@ -55,3 +55,11 @@ test("rejects incomplete agent runs even if a source URL is present", () => {
     answer: goodAnswer,
   }), /did not finish with complete status/);
 });
+
+test("rejects extra non-official links even when an official source is also cited", () => {
+  assert.throws(() => assertVerifiedAgentResponse({
+    terminalStage: "complete", toolFailed: false, searchSucceeded: true,
+    answer: "PIB role. Sources: https://www.pib.gov.in/Content/224_5_AboutPIB.aspx https://www.scribd.com/document/509405000/pib",
+    expectedHost: "pib.gov.in",
+  }), /non-approved source hosts/);
+});
