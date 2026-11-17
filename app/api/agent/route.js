@@ -156,6 +156,81 @@ function indiaDateTime() {
   }).format(new Date());
 }
 
+function decodePageEntities(value) {
+  return String(value || "")
+    .replace(/&nbsp;|&#160;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'");
+}
+
+function isSafePublicPageUrl(value) {
+  try {
+    const url = new URL(String(value || ""));
+    if (url.protocol !== "https:" || url.username || url.password || (url.port && url.port !== "443")) return false;
+    const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+    if (!host || host.includes(":") || host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal")) return false;
+    if (/^(0\.|10\.|127\.|169\.254\.|192\.168\.)/.test(host) || /^172\.(1[6-9]|2[0-9]|3[01])\./.test(host)) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function enrichSearchResultsWithPageContent(results, signal) {
+  const candidates = (Array.isArray(results) ? results : []).slice(0, 3);
+  return Promise.all(candidates.map(async (source) => {
+    if (!isSafePublicPageUrl(source?.url) || signal?.aborted) return source;
+    try {
+      const pageSignal = AbortSignal.any([signal || new AbortController().signal, AbortSignal.timeout(5_000)]);
+      const response = await fetch(source.url, {
+        method: "GET",
+        headers: { Accept: "text/html,application/xhtml+xml;q=0.9", "User-Agent": "ORION-AI/1.0 (+https://dharm-ai.vercel.app)" },
+        cache: "no-store",
+        redirect: "error",
+        signal: pageSignal,
+      });
+      if (!response.ok || !/text\/html|application\/xhtml\+xml/i.test(response.headers.get("content-type") || "")) return source;
+      const html = (await response.text()).slice(0, 350_000);
+      const text = decodePageEntities(html
+        .replace(/<!--[\s\S]*?-->/g, " ")
+        .replace(/<(script|style|noscript|svg|nav|footer|header)\b[^>]*>[\s\S]*?<\/\1>/gi, " ")
+        .replace(/<\/(p|div|li|h[1-6]|article|section|tr)>/gi, "\n")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+      ).trim().slice(0, 5_000);
+      if (text.length < 160) return source;
+      return { ...source, content: text, contentMode: "full_page", pageFetchStatus: "success" };
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      return source;
+    }
+  }));
+}
+
+function getExplicitlyRequestedHosts(objective = "") {
+  const objectiveText = String(objective || "");
+  if (!/(?:\bonly\b|केवल)/i.test(objectiveText)) return [];
+  return [...new Set([...objectiveText.matchAll(/\b((?:[a-z0-9-]+\.)+[a-z]{2,})\b/gi)]
+    .map((match) => match[1].toLowerCase())
+    .filter((host) => !host.endsWith(".example")))];
+}
+
+function filterExplicitlyRequestedHosts(results, objective = "") {
+  const hosts = getExplicitlyRequestedHosts(objective);
+  if (hosts.length === 0) return results;
+  return (Array.isArray(results) ? results : []).filter((source) => {
+    try {
+      const url = new URL(String(source?.url || ""));
+      return url.protocol === "https:" && hosts.some((host) => url.hostname.toLowerCase() === host || url.hostname.toLowerCase().endsWith("." + host));
+    } catch {
+      return false;
+    }
+  });
+}
+
 async function searchWeb(query, signal, objective = "") {
   const apiKey = process.env.TAVILY_API_KEY;
   if (!SEARCH_POLICY.allowed) {
@@ -186,8 +261,11 @@ async function searchWeb(query, signal, objective = "") {
         limit: SEARCH_POLICY.maxResults,
         accessMode: SEARCH_POLICY.authMode,
       });
-      const relevantResults = filterRelevantAgentSources(normalized.results, objective);
-      if (relevantResults.length) return { ...normalized, results: relevantResults };
+      const relevantResults = filterExplicitlyRequestedHosts(filterRelevantAgentSources(normalized.results, objective), objective);
+      if (relevantResults.length) {
+        const enrichedResults = await enrichSearchResultsWithPageContent(relevantResults, signal);
+        return { ...normalized, results: enrichedResults };
+      }
       tavilyFailure = normalized.results.length
         ? "Tavily returned no topic-relevant sources."
         : "Tavily returned no usable sources.";
@@ -203,17 +281,19 @@ async function searchWeb(query, signal, objective = "") {
   }
 
   // Public RSS fallback keeps basic web lookup available when Tavily is unavailable.
+  const fallbackFailures = [];
+  const requestedHosts = getExplicitlyRequestedHosts(objective);
+  const fallbackQuery = [String(query).trim().slice(0, 500), ...requestedHosts.map((host) => "site:" + host)].filter(Boolean).join(" ");
   const fallbackProviders = [
     {
       name: "Bing RSS",
-      url: "https://www.bing.com/search?format=rss&q=" + encodeURIComponent(String(query).trim().slice(0, 500)),
+      url: "https://www.bing.com/search?format=rss&q=" + encodeURIComponent(fallbackQuery),
     },
     {
       name: "Google News RSS",
-      url: "https://news.google.com/rss/search?q=" + encodeURIComponent(String(query).trim().slice(0, 500)) + "&hl=en-IN&gl=IN&ceid=IN:en",
+      url: "https://news.google.com/rss/search?q=" + encodeURIComponent(fallbackQuery) + "&hl=en-IN&gl=IN&ceid=IN:en",
     },
   ];
-  const fallbackFailures = [];
   for (const provider of fallbackProviders) {
     try {
       const rssResponse = await fetchWithRetry(provider.url, {
@@ -238,8 +318,11 @@ async function searchWeb(query, signal, objective = "") {
         limit: SEARCH_POLICY.maxResults,
         provider: provider.name,
       });
-      const relevantResults = filterRelevantAgentSources(fallback.results, objective);
-      if (relevantResults.length) return { ...fallback, results: relevantResults, fallbackReason: tavilyFailure };
+      const relevantResults = filterExplicitlyRequestedHosts(filterRelevantAgentSources(fallback.results, objective), objective);
+      if (relevantResults.length) {
+        const enrichedResults = await enrichSearchResultsWithPageContent(relevantResults, signal);
+        return { ...fallback, results: enrichedResults, fallbackReason: tavilyFailure };
+      }
       fallbackFailures.push(provider.name + (fallback.results.length
         ? " returned no topic-relevant sources"
         : " returned no usable sources"));
@@ -638,23 +721,7 @@ Return one JSON object only with keys "verdict", "answer", and "findings". "verd
         signal,
         {
           reasoning_effort: "low",
-          response_format: {
-            type: "json_schema",
-            json_schema: {
-              name: "orion_agent_verification",
-              strict: true,
-              schema: {
-                type: "object",
-                properties: {
-                  verdict: { type: "string", enum: ["PASS", "PARTIAL"] },
-                  answer: { type: "string" },
-                  findings: { type: "string" },
-                },
-                required: ["verdict", "answer", "findings"],
-                additionalProperties: false,
-              },
-            },
-          },
+          response_format: { type: "json_object" },
         },
       ), {
         signal,
@@ -925,7 +992,16 @@ export async function POST(request) {
       return errorResponse("Invalid request body.", 400);
     }
 
-    return await runAgent(body, request.signal);
+    const response = await runAgent(body, request.signal);
+    // Apply deployment identity at the HTTP boundary so every successful
+    // streaming branch (including early deterministic/search returns) exposes it.
+    const headers = new Headers(response.headers);
+    headers.set("X-ORION-Deployment-SHA", process.env.VERCEL_GIT_COMMIT_SHA || "unknown");
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
   } catch (error) {
     if (error?.name === "AbortError") return errorResponse("Request was cancelled.", 499);
     console.error("ORION AGENT REQUEST ERROR:", error);
