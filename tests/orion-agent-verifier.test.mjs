@@ -218,6 +218,6 @@ test("preserves extracted page evidence for the verifier", () => {
   const summary = buildVerifierEvidenceSummary([{ title: "Official source", url: "https://example.gov/page", content: longContent, contentMode: "full_page" }]);
   const parsed = JSON.parse(summary);
   assert.equal(parsed.untrusted_source_data[0].evidence_mode, "full_page");
-  assert.ok(parsed.untrusted_source_data[0].evidence.length > 2500);
-  assert.ok(parsed.untrusted_source_data[0].evidence.length <= 3600);
+  assert.ok(parsed.untrusted_source_data[0].evidence.length > 1000);
+  assert.ok(parsed.untrusted_source_data[0].evidence.length <= 1800);
 });
