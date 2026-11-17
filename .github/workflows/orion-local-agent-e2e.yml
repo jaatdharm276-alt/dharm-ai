@@ -14,8 +14,8 @@ concurrency:
 
 jobs:
   local-agent-e2e:
-    # Secrets are intentionally required: the real agent uses Groq and a
-    # shared Upstash limiter in production mode. No Vercel deployment is used.
+    # Secrets are intentionally required: the real agent uses Groq, Tavily full-page
+    # evidence, and a shared Upstash limiter in production mode. No Vercel deployment is used.
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
@@ -40,11 +40,13 @@ jobs:
       - name: Verify required secrets are configured
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
           UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
           UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
         run: |
           missing=()
           [ -n "$GROQ_API_KEY" ] || missing+=("GROQ_API_KEY")
+          [ -n "$TAVILY_API_KEY" ] || missing+=("TAVILY_API_KEY")
           [ -n "$UPSTASH_REDIS_REST_URL" ] || missing+=("UPSTASH_REDIS_REST_URL")
           [ -n "$UPSTASH_REDIS_REST_TOKEN" ] || missing+=("UPSTASH_REDIS_REST_TOKEN")
           if [ "${#missing[@]}" -gt 0 ]; then
