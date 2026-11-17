@@ -129,3 +129,12 @@ test("filters irrelevant search results before they are sent to the model", () =
   assert.equal(sources.length, 1);
   assert.equal(sources[0].title, "Press Information Bureau");
 });
+
+test("does not append unrelated lexical matches when verifier already cited a retrieved official source", () => {
+  const answer = "PIB role. https://www.pib.gov.in/Content/224_5_AboutPIB.aspx";
+  const result = appendRelevantSourceCitations(answer, [{ name: "search_web", result: { results: [
+    { title: "About PIB", url: "https://www.pib.gov.in/Content/224_5_AboutPIB.aspx", content: "Press Information Bureau Government of India media information." },
+    { title: "Overview of Press Information Bureau", url: "https://www.scribd.com/document/509405000/pib", content: "Press Information Bureau mass media public sphere." },
+  ] } }], "Press Information Bureau PIB India role");
+  assert.doesNotMatch(result, /scribd\\.com/);
+});
