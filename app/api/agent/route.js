@@ -666,6 +666,7 @@ Return one JSON object only with keys "verdict", "answer", and "findings". "verd
         code: String(error?.code || "UNKNOWN").slice(0, 80),
         status: error?.providerStatus || error?.status || null,
       });
+      emitStatus("verification_diagnostic", "Verifier unavailable after retry; code=" + String(error?.code || "UNKNOWN").slice(0, 80) + "; status=" + String(error?.providerStatus || error?.status || "none"));
       return { answer: buildPartialRecoveryAnswer({ draft, toolResults: collectedToolResults, failureStage: "verification" }), partial: true };
     }
 
