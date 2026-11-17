@@ -16,6 +16,31 @@ import {
   useState,
 } from "react";
 
+async function fetchWithNetworkRetry(input, init, maxRetries = 1) {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await fetch(input, init);
+    } catch (error) {
+      if (init?.signal?.aborted || error?.name === "AbortError") throw error;
+      const isNetworkFailure = error instanceof TypeError;
+      if (!isNetworkFailure || attempt >= maxRetries) throw error;
+      attempt += 1;
+      await new Promise((resolve, reject) => {
+        const timer = setTimeout(resolve, 450);
+        const abort = () => {
+          clearTimeout(timer);
+          reject(init.signal.reason || new DOMException("Aborted", "AbortError"));
+        };
+        if (init?.signal) {
+          if (init.signal.aborted) abort();
+          else init.signal.addEventListener("abort", abort, { once: true });
+        }
+      });
+    }
+  }
+}
+
 const SUGGESTIONS = [
   "Bhagavad Gita ka saar batao",
   "Dharma kya hai?",
@@ -623,7 +648,7 @@ function Home() {
             ? "/api/agent"
             : "/api/chat";
 
-        let response = await fetch(
+        let response = await fetchWithNetworkRetry(
           endpoint,
           {
             method: "POST",
@@ -646,7 +671,7 @@ function Home() {
         // retry the same prompt through the deeper Agent engine in this message.
         if (!response.ok && endpoint === "/api/chat") {
           setTaskMode("agent");
-          response = await fetch("/api/agent", {
+          response = await fetchWithNetworkRetry("/api/agent", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             signal: controller.signal,
@@ -786,7 +811,7 @@ function Home() {
 
         if (shouldEscalateAfterChat(messageText, fullAnswer) && endpoint === "/api/chat") {
           setTaskMode("agent");
-          const agentResponse = await fetch("/api/agent", {
+          const agentResponse = await fetchWithNetworkRetry("/api/agent", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             signal: controller.signal,
@@ -836,8 +861,9 @@ function Home() {
         }
 
         const message =
-          requestError?.message ||
-          "AI response nahi aa saka.";
+          requestError instanceof TypeError
+            ? "इंटरनेट कनेक्शन अस्थायी रूप से टूट गया। ORION ने एक बार दोबारा प्रयास किया, लेकिन जवाब नहीं मिल सका। कनेक्शन जाँचकर फिर कोशिश करें।"
+            : requestError?.message || "AI response nahi aa saka.";
 
         setError(message);
 
