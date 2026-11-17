@@ -212,3 +212,12 @@ test("does not retry if the signal aborts during the retry delay", async () => {
   }), /cancelled during wait/);
   assert.equal(attempts, 1);
 });
+
+test("preserves extracted page evidence for the verifier", () => {
+  const longContent = "official evidence ".repeat(200);
+  const summary = buildVerifierEvidenceSummary([{ title: "Official source", url: "https://example.gov/page", content: longContent, contentMode: "full_page" }]);
+  const parsed = JSON.parse(summary);
+  assert.equal(parsed.untrusted_source_data[0].evidence_mode, "full_page");
+  assert.ok(parsed.untrusted_source_data[0].evidence.length > 2500);
+  assert.ok(parsed.untrusted_source_data[0].evidence.length <= 3600);
+});
