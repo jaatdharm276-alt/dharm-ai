@@ -73,6 +73,8 @@ try {
     }
   }
 
+  console.log(JSON.stringify({ status: "diagnostic", terminalStage, searchSucceeded, observedStages: [...new Set(stages)], answerPreview: answer.slice(0, 500) }, null, 2));
+
   const evidence = assertVerifiedAgentResponse({
     terminalStage,
     toolFailed,
