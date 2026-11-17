@@ -44,3 +44,30 @@ test("ignores malformed tool result entries", () => {
   const answer = buildPartialRecoveryAnswer({ toolResults: [null, {}, { name: "search_web" }] });
   assert.ok(answer.includes("कोई पूरा परिणाम उपलब्ध नहीं है"));
 });
+
+test("explains a failed web search instead of returning an empty recovery message", () => {
+  const answer = buildPartialRecoveryAnswer({
+    draft: "The movie budget may be around ₹100 crore.",
+    toolResults: [{
+      name: "search_web",
+      result: { error: "Tavily HTTP 429; Bing RSS returned no topic-relevant sources." },
+    }],
+    failureStage: "tool",
+  });
+  assert.ok(answer.trim().length > 0);
+  assert.match(answer, /वेब खोज पूरी नहीं हो सकी/);
+  assert.match(answer, /Tavily HTTP 429/);
+  assert.doesNotMatch(answer, /₹100 crore/);
+});
+
+test("reports search links without claiming that the facts were verified", () => {
+  const answer = buildPartialRecoveryAnswer({
+    toolResults: [{
+      name: "search_web",
+      result: { results: [{ title: "Example source", url: "https://example.com", snippet: "Relevant detail" }] },
+    }],
+    failureStage: "verification",
+  });
+  assert.match(answer, /प्रासंगिकता\/तथ्य सत्यापित नहीं/);
+  assert.match(answer, /https:\/\/example.com/);
+});
