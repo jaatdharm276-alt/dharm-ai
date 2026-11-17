@@ -755,6 +755,16 @@ Return one JSON object only with keys "verdict", "answer", and "findings". "verd
       if (!calls.length) {
         const answer = String(assistant.content || "").trim();
         lastDraft = answer;
+        // Ordinary creative/conversational answers do not need a second model
+        // call to verify claims that have no external evidence requirement.
+        // This avoids turning a successful devotional/writing answer into a
+        // verifier-provider failure and always emits a non-empty final reply.
+        const needsExternalEvidence = /\\b(latest|current|today|budget|price|cost|box office|collection|official|statistics|live|recent)\\b|(?:बजट|कीमत|मूल्य|ताज़ा|ताजा|आज की खबर|वर्तमान|आधिकारिक|आँकड़े|आंकड़े|संग्रह)/iu.test(message);
+        if (!collectedToolResults.length && !needsExternalEvidence) {
+          emitStatus("complete", "सीधा जवाब तैयार — अतिरिक्त वेब सत्यापन आवश्यक नहीं था");
+          emitText(answer || "मुझे इस बार पूरा जवाब नहीं मिल पाया। कृपया सवाल दोबारा भेजें।");
+          return;
+        }
         emitStatus("verification", "जवाब और उपलब्ध सबूतों की जाँच कर रहा हूँ");
         const verified = await verifyAndFinalize(answer || "Task complete nahi ho saka. Kripya request ko thoda aur specific karein.");
         if (verified.diagnostic?.kind === "provider_error") emitStatus("verification_diagnostic", "Verifier provider error; code=" + verified.diagnostic.code + "; status=" + String(verified.diagnostic.status || "none"));
