@@ -673,6 +673,7 @@ Return one JSON object only with keys "verdict", "answer", and "findings". "verd
     const output = String(verification.findings || "").trim();
     const { verdict, answer } = parseVerifierOutput(output);
     if (verdict === "PASS" && answer) return { answer: appendRelevantSourceCitations(answer, collectedToolResults, message), partial: false };
+    emitStatus("verification_result", "Verifier verdict=" + String(verdict || "MISSING") + "; findings=" + output.slice(0, 320));
     return {
       answer: buildPartialRecoveryAnswer({
         draft: answer || String(draft || "").trim(),
@@ -757,7 +758,7 @@ Return one JSON object only with keys "verdict", "answer", and "findings". "verd
           emitStatus("partial_recovery", "एक या अधिक जरूरी टूल विफल हुए — जवाब को पूर्ण सत्यापित नहीं माना गया");
           emitText(buildPartialRecoveryAnswer({ draft: verified.answer || answer, toolResults: collectedToolResults, failureStage: "tool" }));
         } else {
-          emitStatus(verified.partial ? "partial_recovery" : "complete", verified.partial ? "जाँच सेवा उपलब्ध नहीं थी — आंशिक जवाब सुरक्षित रखा है" : "जाँच पूरी — जवाब तैयार है");
+          emitStatus(verified.partial ? "partial_recovery" : "complete", verified.partial ? "Verifier ने PASS नहीं दिया — आंशिक जवाब सुरक्षित रखा है" : "जाँच पूरी — जवाब तैयार है");
           emitText(verified.answer || verified);
         }
         return;
