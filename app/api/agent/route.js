@@ -805,7 +805,7 @@ Return one JSON object only with keys "verdict", "answer", and "findings". "verd
           analyze_text: "टेक्स्ट का विश्लेषण पूरा हुआ",
           search_web: result?.available === false
             ? "वेब खोज बंद है — ORION_ENABLE_EXTERNAL_SEARCH=true की जरूरत है"
-            : (Array.isArray(result?.results) && result.results.length > 0 ? "वेब खोज से सत्यापित स्रोत मिले" : "वेब खोज में कोई सत्यापित स्रोत नहीं मिला"),
+            : (Array.isArray(result?.results) && result.results.length > 0 ? "वेब खोज से प्रासंगिक स्रोत मिले (अभी तथ्य सत्यापित नहीं)" : "वेब खोज में प्रासंगिक स्रोत नहीं मिले"),
           delegate_specialist: "Specialist agent का विश्लेषण मिल गया",
           coordinate_specialists: "Parallel specialist analyses मिल गए",
         };
