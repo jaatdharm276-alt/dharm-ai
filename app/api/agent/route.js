@@ -210,6 +210,23 @@ async function enrichSearchResultsWithPageContent(results, signal) {
   }));
 }
 
+function filterExplicitlyRequestedHosts(results, objective = "") {
+  const objectiveText = String(objective || "");
+  if (!/(?:\\bonly\\b|केवल)/i.test(objectiveText)) return results;
+  const hosts = [...objectiveText.matchAll(/\\b((?:[a-z0-9-]+\\.)+[a-z]{2,})\\b/gi)]
+    .map((match) => match[1].toLowerCase())
+    .filter((host) => !host.endsWith(".example"));
+  if (hosts.length === 0) return results;
+  return (Array.isArray(results) ? results : []).filter((source) => {
+    try {
+      const url = new URL(String(source?.url || ""));
+      return url.protocol === "https:" && hosts.some((host) => url.hostname.toLowerCase() === host || url.hostname.toLowerCase().endsWith("." + host));
+    } catch {
+      return false;
+    }
+  });
+}
+
 async function searchWeb(query, signal, objective = "") {
   const apiKey = process.env.TAVILY_API_KEY;
   if (!SEARCH_POLICY.allowed) {
@@ -240,7 +257,7 @@ async function searchWeb(query, signal, objective = "") {
         limit: SEARCH_POLICY.maxResults,
         accessMode: SEARCH_POLICY.authMode,
       });
-      const relevantResults = filterRelevantAgentSources(normalized.results, objective);
+      const relevantResults = filterExplicitlyRequestedHosts(filterRelevantAgentSources(normalized.results, objective), objective);
       if (relevantResults.length) {
         const enrichedResults = await enrichSearchResultsWithPageContent(relevantResults, signal);
         return { ...normalized, results: enrichedResults };
@@ -295,7 +312,7 @@ async function searchWeb(query, signal, objective = "") {
         limit: SEARCH_POLICY.maxResults,
         provider: provider.name,
       });
-      const relevantResults = filterRelevantAgentSources(fallback.results, objective);
+      const relevantResults = filterExplicitlyRequestedHosts(filterRelevantAgentSources(fallback.results, objective), objective);
       if (relevantResults.length) {
         const enrichedResults = await enrichSearchResultsWithPageContent(relevantResults, signal);
         return { ...fallback, results: enrichedResults, fallbackReason: tavilyFailure };
