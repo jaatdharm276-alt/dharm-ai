@@ -15,6 +15,7 @@ export default function AgentControlRoom() {
   const [answer, setAnswer] = useState("");
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
+  const [events, setEvents] = useState([]);
   const controllerRef = useRef(null);
 
   async function startTask(event) {
@@ -26,6 +27,7 @@ export default function AgentControlRoom() {
     controllerRef.current = controller;
     setAnswer("");
     setError("");
+    setEvents([{ stage: "started", detail: "Task submitted to ORION Agent", timestamp: Date.now() }]);
     setStatus("running");
 
     try {
@@ -59,6 +61,9 @@ export default function AgentControlRoom() {
           if (!line.startsWith("data:") || line === "data: [DONE]") continue;
           try {
             const data = JSON.parse(line.slice(5).trim());
+            if (data?.orion_status && typeof data.orion_status.stage === "string") {
+              setEvents((current) => [...current.slice(-39), data.orion_status]);
+            }
             const delta = data?.choices?.[0]?.delta?.content;
             if (typeof delta === "string" && delta) {
               fullAnswer += delta;
@@ -128,6 +133,26 @@ export default function AgentControlRoom() {
             </div>
           </form>
           {error && <p role="alert" style={{ color: "#b42318", marginBottom: 0 }}>{error}</p>}
+        </section>
+
+        <section style={{ background: "#fff", border: "1px solid #e1e5ee", borderRadius: 18, padding: 18, marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+            <h2 style={{ fontSize: 18, margin: 0 }}>Live task activity</h2>
+            <span style={{ color: "#667085", fontSize: 12 }}>{events.length} events · newest last</span>
+          </div>
+          {events.length ? (
+            <ol aria-live="polite" style={{ listStyle: "none", padding: 0, margin: "12px 0 0", display: "grid", gap: 8 }}>
+              {events.map((item, index) => (
+                <li key={`${item.timestamp || index}-${index}`} style={{ display: "flex", gap: 10, alignItems: "flex-start", borderBottom: "1px solid #edf0f5", padding: "8px 0" }}>
+                  <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 99, background: item.stage === "complete" ? "#15945b" : item.stage?.includes("error") || item.stage === "partial_recovery" ? "#c47b18" : "#5365c5", marginTop: 6, flex: "0 0 auto" }} />
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#344054" }}>{String(item.stage || "activity").replaceAll("_", " ")}</div>
+                    <div style={{ color: "#667085", fontSize: 13, lineHeight: 1.5 }}>{item.detail || "Activity update"}</div>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          ) : <p style={{ color: "#7a8496", fontSize: 13, margin: "12px 0 0" }}>Start a task to see planning, tools, verification and completion events here.</p>}
         </section>
 
         <section style={{ background: "#fff", border: "1px solid #e1e5ee", borderRadius: 18, padding: 18, marginBottom: 16 }}>
