@@ -721,23 +721,7 @@ Return one JSON object only with keys "verdict", "answer", and "findings". "verd
         signal,
         {
           reasoning_effort: "low",
-          response_format: {
-            type: "json_schema",
-            json_schema: {
-              name: "orion_agent_verification",
-              strict: true,
-              schema: {
-                type: "object",
-                properties: {
-                  verdict: { type: "string", enum: ["PASS", "PARTIAL"] },
-                  answer: { type: "string" },
-                  findings: { type: "string" },
-                },
-                required: ["verdict", "answer", "findings"],
-                additionalProperties: false,
-              },
-            },
-          },
+          response_format: { type: "json_object" },,
         },
       ), {
         signal,
