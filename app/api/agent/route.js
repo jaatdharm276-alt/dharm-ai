@@ -170,9 +170,9 @@ function isSafePublicPageUrl(value) {
   try {
     const url = new URL(String(value || ""));
     if (url.protocol !== "https:" || url.username || url.password || (url.port && url.port !== "443")) return false;
-    const host = url.hostname.toLowerCase();
-    if (!host || host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal")) return false;
-    if (/^(127\\.|10\\.|192\\.168\\.|169\\.254\\.|0\\.)/.test(host) || /^172\\.(1[6-9]|2[0-9]|3[01])\\./.test(host) || host === "::1" || host.startsWith("fc") || host.startsWith("fd") || host.startsWith("fe80:")) return false;
+    const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+    if (!host || host.includes(":") || host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal")) return false;
+    if (/^(0\.|10\.|127\.|169\.254\.|192\.168\.)/.test(host) || /^172\.(1[6-9]|2[0-9]|3[01])\./.test(host)) return false;
     return true;
   } catch {
     return false;
@@ -187,19 +187,19 @@ async function enrichSearchResultsWithPageContent(results, signal) {
       const pageSignal = AbortSignal.any([signal || new AbortController().signal, AbortSignal.timeout(5_000)]);
       const response = await fetch(source.url, {
         method: "GET",
-        headers: { Accept: "text/html,application/xhtml+xml;q=0.9" , "User-Agent": "ORION-AI/1.0 (+https://dharm-ai.vercel.app)" },
+        headers: { Accept: "text/html,application/xhtml+xml;q=0.9", "User-Agent": "ORION-AI/1.0 (+https://dharm-ai.vercel.app)" },
         cache: "no-store",
         redirect: "error",
         signal: pageSignal,
       });
-      if (!response.ok || !/text\\/html|application\\/xhtml\\+xml/i.test(response.headers.get("content-type") || "")) return source;
+      if (!response.ok || !/text\/html|application\/xhtml\+xml/i.test(response.headers.get("content-type") || "")) return source;
       const html = (await response.text()).slice(0, 350_000);
       const text = decodePageEntities(html
-        .replace(/<!--[\\s\\S]*?-->/g, " ")
-        .replace(/<(script|style|noscript|svg|nav|footer|header)\\b[^>]*>[\\s\\S]*?<\\/\\1>/gi, " ")
-        .replace(/<\\/(p|div|li|h[1-6]|article|section|tr)>/gi, "\\n")
+        .replace(/<!--[\s\S]*?-->/g, " ")
+        .replace(/<(script|style|noscript|svg|nav|footer|header)\b[^>]*>[\s\S]*?<\/\1>/gi, " ")
+        .replace(/<\/(p|div|li|h[1-6]|article|section|tr)>/gi, "\n")
         .replace(/<[^>]+>/g, " ")
-        .replace(/\\s+/g, " ")
+        .replace(/\s+/g, " ")
       ).trim().slice(0, 5_000);
       if (text.length < 160) return source;
       return { ...source, content: text, contentMode: "full_page", pageFetchStatus: "success" };
