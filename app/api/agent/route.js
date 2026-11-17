@@ -985,7 +985,16 @@ export async function POST(request) {
       return errorResponse("Invalid request body.", 400);
     }
 
-    return await runAgent(body, request.signal);
+    const response = await runAgent(body, request.signal);
+    // Apply deployment identity at the HTTP boundary so every successful
+    // streaming branch (including early deterministic/search returns) exposes it.
+    const headers = new Headers(response.headers);
+    headers.set("X-ORION-Deployment-SHA", process.env.VERCEL_GIT_COMMIT_SHA || "unknown");
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
   } catch (error) {
     if (error?.name === "AbortError") return errorResponse("Request was cancelled.", 499);
     console.error("ORION AGENT REQUEST ERROR:", error);
