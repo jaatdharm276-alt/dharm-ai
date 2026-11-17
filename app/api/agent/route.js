@@ -281,6 +281,9 @@ async function searchWeb(query, signal, objective = "") {
   }
 
   // Public RSS fallback keeps basic web lookup available when Tavily is unavailable.
+  const fallbackFailures = [];
+  const requestedHosts = getExplicitlyRequestedHosts(objective);
+  const fallbackQuery = [String(query).trim().slice(0, 500), ...requestedHosts.map((host) => "site:" + host)].filter(Boolean).join(" ");
   const fallbackProviders = [
     {
       name: "Bing RSS",
@@ -288,12 +291,9 @@ async function searchWeb(query, signal, objective = "") {
     },
     {
       name: "Google News RSS",
-      url: "https://news.google.com/rss/search?q=" + encodeURIComponent(String(query).trim().slice(0, 500)) + "&hl=en-IN&gl=IN&ceid=IN:en",
+      url: "https://news.google.com/rss/search?q=" + encodeURIComponent(fallbackQuery) + "&hl=en-IN&gl=IN&ceid=IN:en",
     },
   ];
-  const fallbackFailures = [];
-  const requestedHosts = getExplicitlyRequestedHosts(objective);
-  const fallbackQuery = [String(query).trim().slice(0, 500), ...requestedHosts.map((host) => "site:" + host)].filter(Boolean).join(" ");
   for (const provider of fallbackProviders) {
     try {
       const rssResponse = await fetchWithRetry(provider.url, {
