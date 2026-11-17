@@ -67,7 +67,7 @@ try {
         if (event.orion_status?.stage === "tool_error") toolFailed = true;
         if (
           event.orion_status?.stage === "tool_completed" &&
-          /वेब खोज से (?:परिणाम मिले|सत्यापित स्रोत मिले)|web search completed with verified sources/i.test(event.orion_status?.detail || "")
+          /वेब खोज से (?:परिणाम मिले|प्रासंगिक स्रोत मिले)|web search completed/i.test(event.orion_status?.detail || "")
         ) searchSucceeded = true;
         const delta = event.choices?.[0]?.delta?.content;
         if (typeof delta === "string") answer += delta;
