@@ -41,6 +41,7 @@ try {
   let buffer = "";
   let answer = "";
   const stages = [];
+  const statusEvents = [];
   let terminalStage = "";
   let searchSucceeded = false;
   let toolFailed = false;
@@ -59,7 +60,10 @@ try {
       try {
         const event = JSON.parse(data);
         if (event.orion_status?.detail) stages.push(event.orion_status.detail);
-        if (event.orion_status?.stage) terminalStage = event.orion_status.stage;
+        if (event.orion_status?.stage) {
+          terminalStage = event.orion_status.stage;
+          statusEvents.push({ stage: event.orion_status.stage, detail: String(event.orion_status.detail || "").slice(0, 400) });
+        }
         if (event.orion_status?.stage === "tool_error") toolFailed = true;
         if (
           event.orion_status?.stage === "tool_completed" &&
@@ -73,7 +77,7 @@ try {
     }
   }
 
-  console.log(JSON.stringify({ status: "diagnostic", terminalStage, searchSucceeded, observedStages: [...new Set(stages)], answerPreview: answer.slice(0, 500) }, null, 2));
+  console.log(JSON.stringify({ status: "diagnostic", terminalStage, searchSucceeded, observedStages: [...new Set(stages)], statusEvents, answerPreview: answer.slice(0, 500) }, null, 2));
 
   const evidence = assertVerifiedAgentResponse({
     terminalStage,
