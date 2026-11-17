@@ -18,7 +18,7 @@ The production Agent currently calls the configured Groq-compatible model. The s
 
 This slice does not yet provide:
 - A GitHub App/OAuth installation flow or repository write adapter.
-- A persistent background task queue or a mobile Agent Control Room.
+- A persistent background task queue or durable run history. The mobile `/agents` Control Room now exists and displays live SSE activity events while a request is connected.
 - Independent vendor-provider execution.
 - Automatic merge or production deployment.
 
@@ -41,3 +41,8 @@ No paid vendor plan is required for the first slice. Optional future providers m
 - No automatic merge or production deployment.
 - Show provider identity, quota/rate-limit failures and the exact commit SHA used for verification.
 - Do not claim a check passed unless its result is available for the exact tested commit.
+
+
+## Current PR update
+
+The Control Room now parses `orion_status` server-sent events and renders a bounded live activity timeline. This is request-scoped only: refreshing the page loses the timeline, and it does not create durable tasks or expose repository diffs. The next blocked integration requires a registered GitHub App (or OAuth application), least-privilege installation permissions, server-side credentials and an explicit user-controlled connect/revoke flow. Do not substitute a broad personal access token or expose credentials to the browser/model.
