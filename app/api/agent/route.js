@@ -210,12 +210,16 @@ async function enrichSearchResultsWithPageContent(results, signal) {
   }));
 }
 
-function filterExplicitlyRequestedHosts(results, objective = "") {
+function getExplicitlyRequestedHosts(objective = "") {
   const objectiveText = String(objective || "");
-  if (!/(?:\bonly\b|केवल)/i.test(objectiveText)) return results;
-  const hosts = [...objectiveText.matchAll(/\b((?:[a-z0-9-]+\.)+[a-z]{2,})\b/gi)]
+  if (!/(?:\bonly\b|केवल)/i.test(objectiveText)) return [];
+  return [...new Set([...objectiveText.matchAll(/\b((?:[a-z0-9-]+\.)+[a-z]{2,})\b/gi)]
     .map((match) => match[1].toLowerCase())
-    .filter((host) => !host.endsWith(".example"));
+    .filter((host) => !host.endsWith(".example")))];
+}
+
+function filterExplicitlyRequestedHosts(results, objective = "") {
+  const hosts = getExplicitlyRequestedHosts(objective);
   if (hosts.length === 0) return results;
   return (Array.isArray(results) ? results : []).filter((source) => {
     try {
@@ -280,7 +284,7 @@ async function searchWeb(query, signal, objective = "") {
   const fallbackProviders = [
     {
       name: "Bing RSS",
-      url: "https://www.bing.com/search?format=rss&q=" + encodeURIComponent(String(query).trim().slice(0, 500)),
+      url: "https://www.bing.com/search?format=rss&q=" + encodeURIComponent(fallbackQuery),
     },
     {
       name: "Google News RSS",
@@ -288,6 +292,8 @@ async function searchWeb(query, signal, objective = "") {
     },
   ];
   const fallbackFailures = [];
+  const requestedHosts = getExplicitlyRequestedHosts(objective);
+  const fallbackQuery = [String(query).trim().slice(0, 500), ...requestedHosts.map((host) => "site:" + host)].filter(Boolean).join(" ");
   for (const provider of fallbackProviders) {
     try {
       const rssResponse = await fetchWithRetry(provider.url, {
