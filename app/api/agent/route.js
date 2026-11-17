@@ -16,6 +16,7 @@ import { validateAgentToolArgs, summarizeToolResult } from "../../../lib/orion-a
 import { appendRelevantSourceCitations, buildAgentEvidenceAnswer, buildObjectiveSearchQuery, filterRelevantAgentSources } from "../../../lib/orion-agent-evidence.mjs";
 import { buildVerifierEvidenceSummary, parseVerifierOutput, runVerifierWithRetry } from "../../../lib/orion-agent-verifier.mjs";
 import { getAvailableAgentTools } from "../../../lib/orion-agent-tools.mjs";
+import { createAgentDeadlineSignal, isAgentDeadlineExceeded } from "../../../lib/orion-agent-deadline.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,6 +32,7 @@ const SEARCH_ENABLED = process.env.ORION_ENABLE_EXTERNAL_SEARCH !== "false";
 const SEARCH_POLICY = getExternalSearchPolicy({ enabled: SEARCH_ENABLED ? "true" : "false", apiKey: process.env.TAVILY_API_KEY });
 const MAX_SEARCH_CALLS = SEARCH_POLICY.maxCalls;
 const MAX_DELEGATIONS = 3;
+const MAX_AGENT_RUN_MS = 120_000;
 const agentRateLimiter = createUpstashRateLimiter({ limit: 10, windowMs: 60_000, prefix: "orion:agent" });
 
 const TOOL_DEFINITIONS = [
@@ -454,6 +456,9 @@ function runAgent(body, signal) {
   const message = typeof body.message === "string" ? body.message.trim() : "";
   if (!message) return errorResponse("Message is required.", 400);
   if (message.length > MAX_MESSAGE_CHARS) return errorResponse("Message is too long.", 413);
+  // Bound the whole run so stalled tools and repeated model calls cannot hold
+  // a serverless request indefinitely. Caller cancellation remains distinct.
+  signal = createAgentDeadlineSignal(signal, MAX_AGENT_RUN_MS);
 
   // Identity questions are deterministic project facts and must work even
   // when the external Groq provider is temporarily unavailable.
@@ -860,7 +865,10 @@ Return one JSON object only with keys "verdict", "answer", and "findings". "verd
       emitText(verified.answer || verified);
     }
   } catch (error) {
-    if (error?.name === "AbortError") {
+    if (isAgentDeadlineExceeded(signal)) {
+      emitStatus("deadline_exceeded", "काम की अधिकतम समय-सीमा पूरी हुई — उपलब्ध परिणाम सुरक्षित रखे हैं");
+      emitText(buildPartialRecoveryAnswer({ draft: lastDraft, toolResults: collectedToolResults, failureStage: "deadline" }));
+    } else if (error?.name === "AbortError" || signal?.aborted) {
       emitStatus("cancelled", "काम रोक दिया गया");
     } else {
       console.error("ORION AGENT ERROR:", error);
