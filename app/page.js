@@ -1174,6 +1174,7 @@ function Home() {
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v3h16v-3" /></svg>
             </button>
           )}
+          <a className="new-chat-button" href="/agents" aria-label="Open Agent Control Room">Agent Control Room</a>
           <button className="new-chat-button" onClick={startNewChat} type="button">+ New chat</button>
         </div>
       </header>

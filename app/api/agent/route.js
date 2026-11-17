@@ -502,7 +502,7 @@ async function executeTool(name, rawArgs, context) {
     const results = await runSpecialistsInParallel(
       roles,
       args.task,
-      (role, task) => runSpecialist(role, task, context.objective, context.signal),
+      (role, task, workerContext) => runSpecialist(role, task, context.objective, workerContext?.signal || context.signal),
     );
     return { mode: "parallel", requested: roles.length, completed: results.filter((item) => typeof item.findings === "string").length, results };
   }
