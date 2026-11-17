@@ -23,9 +23,15 @@ test("preserves a caller cancellation signal", () => {
 });
 
 test("distinguishes the Agent deadline from user cancellation", async () => {
-  const signal = createAgentDeadlineSignal(null, 1_000);
+  const deadline = new AbortController();
+  const signal = createAgentDeadlineSignal(deadline.signal, 10_000);
   assert.equal(isAgentDeadlineExceeded(signal), false);
-  await new Promise((resolve) => signal.addEventListener("abort", resolve, { once: true }));
+  const timer = setTimeout(() => deadline.abort(new DOMException("Agent deadline reached", "TimeoutError")), 10);
+  try {
+    await new Promise((resolve) => signal.addEventListener("abort", resolve, { once: true }));
+  } finally {
+    clearTimeout(timer);
+  }
   assert.equal(signal.aborted, true);
   assert.equal(isAgentDeadlineExceeded(signal), true);
 });
