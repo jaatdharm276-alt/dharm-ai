@@ -212,8 +212,8 @@ async function enrichSearchResultsWithPageContent(results, signal) {
 
 function filterExplicitlyRequestedHosts(results, objective = "") {
   const objectiveText = String(objective || "");
-  if (!/(?:\\bonly\\b|केवल)/i.test(objectiveText)) return results;
-  const hosts = [...objectiveText.matchAll(/\\b((?:[a-z0-9-]+\\.)+[a-z]{2,})\\b/gi)]
+  if (!/(?:\bonly\b|केवल)/i.test(objectiveText)) return results;
+  const hosts = [...objectiveText.matchAll(/\b((?:[a-z0-9-]+\.)+[a-z]{2,})\b/gi)]
     .map((match) => match[1].toLowerCase())
     .filter((host) => !host.endsWith(".example"));
   if (hosts.length === 0) return results;
