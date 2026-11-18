@@ -13,7 +13,7 @@ export async function GET(request) {
 
   if (!installationId || !state || !verifyGitHubState(state, stateCookie)) {
     const response = NextResponse.redirect(new URL("/agents?github=invalid_state", origin));
-    for (const cookie of clearGitHubCookies()) response.headers.append("Set-Cookie", cookie);
+    response.headers.append("Set-Cookie", clearGitHubStateCookie());
     return response;
   }
 
