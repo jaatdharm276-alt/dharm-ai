@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const SPECIALISTS = [
   { id: "planner", name: "Planner", detail: "Task breakdown and acceptance checks" },
@@ -17,7 +17,24 @@ export default function AgentControlRoom() {
   const terminalStageRef = useRef("");
   const [error, setError] = useState("");
   const [events, setEvents] = useState([]);
+  const [github, setGithub] = useState({ loading: true, connected: false, repositories: [], error: "" });
   const controllerRef = useRef(null);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/github/status", { cache: "no-store" })
+      .then(async (response) => ({ response, data: await response.json() }))
+      .then(({ response, data }) => {
+        if (active) setGithub({ loading: false, connected: response.ok && data.connected === true, repositories: data.repositories || [], error: data.error || "" });
+      })
+      .catch(() => { if (active) setGithub({ loading: false, connected: false, repositories: [], error: "Could not check GitHub connection." }); });
+    return () => { active = false; };
+  }, []);
+
+  async function disconnectGitHub() {
+    await fetch("/api/github/disconnect", { method: "POST" });
+    setGithub({ loading: false, connected: false, repositories: [], error: "" });
+  }
 
   async function startTask(event) {
     event.preventDefault();
@@ -106,6 +123,27 @@ export default function AgentControlRoom() {
           <h1 style={{ fontSize: "clamp(30px, 7vw, 42px)", margin: "8px 0" }}>Agent Control Room</h1>
           <p style={{ color: "#5d6678", lineHeight: 1.6, margin: 0 }}>Give ORION one task. Its main Agent plans, delegates bounded specialist work, and verifies the result.</p>
         </header>
+
+        <section style={{ background: "#fff", border: "1px solid #e1e5ee", borderRadius: 18, padding: 18, marginBottom: 16 }}>
+          <h2 style={{ fontSize: 18, margin: "0 0 8px" }}>GitHub repository connection</h2>
+          <p style={{ color: "#667085", fontSize: 13, lineHeight: 1.5, margin: "0 0 12px" }}>
+            Connect your GitHub App installation. ORION will verify the installation and list only repositories granted to that installation. Repository changes remain approval-gated.
+          </p>
+          {github.loading ? <p style={{ color: "#667085", fontSize: 13 }}>Checking connection…</p> : github.connected ? (
+            <>
+              <p style={{ color: "#137547", fontSize: 14, fontWeight: 700 }}>✓ GitHub installation authenticated · {github.repositories.length} repositories visible</p>
+              <ul style={{ margin: "8px 0 14px", paddingLeft: 20, color: "#344054", fontSize: 13 }}>
+                {github.repositories.slice(0, 10).map((repo) => <li key={repo.id}>{repo.full_name}{repo.private ? " · Private" : " · Public"}</li>)}
+              </ul>
+              <button type="button" onClick={disconnectGitHub} style={{ border: "1px solid #d3d8e2", borderRadius: 9, padding: "9px 13px", background: "#fff", color: "#344054", fontWeight: 600 }}>Disconnect GitHub</button>
+            </>
+          ) : (
+            <>
+              <p style={{ color: "#667085", fontSize: 13 }}>{github.error || "Not connected in this browser yet."}</p>
+              <a href="/api/github/connect" style={{ display: "inline-block", borderRadius: 10, padding: "11px 16px", background: "#24292f", color: "#fff", fontWeight: 700, textDecoration: "none" }}>Connect GitHub App</a>
+            </>
+          )}
+        </section>
 
         <section style={{ background: "#fff", border: "1px solid #e1e5ee", borderRadius: 18, padding: 18, marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
