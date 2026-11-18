@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { clearGitHubCookies, createInstallationCookie, verifyGitHubState } from "../../../../lib/orion-github-app.mjs";
+import { clearGitHubStateCookie, createInstallationCookie, createInstallationToken, verifyGitHubState } from "../../../../lib/orion-github-app.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,9 +18,10 @@ export async function GET(request) {
   }
 
   try {
+    await createInstallationToken(installationId);
     const response = NextResponse.redirect(new URL("/agents?github=connected", origin));
     response.headers.append("Set-Cookie", createInstallationCookie(installationId));
-    for (const cookie of clearGitHubCookies()) response.headers.append("Set-Cookie", cookie);
+    response.headers.append("Set-Cookie", clearGitHubStateCookie());
     return response;
   } catch {
     return NextResponse.redirect(new URL("/agents?github=configuration_error", origin));
