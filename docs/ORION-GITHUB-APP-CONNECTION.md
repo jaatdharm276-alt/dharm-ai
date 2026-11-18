@@ -15,7 +15,7 @@ Never prefix these with `NEXT_PUBLIC_`, put them in source control, or send them
 
 ## GitHub App registration
 
-Configure the App's callback/setup URL to:
+Configure the App's **Setup URL** (not its OAuth Callback URL) to:
 
 `https://dharm-ai.vercel.app/api/github/callback`
 
