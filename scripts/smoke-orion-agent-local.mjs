@@ -20,7 +20,7 @@ try {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      message: "भारत सरकार के National Portal of India का उद्देश्य क्या है? केवल भारत सरकार के आधिकारिक india.gov.in स्रोत से संक्षेप में बताएं और उस स्रोत का URL उद्धृत करें।",
+      message: "What is the National Portal of India and what services does it provide? Use the official India government portal as the source and cite its exact URL.",
       messages: [],
       memories: [],
     }),
