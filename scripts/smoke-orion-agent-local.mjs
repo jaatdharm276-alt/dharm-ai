@@ -20,7 +20,7 @@ try {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      message: "भारत के Press Information Bureau (PIB) की भूमिका क्या है? केवल pib.gov.in के आधिकारिक स्रोत से संक्षेप में बताएं और उसका URL उद्धृत करें।",
+      message: "What is the National Portal of India and what services does it provide? Use the official India government portal as the source and cite its exact URL.",
       messages: [],
       memories: [],
     }),
@@ -84,7 +84,7 @@ try {
     toolFailed,
     searchSucceeded,
     answer,
-    expectedHost: "pib.gov.in",
+    expectedHost: "india.gov.in",
   });
 
   console.log(JSON.stringify({
