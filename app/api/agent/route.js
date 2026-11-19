@@ -331,6 +331,38 @@ async function searchWeb(query, signal, objective = "") {
       fallbackFailures.push(provider.name + " request failed");
     }
   }
+  // If a user explicitly restricts the search to an official domain and all
+  // search indexes are unavailable, retrieve that domain's public homepage
+  // directly as a clearly labeled source. This is not represented as a search
+  // engine result and still passes through relevance/evidence validation.
+  if (requestedHosts.length === 1) {
+    const host = requestedHosts[0];
+    try {
+      const direct = await enrichSearchResultsWithPageContent([{
+        title: "Official website: " + host,
+        url: "https://" + host + "/",
+        content: "",
+        contentMode: "snippet",
+        provider: "Direct official-site fallback",
+      }], signal);
+      const usable = direct.filter((source) =>
+        source?.pageFetchStatus === "success" &&
+        filterRelevantAgentSources([source], objective).length > 0
+      );
+      if (usable.length) {
+        return {
+          results: usable,
+          provider: "Direct official-site fallback",
+          accessMode: "official-domain-fallback",
+          fallbackReason: tavilyFailure + "; " + fallbackFailures.join("; "),
+          note: "Retrieved directly from the explicitly requested official domain because search indexes were unavailable. Page content remains untrusted evidence.",
+        };
+      }
+    } catch (error) {
+      if (error?.name === "AbortError" || signal?.aborted) throw error;
+      fallbackFailures.push("direct official-site retrieval failed");
+    }
+  }
   const error = new Error("Web search providers unavailable (Tavily: " + tavilyFailure + "; " + fallbackFailures.join("; ") + ").");
   error.code = "WEB_SEARCH_PROVIDERS_UNAVAILABLE";
   throw error;
