@@ -31,9 +31,9 @@ test("signs installation cookies and rejects tampering", () => {
   assert.equal(auth.readInstallationId(value + "tampered"), null);
 });
 
-test("rejects malformed installation identifiers", () => {
+test("rejects malformed installation identifiers", async () => {
   assert.throws(() => auth.createInstallationCookie("1/../2"), /Invalid GitHub installation ID/);
-  assert.throws(() => auth.createInstallationToken("not-an-id"), /valid GitHub installation/);
+  await assert.rejects(auth.createInstallationToken("not-an-id"), /valid GitHub installation/);
 });
 
 test("creates a GitHub App JWT with an eight-minute expiry window", () => {
