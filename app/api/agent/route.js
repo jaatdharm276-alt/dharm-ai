@@ -4,7 +4,7 @@ import { calculateSafely } from "../../../lib/orion-tools.mjs";
 import { convertUnits } from "../../../lib/orion-units.mjs";
 import { analyzeText } from "../../../lib/orion-text.mjs";
 import { getExternalSearchPolicy } from "../../../lib/orion-cost-policy.mjs";
-import { buildTavilySearchRequest, normalizeTavilySearchResults, normalizeBingRssResults } from "../../../lib/orion-search.mjs";
+import { buildTavilySearchRequest, normalizeTavilySearchResults, normalizeBingRssResults, upgradeExplicitHostUrls } from "../../../lib/orion-search.mjs";
 import { fetchWithRetry } from "../../../lib/orion-retry.mjs";
 import { runSpecialistsInParallel } from "../../../lib/orion-agent-coordination.mjs";
 import { buildPartialRecoveryAnswer } from "../../../lib/orion-agent-recovery.mjs";
@@ -261,7 +261,7 @@ async function searchWeb(query, signal, objective = "") {
         limit: SEARCH_POLICY.maxResults,
         accessMode: SEARCH_POLICY.authMode,
       });
-      const relevantResults = filterExplicitlyRequestedHosts(filterRelevantAgentSources(normalized.results, objective), objective);
+      const relevantResults = filterExplicitlyRequestedHosts(filterRelevantAgentSources(upgradeExplicitHostUrls(normalized.results, objective), objective), objective);
       if (relevantResults.length) {
         const enrichedResults = await enrichSearchResultsWithPageContent(relevantResults, signal);
         return { ...normalized, results: enrichedResults };
@@ -318,7 +318,7 @@ async function searchWeb(query, signal, objective = "") {
         limit: SEARCH_POLICY.maxResults,
         provider: provider.name,
       });
-      const relevantResults = filterExplicitlyRequestedHosts(filterRelevantAgentSources(fallback.results, objective), objective);
+      const relevantResults = filterExplicitlyRequestedHosts(filterRelevantAgentSources(upgradeExplicitHostUrls(fallback.results, objective), objective), objective);
       if (relevantResults.length) {
         const enrichedResults = await enrichSearchResultsWithPageContent(relevantResults, signal);
         return { ...fallback, results: enrichedResults, fallbackReason: tavilyFailure };
