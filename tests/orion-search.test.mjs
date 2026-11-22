@@ -69,3 +69,26 @@ test("prefers extracted full-page content and marks its evidence mode", () => {
   assert.equal(output.results[0].content, "Full official page content with agency role.");
   assert.equal(output.results[0].contentMode, "full_page");
 });
+
+
+test("upgrades HTTP URLs only for an explicitly requested official host", async () => {
+  const { upgradeExplicitHostUrls } = await import("../lib/orion-search.mjs");
+  const results = upgradeExplicitHostUrls([
+    { title: "Official portal", url: "http://www.india.gov.in/services" },
+    { title: "Other domain", url: "http://example.org/page" },
+    { title: "Already secure", url: "https://india.gov.in/" },
+    { title: "Custom port", url: "http://india.gov.in:8080/" },
+  ], "Use only india.gov.in as the official source.");
+  assert.equal(results[0].url, "https://www.india.gov.in/services");
+  assert.equal(results[0].urlUpgraded, true);
+  assert.equal(results[0].originalUrlProtocol, "http");
+  assert.equal(results[1].url, "http://example.org/page");
+  assert.equal(results[2].url, "https://india.gov.in/");
+  assert.equal(results[3].url, "http://india.gov.in:8080/");
+});
+
+test("does not upgrade arbitrary HTTP URLs when no host is explicitly requested", async () => {
+  const { upgradeExplicitHostUrls } = await import("../lib/orion-search.mjs");
+  const results = upgradeExplicitHostUrls([{ url: "http://india.gov.in/" }], "Find government services in India.");
+  assert.equal(results[0].url, "http://india.gov.in/");
+});
