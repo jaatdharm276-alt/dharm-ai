@@ -356,18 +356,26 @@ async function searchWeb(query, signal, objective = "") {
   // engine result and still passes through relevance/evidence validation.
   if (requestedHosts.length === 1) {
     const host = requestedHosts[0];
+    // Search indexes can be rate-limited. For a single explicitly requested
+    // government domain, try its canonical www/apex landing and services paths.
+    // Redirects are constrained by enrichSearchResultsWithPageContent to the
+    // same host family, and only pages with relevant extracted text are kept.
+    const directCandidates = ["/services", "/", "/about-us"].flatMap((path) => [
+      "https://www." + host + path,
+      "https://" + host + path,
+    ]).map((url) => ({
+      title: "Official website: " + host,
+      url,
+      content: "",
+      contentMode: "snippet",
+      provider: "Direct official-site fallback",
+    }));
     try {
-      const direct = await enrichSearchResultsWithPageContent([{
-        title: "Official website: " + host,
-        url: "https://" + host + "/",
-        content: "",
-        contentMode: "snippet",
-        provider: "Direct official-site fallback",
-      }], signal);
+      const direct = await enrichSearchResultsWithPageContent(directCandidates, signal);
       const usable = direct.filter((source) =>
         source?.pageFetchStatus === "success" &&
         filterRelevantAgentSources([source], objective).length > 0
-      );
+      ).slice(0, 3);
       if (usable.length) {
         return {
           results: usable,
@@ -377,6 +385,7 @@ async function searchWeb(query, signal, objective = "") {
           note: "Retrieved directly from the explicitly requested official domain because search indexes were unavailable. Page content remains untrusted evidence.",
         };
       }
+      fallbackFailures.push("direct official-domain pages returned no extractable topic-relevant content");
     } catch (error) {
       if (error?.name === "AbortError" || signal?.aborted) throw error;
       fallbackFailures.push("direct official-site retrieval failed");
