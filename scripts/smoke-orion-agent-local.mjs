@@ -20,7 +20,7 @@ try {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      message: "What is the exact title of the Services page on the National Portal of India? Use only india.gov.in, make no other factual claims, and cite the exact HTTPS page URL.",
+      message: "Name one category explicitly shown in an india.gov.in page title. Use only india.gov.in, make no other factual claims beyond the page title, and cite that exact HTTPS page URL.",
       messages: [],
       memories: [],
     }),
