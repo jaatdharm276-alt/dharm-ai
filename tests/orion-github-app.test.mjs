@@ -31,7 +31,12 @@ test("signs installation cookies and rejects tampering", () => {
   assert.equal(auth.readInstallationId(value + "tampered"), null);
 });
 
-test("rejects malformed installation identifiers", async () => {
+test("accepts numeric GitHub installation IDs and rejects malformed identifiers", async () => {
+  assert.equal(auth.isValidGitHubInstallationId("987654321"), true);
+  assert.equal(auth.isValidGitHubInstallationId("1"), true);
+  assert.equal(auth.isValidGitHubInstallationId(""), false);
+  assert.equal(auth.isValidGitHubInstallationId("not-an-id"), false);
+  assert.equal(auth.isValidGitHubInstallationId("1/../2"), false);
   assert.throws(() => auth.createInstallationCookie("1/../2"), /Invalid GitHub installation ID/);
   await assert.rejects(auth.createInstallationToken("not-an-id"), /valid GitHub installation/);
 });
