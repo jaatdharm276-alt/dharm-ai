@@ -21,29 +21,38 @@ const controller = new AbortController();
 const timeout = setTimeout(() => controller.abort(), 150_000);
 
 try {
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(process.env.VERCEL_AUTOMATION_BYPASS_SECRET
-        ? { "x-vercel-protection-bypass": process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
-        : {}),
-    },
-    body: JSON.stringify({
-      message: "What is the National Portal of India and what services does it provide? Use the official India government portal as the source and cite its exact URL.",
-      messages: [],
-      memories: [],
-    }),
-    signal: controller.signal,
-  });
-
-  if (!response.ok) {
-    const detail = (await response.text()).slice(0, 800);
-    throw new Error("ORION Agent API returned HTTP " + response.status + ": " + detail);
+  let response;
+  let deploymentSha = "";
+  // Branch aliases can briefly serve the previous Preview deployment while
+  // Vercel propagates a new alias. Check the response header before consuming
+  // the stream, cancel stale responses, and retry without accepting old code.
+  for (let attempt = 1; attempt <= 12; attempt += 1) {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+          ? { "x-vercel-protection-bypass": process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
+          : {}),
+      },
+      body: JSON.stringify({
+        message: "What is the National Portal of India and what services does it provide? Use the official India government portal as the source and cite its exact URL.",
+        messages: [],
+        memories: [],
+      }),
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const detail = (await response.text()).slice(0, 800);
+      throw new Error("ORION Agent API returned HTTP " + response.status + ": " + detail);
+    }
+    if (!response.body) throw new Error("ORION Agent API did not return a response stream.");
+    deploymentSha = response.headers.get("x-orion-deployment-sha") || "";
+    if (deploymentSha.toLowerCase() === expectedDeploymentSha.toLowerCase()) break;
+    await response.body.cancel().catch(() => {});
+    if (attempt === 12) assertDeploymentCommit(deploymentSha, expectedDeploymentSha);
+    await new Promise((resolve) => setTimeout(resolve, 5000));
   }
-  if (!response.body) throw new Error("ORION Agent API did not return a response stream.");
-
-  const deploymentSha = response.headers.get("x-orion-deployment-sha");
   assertDeploymentCommit(deploymentSha, expectedDeploymentSha);
 
   const reader = response.body.getReader();
