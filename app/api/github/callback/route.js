@@ -14,7 +14,6 @@ export async function GET(request) {
     const stateCookie = request.cookies.get("orion_github_oauth_state")?.value;
 
     if (!isValidGitHubInstallationId(installationId) || !state || !verifyGitHubState(state, stateCookie)) {
-        !state || !verifyGitHubState(state, stateCookie)) {
       const response = NextResponse.redirect(new URL("/agents?github=invalid_state", origin));
       response.headers.append("Set-Cookie", clearGitHubStateCookie());
       return response;
