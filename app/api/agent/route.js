@@ -185,24 +185,43 @@ async function enrichSearchResultsWithPageContent(results, signal) {
     if (!isSafePublicPageUrl(source?.url) || signal?.aborted) return source;
     try {
       const pageSignal = AbortSignal.any([signal || new AbortController().signal, AbortSignal.timeout(5_000)]);
-      const response = await fetch(source.url, {
-        method: "GET",
-        headers: { Accept: "text/html,application/xhtml+xml;q=0.9", "User-Agent": "ORION-AI/1.0 (+https://dharm-ai.vercel.app)" },
-        cache: "no-store",
-        redirect: "error",
-        signal: pageSignal,
-      });
-      if (!response.ok || !/text\/html|application\/xhtml\+xml/i.test(response.headers.get("content-type") || "")) return source;
+      const originalUrl = new URL(source.url);
+      let currentUrl = originalUrl;
+      let response;
+      // Follow only HTTPS redirects that remain on the same host or its
+      // apex/subdomain pair. Never allow a public page to redirect server-side
+      // retrieval to an unrelated host or a private/non-HTTPS destination.
+      for (let redirectCount = 0; redirectCount <= 3; redirectCount += 1) {
+        response = await fetch(currentUrl.toString(), {
+          method: "GET",
+          headers: { Accept: "text/html,application/xhtml+xml;q=0.9", "User-Agent": "ORION-AI/1.0 (+https://dharm-ai.vercel.app)" },
+          cache: "no-store",
+          redirect: "manual",
+          signal: pageSignal,
+        });
+        if (![301, 302, 303, 307, 308].includes(response.status)) break;
+        const location = response.headers.get("location");
+        if (!location || redirectCount === 3) return source;
+        const nextUrl = new URL(location, currentUrl);
+        const originalHost = originalUrl.hostname.toLowerCase();
+        const nextHost = nextUrl.hostname.toLowerCase();
+        const sameHostFamily = nextHost === originalHost ||
+          nextHost.endsWith("." + originalHost) ||
+          originalHost.endsWith("." + nextHost);
+        if (!isSafePublicPageUrl(nextUrl.toString()) || !sameHostFamily) return source;
+        currentUrl = nextUrl;
+      }
+      if (!response?.ok || !/text\\/html|application\\/xhtml\\+xml/i.test(response.headers.get("content-type") || "")) return source;
       const html = (await response.text()).slice(0, 350_000);
       const text = decodePageEntities(html
-        .replace(/<!--[\s\S]*?-->/g, " ")
-        .replace(/<(script|style|noscript|svg|nav|footer|header)\b[^>]*>[\s\S]*?<\/\1>/gi, " ")
-        .replace(/<\/(p|div|li|h[1-6]|article|section|tr)>/gi, "\n")
+        .replace(/<!--[\\s\\S]*?-->/g, " ")
+        .replace(/<(script|style|noscript|svg|nav|footer|header)\\b[^>]*>[\\s\\S]*?<\\/\\1>/gi, " ")
+        .replace(/<\\/(p|div|li|h[1-6]|article|section|tr)>/gi, "\\n")
         .replace(/<[^>]+>/g, " ")
-        .replace(/\s+/g, " ")
+        .replace(/\\s+/g, " ")
       ).trim().slice(0, 5_000);
       if (text.length < 160) return source;
-      return { ...source, content: text, contentMode: "full_page", pageFetchStatus: "success" };
+      return { ...source, url: currentUrl.toString(), resolvedFrom: source.url, content: text, contentMode: "full_page", pageFetchStatus: "success" };
     } catch (error) {
       if (signal?.aborted) throw error;
       return source;
