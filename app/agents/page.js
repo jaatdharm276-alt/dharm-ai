@@ -21,6 +21,18 @@ export default function AgentControlRoom() {
   const controllerRef = useRef(null);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const connectionResult = params.get("github");
+    if (connectionResult === "connected") {
+      setGithub((current) => ({ ...current, error: "GitHub connection verified. Refreshing repository access…" }));
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (connectionResult === "invalid_state") {
+      setGithub((current) => ({ ...current, error: "GitHub did not complete the secure callback. Start Connect GitHub again from this page." }));
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (connectionResult === "configuration_error") {
+      setGithub((current) => ({ ...current, error: "GitHub returned to ORION, but the server could not verify the installation. Check the GitHub App credentials and installation permissions." }));
+      window.history.replaceState({}, "", window.location.pathname);
+    }
     let active = true;
     fetch("/api/github/status", { cache: "no-store" })
       .then(async (response) => ({ response, data: await response.json() }))
@@ -32,8 +44,13 @@ export default function AgentControlRoom() {
   }, []);
 
   async function disconnectGitHub() {
-    await fetch("/api/github/disconnect", { method: "POST" });
-    setGithub({ loading: false, connected: false, repositories: [], error: "" });
+    try {
+      const response = await fetch("/api/github/disconnect", { method: "POST" });
+      if (!response.ok) throw new Error("GitHub disconnect request failed.");
+      setGithub({ loading: false, connected: false, repositories: [], error: "" });
+    } catch {
+      setGithub((current) => ({ ...current, error: "Could not disconnect GitHub. Please retry." }));
+    }
   }
 
   async function startTask(event) {
