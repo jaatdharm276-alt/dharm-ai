@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { clearGitHubStateCookie, createInstallationCookie, createInstallationToken, verifyGitHubState } from "../../../../lib/orion-github-app.mjs";
+import { clearGitHubStateCookie, createInstallationCookie, createInstallationToken, isValidGitHubInstallationId, verifyGitHubState } from "../../../../lib/orion-github-app.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
