@@ -211,14 +211,14 @@ async function enrichSearchResultsWithPageContent(results, signal) {
         if (!isSafePublicPageUrl(nextUrl.toString()) || !sameHostFamily) return source;
         currentUrl = nextUrl;
       }
-      if (!response?.ok || !/text\\/html|application\\/xhtml\\+xml/i.test(response.headers.get("content-type") || "")) return source;
+      if (!response?.ok || !/text\/html|application\/xhtml\+xml/i.test(response.headers.get("content-type") || "")) return source;
       const html = (await response.text()).slice(0, 350_000);
       const text = decodePageEntities(html
-        .replace(/<!--[\\s\\S]*?-->/g, " ")
-        .replace(/<(script|style|noscript|svg|nav|footer|header)\\b[^>]*>[\\s\\S]*?<\\/\\1>/gi, " ")
-        .replace(/<\\/(p|div|li|h[1-6]|article|section|tr)>/gi, "\\n")
+        .replace(/<!--[\s\S]*?-->/g, " ")
+        .replace(/<(script|style|noscript|svg|nav|footer|header)\b[^>]*>[\s\S]*?<\/\1>/gi, " ")
+        .replace(/<\/(p|div|li|h[1-6]|article|section|tr)>/gi, "\n")
         .replace(/<[^>]+>/g, " ")
-        .replace(/\\s+/g, " ")
+        .replace(/\s+/g, " ")
       ).trim().slice(0, 5_000);
       if (text.length < 160) return source;
       return { ...source, url: currentUrl.toString(), resolvedFrom: source.url, content: text, contentMode: "full_page", pageFetchStatus: "success" };
