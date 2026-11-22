@@ -36,7 +36,7 @@ try {
           : {}),
       },
       body: JSON.stringify({
-        message: "What is the National Portal of India and what services does it provide? Use only india.gov.in as the official India government source and cite its exact HTTPS URL.",
+        message: "What is the exact title of the Services page on the National Portal of India? Use only india.gov.in, make no other factual claims, and cite the exact HTTPS page URL.",
         messages: [],
         memories: [],
       }),
