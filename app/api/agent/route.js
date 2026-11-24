@@ -13,7 +13,7 @@ import { getClientIdentifier } from "../../../lib/orion-rate-limit.mjs";
 import { getCreatorAnswer } from "../../../lib/orion-identity.mjs";
 import { getHanumanChalisaResponse } from "../../../lib/orion-hanuman-chalisa.mjs";
 import { validateAgentToolArgs, summarizeToolResult } from "../../../lib/orion-agent-guardrails.mjs";
-import { appendRelevantSourceCitations, buildAgentEvidenceAnswer, buildObjectiveSearchQuery, filterRelevantAgentSources } from "../../../lib/orion-agent-evidence.mjs";
+import { appendRelevantSourceCitations, buildAgentEvidenceAnswer, buildObjectiveSearchQuery, enrichThenFilterAgentSources, filterRelevantAgentSources } from "../../../lib/orion-agent-evidence.mjs";
 import { buildVerifierEvidenceSummary, parseVerifierOutput, runVerifierWithRetry } from "../../../lib/orion-agent-verifier.mjs";
 import { getAvailableAgentTools } from "../../../lib/orion-agent-tools.mjs";
 import { createAgentDeadlineSignal, isAgentDeadlineExceeded } from "../../../lib/orion-agent-deadline.mjs";
@@ -280,10 +280,10 @@ async function searchWeb(query, signal, objective = "") {
         limit: SEARCH_POLICY.maxResults,
         accessMode: SEARCH_POLICY.authMode,
       });
-      const relevantResults = filterExplicitlyRequestedHosts(filterRelevantAgentSources(upgradeExplicitHostUrls(normalized.results, objective), objective), objective);
+      const eligibleResults = filterExplicitlyRequestedHosts(upgradeExplicitHostUrls(normalized.results, objective), objective);
+      const relevantResults = await enrichThenFilterAgentSources(eligibleResults, objective, (candidates) => enrichSearchResultsWithPageContent(candidates, signal));
       if (relevantResults.length) {
-        const enrichedResults = await enrichSearchResultsWithPageContent(relevantResults, signal);
-        return { ...normalized, results: enrichedResults };
+        return { ...normalized, results: relevantResults };
       }
       tavilyFailure = normalized.results.length
         ? "Tavily returned no topic-relevant sources."
@@ -337,10 +337,10 @@ async function searchWeb(query, signal, objective = "") {
         limit: SEARCH_POLICY.maxResults,
         provider: provider.name,
       });
-      const relevantResults = filterExplicitlyRequestedHosts(filterRelevantAgentSources(upgradeExplicitHostUrls(fallback.results, objective), objective), objective);
+      const eligibleResults = filterExplicitlyRequestedHosts(upgradeExplicitHostUrls(fallback.results, objective), objective);
+      const relevantResults = await enrichThenFilterAgentSources(eligibleResults, objective, (candidates) => enrichSearchResultsWithPageContent(candidates, signal));
       if (relevantResults.length) {
-        const enrichedResults = await enrichSearchResultsWithPageContent(relevantResults, signal);
-        return { ...fallback, results: enrichedResults, fallbackReason: tavilyFailure };
+        return { ...fallback, results: relevantResults, fallbackReason: tavilyFailure };
       }
       fallbackFailures.push(provider.name + (fallback.results.length
         ? " returned no topic-relevant sources"
