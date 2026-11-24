@@ -121,6 +121,28 @@ test("does not duplicate a source URL already present in the answer", () => {
 });
 
 
+test("enriches search candidates before applying topical relevance filtering", async () => {
+  const candidates = [
+    { title: "Services | National Portal of India", snippet: "Official services portal", url: "https://www.india.gov.in/services" },
+    { title: "Unrelated sports results", snippet: "Cricket scores", url: "https://sports.example.org/" },
+  ];
+  let enrichmentSawAllCandidates = false;
+  const relevant = await (await import("../lib/orion-agent-evidence.mjs")).enrichThenFilterAgentSources(
+    candidates,
+    "Name one category listed under Services by Category on india.gov.in",
+    async (sources) => {
+      enrichmentSawAllCandidates = sources.length === 2;
+      return [
+        { ...sources[0], contentMode: "full_page", content: "Services by Category Education & Learning Health & Wellness" },
+        { ...sources[1], contentMode: "full_page", content: "Cricket scores and sports fixtures" },
+      ];
+    },
+  );
+  assert.equal(enrichmentSawAllCandidates, true);
+  assert.equal(relevant.length, 1);
+  assert.match(relevant[0].content, /Education & Learning/);
+});
+
 test("filters irrelevant search results before they are sent to the model", () => {
   const sources = filterRelevantAgentSources([
     { title: "Press Information Bureau", content: "The Press Information Bureau is the nodal agency of Government of India." },
