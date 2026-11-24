@@ -4,7 +4,7 @@ import { calculateSafely } from "../../../lib/orion-tools.mjs";
 import { convertUnits } from "../../../lib/orion-units.mjs";
 import { analyzeText } from "../../../lib/orion-text.mjs";
 import { getExternalSearchPolicy } from "../../../lib/orion-cost-policy.mjs";
-import { buildTavilySearchRequest, normalizeTavilySearchResults, normalizeBingRssResults } from "../../../lib/orion-search.mjs";
+import { buildTavilySearchRequest, normalizeTavilySearchResults, normalizeBingRssResults, upgradeExplicitHostUrls } from "../../../lib/orion-search.mjs";
 import { fetchWithRetry } from "../../../lib/orion-retry.mjs";
 import { runSpecialistsInParallel } from "../../../lib/orion-agent-coordination.mjs";
 import { buildPartialRecoveryAnswer } from "../../../lib/orion-agent-recovery.mjs";
@@ -13,7 +13,7 @@ import { getClientIdentifier } from "../../../lib/orion-rate-limit.mjs";
 import { getCreatorAnswer } from "../../../lib/orion-identity.mjs";
 import { getHanumanChalisaResponse } from "../../../lib/orion-hanuman-chalisa.mjs";
 import { validateAgentToolArgs, summarizeToolResult } from "../../../lib/orion-agent-guardrails.mjs";
-import { appendRelevantSourceCitations, buildAgentEvidenceAnswer, buildObjectiveSearchQuery, filterRelevantAgentSources } from "../../../lib/orion-agent-evidence.mjs";
+import { appendRelevantSourceCitations, buildAgentEvidenceAnswer, buildObjectiveSearchQuery, enrichThenFilterAgentSources, filterRelevantAgentSources } from "../../../lib/orion-agent-evidence.mjs";
 import { buildVerifierEvidenceSummary, parseVerifierOutput, runVerifierWithRetry } from "../../../lib/orion-agent-verifier.mjs";
 import { getAvailableAgentTools } from "../../../lib/orion-agent-tools.mjs";
 import { createAgentDeadlineSignal, isAgentDeadlineExceeded } from "../../../lib/orion-agent-deadline.mjs";
@@ -184,15 +184,34 @@ async function enrichSearchResultsWithPageContent(results, signal) {
   return Promise.all(candidates.map(async (source) => {
     if (!isSafePublicPageUrl(source?.url) || signal?.aborted) return source;
     try {
-      const pageSignal = AbortSignal.any([signal || new AbortController().signal, AbortSignal.timeout(5_000)]);
-      const response = await fetch(source.url, {
-        method: "GET",
-        headers: { Accept: "text/html,application/xhtml+xml;q=0.9", "User-Agent": "ORION-AI/1.0 (+https://dharm-ai.vercel.app)" },
-        cache: "no-store",
-        redirect: "error",
-        signal: pageSignal,
-      });
-      if (!response.ok || !/text\/html|application\/xhtml\+xml/i.test(response.headers.get("content-type") || "")) return source;
+      const pageSignal = AbortSignal.any([signal || new AbortController().signal, AbortSignal.timeout(12_000)]);
+      const originalUrl = new URL(source.url);
+      let currentUrl = originalUrl;
+      let response;
+      // Follow only HTTPS redirects that remain on the same host or its
+      // apex/subdomain pair. Never allow a public page to redirect server-side
+      // retrieval to an unrelated host or a private/non-HTTPS destination.
+      for (let redirectCount = 0; redirectCount <= 3; redirectCount += 1) {
+        response = await fetch(currentUrl.toString(), {
+          method: "GET",
+          headers: { Accept: "text/html,application/xhtml+xml;q=0.9", "Accept-Language": "en-IN,en;q=0.9", "User-Agent": "Mozilla/5.0 (compatible; ORION-AI/1.0; +https://dharm-ai.vercel.app)" },
+          cache: "no-store",
+          redirect: "manual",
+          signal: pageSignal,
+        });
+        if (![301, 302, 303, 307, 308].includes(response.status)) break;
+        const location = response.headers.get("location");
+        if (!location || redirectCount === 3) return source;
+        const nextUrl = new URL(location, currentUrl);
+        const originalHost = originalUrl.hostname.toLowerCase();
+        const nextHost = nextUrl.hostname.toLowerCase();
+        const sameHostFamily = nextHost === originalHost ||
+          nextHost.endsWith("." + originalHost) ||
+          originalHost.endsWith("." + nextHost);
+        if (!isSafePublicPageUrl(nextUrl.toString()) || !sameHostFamily) return source;
+        currentUrl = nextUrl;
+      }
+      if (!response?.ok || !/text\/html|application\/xhtml\+xml/i.test(response.headers.get("content-type") || "")) return source;
       const html = (await response.text()).slice(0, 350_000);
       const text = decodePageEntities(html
         .replace(/<!--[\s\S]*?-->/g, " ")
@@ -202,7 +221,7 @@ async function enrichSearchResultsWithPageContent(results, signal) {
         .replace(/\s+/g, " ")
       ).trim().slice(0, 5_000);
       if (text.length < 160) return source;
-      return { ...source, content: text, contentMode: "full_page", pageFetchStatus: "success" };
+      return { ...source, url: currentUrl.toString(), resolvedFrom: source.url, content: text, contentMode: "full_page", pageFetchStatus: "success" };
     } catch (error) {
       if (signal?.aborted) throw error;
       return source;
@@ -261,10 +280,10 @@ async function searchWeb(query, signal, objective = "") {
         limit: SEARCH_POLICY.maxResults,
         accessMode: SEARCH_POLICY.authMode,
       });
-      const relevantResults = filterExplicitlyRequestedHosts(filterRelevantAgentSources(normalized.results, objective), objective);
+      const eligibleResults = filterExplicitlyRequestedHosts(upgradeExplicitHostUrls(normalized.results, objective), objective);
+      const relevantResults = await enrichThenFilterAgentSources(eligibleResults, objective, (candidates) => enrichSearchResultsWithPageContent(candidates, signal));
       if (relevantResults.length) {
-        const enrichedResults = await enrichSearchResultsWithPageContent(relevantResults, signal);
-        return { ...normalized, results: enrichedResults };
+        return { ...normalized, results: relevantResults };
       }
       tavilyFailure = normalized.results.length
         ? "Tavily returned no topic-relevant sources."
@@ -318,10 +337,10 @@ async function searchWeb(query, signal, objective = "") {
         limit: SEARCH_POLICY.maxResults,
         provider: provider.name,
       });
-      const relevantResults = filterExplicitlyRequestedHosts(filterRelevantAgentSources(fallback.results, objective), objective);
+      const eligibleResults = filterExplicitlyRequestedHosts(upgradeExplicitHostUrls(fallback.results, objective), objective);
+      const relevantResults = await enrichThenFilterAgentSources(eligibleResults, objective, (candidates) => enrichSearchResultsWithPageContent(candidates, signal));
       if (relevantResults.length) {
-        const enrichedResults = await enrichSearchResultsWithPageContent(relevantResults, signal);
-        return { ...fallback, results: enrichedResults, fallbackReason: tavilyFailure };
+        return { ...fallback, results: relevantResults, fallbackReason: tavilyFailure };
       }
       fallbackFailures.push(provider.name + (fallback.results.length
         ? " returned no topic-relevant sources"
@@ -329,6 +348,47 @@ async function searchWeb(query, signal, objective = "") {
     } catch (error) {
       if (error?.name === "AbortError" || signal?.aborted) throw error;
       fallbackFailures.push(provider.name + " request failed");
+    }
+  }
+  // If a user explicitly restricts the search to an official domain and all
+  // search indexes are unavailable, retrieve that domain's public homepage
+  // directly as a clearly labeled source. This is not represented as a search
+  // engine result and still passes through relevance/evidence validation.
+  if (requestedHosts.length === 1) {
+    const host = requestedHosts[0];
+    // Search indexes can be rate-limited. For a single explicitly requested
+    // government domain, try its canonical www/apex landing and services paths.
+    // Redirects are constrained by enrichSearchResultsWithPageContent to the
+    // same host family, and only pages with relevant extracted text are kept.
+    const directCandidates = ["/services", "/", "/about-us"].flatMap((path) => [
+      "https://www." + host + path,
+      "https://" + host + path,
+    ]).map((url) => ({
+      title: "Official website: " + host,
+      url,
+      content: "",
+      contentMode: "snippet",
+      provider: "Direct official-site fallback",
+    }));
+    try {
+      const direct = await enrichSearchResultsWithPageContent(directCandidates, signal);
+      const usable = direct.filter((source) =>
+        source?.pageFetchStatus === "success" &&
+        filterRelevantAgentSources([source], objective).length > 0
+      ).slice(0, 3);
+      if (usable.length) {
+        return {
+          results: usable,
+          provider: "Direct official-site fallback",
+          accessMode: "official-domain-fallback",
+          fallbackReason: tavilyFailure + "; " + fallbackFailures.join("; "),
+          note: "Retrieved directly from the explicitly requested official domain because search indexes were unavailable. Page content remains untrusted evidence.",
+        };
+      }
+      fallbackFailures.push("direct official-domain pages returned no extractable topic-relevant content");
+    } catch (error) {
+      if (error?.name === "AbortError" || signal?.aborted) throw error;
+      fallbackFailures.push("direct official-site retrieval failed");
     }
   }
   const error = new Error("Web search providers unavailable (Tavily: " + tavilyFailure + "; " + fallbackFailures.join("; ") + ").");
@@ -502,7 +562,7 @@ async function executeTool(name, rawArgs, context) {
     const results = await runSpecialistsInParallel(
       roles,
       args.task,
-      (role, task) => runSpecialist(role, task, context.objective, context.signal),
+      (role, task, workerContext) => runSpecialist(role, task, context.objective, workerContext?.signal || context.signal),
     );
     return { mode: "parallel", requested: roles.length, completed: results.filter((item) => typeof item.findings === "string").length, results };
   }

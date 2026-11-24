@@ -21,29 +21,38 @@ const controller = new AbortController();
 const timeout = setTimeout(() => controller.abort(), 150_000);
 
 try {
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(process.env.VERCEL_AUTOMATION_BYPASS_SECRET
-        ? { "x-vercel-protection-bypass": process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
-        : {}),
-    },
-    body: JSON.stringify({
-      message: "भारत के Press Information Bureau (PIB) की भूमिका क्या है? केवल pib.gov.in के आधिकारिक स्रोत से संक्षेप में बताएं और उसका URL उद्धृत करें।",
-      messages: [],
-      memories: [],
-    }),
-    signal: controller.signal,
-  });
-
-  if (!response.ok) {
-    const detail = (await response.text()).slice(0, 800);
-    throw new Error("ORION Agent API returned HTTP " + response.status + ": " + detail);
+  let response;
+  let deploymentSha = "";
+  // Branch aliases can briefly serve the previous Preview deployment while
+  // Vercel propagates a new alias. Check the response header before consuming
+  // the stream, cancel stale responses, and retry without accepting old code.
+  for (let attempt = 1; attempt <= 12; attempt += 1) {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+          ? { "x-vercel-protection-bypass": process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
+          : {}),
+      },
+      body: JSON.stringify({
+        message: "According to the official india.gov.in/services page, which campaign does the page say played a pivotal role in promoting online accessibility? Answer with the campaign name only, make no other factual claims, and cite the exact HTTPS page URL.",
+        messages: [],
+        memories: [],
+      }),
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const detail = (await response.text()).slice(0, 800);
+      throw new Error("ORION Agent API returned HTTP " + response.status + ": " + detail);
+    }
+    if (!response.body) throw new Error("ORION Agent API did not return a response stream.");
+    deploymentSha = response.headers.get("x-orion-deployment-sha") || "";
+    if (deploymentSha.toLowerCase() === expectedDeploymentSha.toLowerCase()) break;
+    await response.body.cancel().catch(() => {});
+    if (attempt === 12) assertDeploymentCommit(deploymentSha, expectedDeploymentSha);
+    await new Promise((resolve) => setTimeout(resolve, 5000));
   }
-  if (!response.body) throw new Error("ORION Agent API did not return a response stream.");
-
-  const deploymentSha = response.headers.get("x-orion-deployment-sha");
   assertDeploymentCommit(deploymentSha, expectedDeploymentSha);
 
   const reader = response.body.getReader();
@@ -85,6 +94,10 @@ try {
     }
   }
 
+  if (!/Digital India/i.test(answer)) {
+    throw new Error("Official-page answer did not identify the campaign stated in the page content. Observed answer: " + answer.slice(0, 800));
+  }
+
   let evidence;
   try {
     evidence = assertVerifiedAgentResponse({
@@ -92,7 +105,7 @@ try {
       toolFailed,
       searchSucceeded,
       answer,
-      expectedHost: "pib.gov.in",
+      expectedHost: "india.gov.in",
     });
   } catch (error) {
     throw new Error(

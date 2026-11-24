@@ -20,7 +20,7 @@ try {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      message: "भारत के Press Information Bureau (PIB) की भूमिका क्या है? केवल pib.gov.in के आधिकारिक स्रोत से संक्षेप में बताएं और उसका URL उद्धृत करें।",
+      message: "According to the official india.gov.in/services page, which campaign does the page say played a pivotal role in promoting online accessibility? Answer with the campaign name only, make no other factual claims, and cite the exact HTTPS page URL.",
       messages: [],
       memories: [],
     }),
@@ -79,12 +79,16 @@ try {
 
   console.log(JSON.stringify({ status: "diagnostic", terminalStage, searchSucceeded, observedStages: [...new Set(stages)], statusEvents, answerPreview: answer.slice(0, 500) }, null, 2));
 
+  if (!/Digital India/i.test(answer)) {
+    throw new Error("Official-page answer did not identify the campaign stated in the page content. Observed answer: " + answer.slice(0, 800));
+  }
+
   const evidence = assertVerifiedAgentResponse({
     terminalStage,
     toolFailed,
     searchSucceeded,
     answer,
-    expectedHost: "pib.gov.in",
+    expectedHost: "india.gov.in",
   });
 
   console.log(JSON.stringify({

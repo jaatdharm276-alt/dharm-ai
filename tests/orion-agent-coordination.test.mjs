@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { runSpecialistsInParallel, MAX_PARALLEL_SPECIALISTS } from "../lib/orion-agent-coordination.mjs";
+import {
+  runAgentTeam,
+  runSpecialistsInParallel,
+  getAgentActionPolicy,
+  MAX_PARALLEL_SPECIALISTS,
+} from "../lib/orion-agent-coordination.mjs";
 
 test("runs distinct specialists concurrently and preserves requested result order", async () => {
   const started = [];
@@ -26,17 +31,47 @@ test("isolates an individual specialist failure", async () => {
 });
 
 test("reports cancellation without failing other specialists", async () => {
-  const results = await runSpecialistsInParallel(["planner", "verifier"], "Plan", async (role) => {
-    if (role === "planner") throw Object.assign(new Error("cancelled"), { name: "AbortError" });
-    return { findings: "done" };
-  });
-  assert.deepEqual(results[0], { role: "planner", error: "Specialist cancelled." });
-  assert.deepEqual(results[1], { role: "verifier", findings: "done" });
+  const controller = new AbortController();
+  controller.abort();
+  const results = await runAgentTeam(["planner", "verifier"], "Plan", async () => ({ findings: "done" }), { signal: controller.signal });
+  assert.deepEqual(results, [
+    { role: "planner", status: "cancelled", error: "Specialist cancelled." },
+    { role: "verifier", status: "cancelled", error: "Specialist cancelled." },
+  ]);
 });
 
-test("rejects too few, too many, or duplicate specialists", async () => {
+test("rejects unsupported roles, empty tasks, and too many specialists", async () => {
   assert.equal(MAX_PARALLEL_SPECIALISTS, 3);
-  await assert.rejects(runSpecialistsInParallel(["coder"], "Task", async () => ({})), /two or three/);
-  await assert.rejects(runSpecialistsInParallel(["a", "b", "c", "d"], "Task", async () => ({})), /two or three/);
-  await assert.rejects(runSpecialistsInParallel(["coder", "coder"], "Task", async () => ({})), /unique/);
+  await assert.rejects(runAgentTeam(["coder"], "Task", async () => ({})), /two or three/);
+  await assert.rejects(runAgentTeam(["a", "b", "c", "d"], "Task", async () => ({})), /two or three/);
+  await assert.rejects(runAgentTeam(["coder", "coder"], "Task", async () => ({})), /unique/);
+  await assert.rejects(runAgentTeam(["coder", "verifier"], " ", async () => ({})), /non-empty/);
+  await assert.rejects(runAgentTeam(["coder", "not_a_role"], "Task", async () => ({})), /not supported/);
+});
+
+test("bounds specialist execution even when a runner ignores cancellation", async () => {
+  const startedAt = Date.now();
+  const results = await runAgentTeam(
+    ["coder", "verifier"],
+    "Check",
+    async () => new Promise(() => {}),
+    { timeoutMs: 1_000 },
+  );
+  assert.ok(Date.now() - startedAt < 2_500);
+  assert.deepEqual(results.map((item) => item.status), ["timed_out", "timed_out"]);
+});
+
+test("limits findings size and reports empty specialist output", async () => {
+  const results = await runAgentTeam(["coder", "verifier"], "Check", async (role) => ({
+    findings: role === "coder" ? "x".repeat(8_000) : "",
+  }));
+  assert.equal(results[0].findings.length, 7_000);
+  assert.deepEqual(results[1], { role: "verifier", status: "failed", error: "Specialist returned no findings." });
+});
+
+test("repository writes and deployments require user approval", () => {
+  assert.equal(getAgentActionPolicy("write_repository").requiresUserApproval, true);
+  assert.equal(getAgentActionPolicy("merge_pull_request").mayExecuteAutomatically, false);
+  assert.equal(getAgentActionPolicy("deploy_production").requiresUserApproval, true);
+  assert.equal(getAgentActionPolicy("read_repository").mayExecuteAutomatically, true);
 });
