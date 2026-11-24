@@ -36,7 +36,7 @@ try {
           : {}),
       },
       body: JSON.stringify({
-        message: "Name one category explicitly shown in an india.gov.in page title. Use only india.gov.in, make no other factual claims beyond the page title, and cite that exact HTTPS page URL.",
+        message: "Name one category listed under “Services by Category” on the india.gov.in/services page. Use only that page, make no other factual claims, and cite its exact HTTPS URL.",
         messages: [],
         memories: [],
       }),
