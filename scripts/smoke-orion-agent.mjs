@@ -94,6 +94,10 @@ try {
     }
   }
 
+  if (!/Digital India/i.test(answer)) {
+    throw new Error("Official-page answer did not identify the campaign stated in the page content. Observed answer: " + answer.slice(0, 800));
+  }
+
   let evidence;
   try {
     evidence = assertVerifiedAgentResponse({
