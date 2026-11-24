@@ -29,6 +29,18 @@ test("accepts a completed answer with a citation on the expected official host",
   assert.deepEqual(result.matchingSourceHosts, ["www.pib.gov.in"]);
 });
 
+test("accepts a concise verified answer when it includes a source and substantive fact", () => {
+  const result = assertVerifiedAgentResponse({
+    terminalStage: "complete",
+    toolFailed: false,
+    searchSucceeded: true,
+    answer: "Digital India campaign. Source: https://services.india.gov.in/page/show/about_us",
+    expectedHost: "india.gov.in",
+  });
+  assert.equal(result.citedSources, 1);
+  assert.deepEqual(result.matchingSourceHosts, ["services.india.gov.in"]);
+});
+
 test("rejects reasoning and verification fallback even when it includes URLs", () => {
   assert.throws(() => assertVerifiedAgentResponse({
     terminalStage: "complete",
