@@ -79,6 +79,10 @@ try {
 
   console.log(JSON.stringify({ status: "diagnostic", terminalStage, searchSucceeded, observedStages: [...new Set(stages)], statusEvents, answerPreview: answer.slice(0, 500) }, null, 2));
 
+  if (!/Digital India/i.test(answer)) {
+    throw new Error("Official-page answer did not identify the campaign stated in the page content. Observed answer: " + answer.slice(0, 800));
+  }
+
   const evidence = assertVerifiedAgentResponse({
     terminalStage,
     toolFailed,
