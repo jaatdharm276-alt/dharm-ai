@@ -184,7 +184,7 @@ async function enrichSearchResultsWithPageContent(results, signal) {
   return Promise.all(candidates.map(async (source) => {
     if (!isSafePublicPageUrl(source?.url) || signal?.aborted) return source;
     try {
-      const pageSignal = AbortSignal.any([signal || new AbortController().signal, AbortSignal.timeout(5_000)]);
+      const pageSignal = AbortSignal.any([signal || new AbortController().signal, AbortSignal.timeout(12_000)]);
       const originalUrl = new URL(source.url);
       let currentUrl = originalUrl;
       let response;
@@ -194,7 +194,7 @@ async function enrichSearchResultsWithPageContent(results, signal) {
       for (let redirectCount = 0; redirectCount <= 3; redirectCount += 1) {
         response = await fetch(currentUrl.toString(), {
           method: "GET",
-          headers: { Accept: "text/html,application/xhtml+xml;q=0.9", "User-Agent": "ORION-AI/1.0 (+https://dharm-ai.vercel.app)" },
+          headers: { Accept: "text/html,application/xhtml+xml;q=0.9", "Accept-Language": "en-IN,en;q=0.9", "User-Agent": "Mozilla/5.0 (compatible; ORION-AI/1.0; +https://dharm-ai.vercel.app)" },
           cache: "no-store",
           redirect: "manual",
           signal: pageSignal,
