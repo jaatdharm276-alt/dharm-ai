@@ -36,7 +36,7 @@ try {
           : {}),
       },
       body: JSON.stringify({
-        message: "Name one category listed under “Services by Category” on the india.gov.in/services page. Use only that page, make no other factual claims, and cite its exact HTTPS URL.",
+        message: "According to the official india.gov.in/services page, which campaign does the page say played a pivotal role in promoting online accessibility? Answer with the campaign name only, make no other factual claims, and cite the exact HTTPS page URL.",
         messages: [],
         memories: [],
       }),
