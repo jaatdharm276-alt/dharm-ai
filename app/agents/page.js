@@ -164,7 +164,7 @@ export default function AgentControlRoom() {
           ) : (
             <>
               <p style={{ color: "#667085", fontSize: 13 }}>{github.error || "Not connected in this browser yet."}</p>
-              <a href="/api/github/connect" style={{ display: "inline-block", borderRadius: 10, padding: "11px 16px", background: "#24292f", color: "#fff", fontWeight: 700, textDecoration: "none" }}>Connect GitHub App</a>
+              <a href="/github/connect" style={{ display: "inline-block", borderRadius: 10, padding: "11px 16px", background: "#24292f", color: "#fff", fontWeight: 700, textDecoration: "none" }}>Connect GitHub App</a>
               <p style={{ color: "#667085", fontSize: 12, lineHeight: 1.55, margin: "12px 0 6px" }}>If GitHub keeps showing the installation settings page instead of returning here, set the App Post installation Setup URL to <strong>https://dharm-ai.vercel.app/api/github/callback</strong> and enable <strong>Redirect on update</strong>. Keep repository access restricted to the repositories you intend to connect.</p>
               <a href="https://github.com/settings/apps/orion-ai-dharm" target="_blank" rel="noreferrer" style={{ color: "#4255a4", fontSize: 13, fontWeight: 700 }}>Open ORION-AI-Dharm App settings ↗</a>
             </>
