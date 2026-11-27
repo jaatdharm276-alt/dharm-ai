@@ -26,6 +26,8 @@ Enable **Redirect on update**. This matters when the app is already installed: G
 
 After changing the global Setup URL or redirect setting, verify the target deployment is reachable. When switching from Preview testing to Production, change the Setup URL back to the Production callback.
 
+**Important for an already-installed App:** opening the installation settings page is not the callback. The Setup URL is a GitHub App registration setting (not an ORION route that can be fixed by retrying the connect button). Set the exact Production URL above under GitHub App → General → Post installation → Setup URL, turn on Redirect on update, and save the App configuration. Then open ORION /agents and connect again. If GitHub presents the existing installation settings, use its Save button without changing or broadening the selected repository list; GitHub should then return to the Setup URL. The Control Room must show a repository list before the connection is considered complete.
+
 ## Required repository permissions
 
 - Metadata: Read-only (required)
