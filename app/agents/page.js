@@ -18,26 +18,32 @@ export default function AgentControlRoom() {
   const [error, setError] = useState("");
   const [events, setEvents] = useState([]);
   const [github, setGithub] = useState({ loading: true, connected: false, repositories: [], error: "" });
+  const [githubNotice, setGithubNotice] = useState("");
   const controllerRef = useRef(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const connectionResult = params.get("github");
     if (connectionResult === "connected") {
-      setGithub((current) => ({ ...current, error: "GitHub connection verified. Refreshing repository access…" }));
+      setGithubNotice("GitHub returned to ORION. Verifying the browser session and repository access…");
       window.history.replaceState({}, "", window.location.pathname);
     } else if (connectionResult === "invalid_state") {
-      setGithub((current) => ({ ...current, error: "GitHub did not complete the secure callback. Start Connect GitHub again from this page." }));
+      setGithubNotice("GitHub opened the installation settings but did not return a valid secure callback. Check the App Setup URL and Redirect on update setting below.");
       window.history.replaceState({}, "", window.location.pathname);
     } else if (connectionResult === "configuration_error") {
-      setGithub((current) => ({ ...current, error: "GitHub returned to ORION, but the server could not verify the installation. Check the GitHub App credentials and installation permissions." }));
+      setGithubNotice("GitHub returned to ORION, but the server could not verify the installation. Check the App credentials and installation permissions.");
       window.history.replaceState({}, "", window.location.pathname);
     }
     let active = true;
     fetch("/api/github/status", { cache: "no-store" })
       .then(async (response) => ({ response, data: await response.json() }))
       .then(({ response, data }) => {
-        if (active) setGithub({ loading: false, connected: response.ok && data.connected === true, repositories: data.repositories || [], error: data.error || "" });
+        if (active) {
+          const connected = response.ok && data.connected === true;
+          setGithub({ loading: false, connected, repositories: data.repositories || [], error: data.error || "" });
+          if (connectionResult === "connected" && !connected) setGithubNotice("GitHub completed the installation step, but this browser did not receive a verified ORION session. The GitHub App Setup URL / Redirect on update setting is likely missing. Fix it in GitHub App settings, then connect once more.");
+          else if (connected) setGithubNotice("GitHub connection verified. Repository access is live.");
+        }
       })
       .catch(() => { if (active) setGithub({ loading: false, connected: false, repositories: [], error: "Could not check GitHub connection." }); });
     return () => { active = false; };
@@ -143,6 +149,7 @@ export default function AgentControlRoom() {
 
         <section style={{ background: "#fff", border: "1px solid #e1e5ee", borderRadius: 18, padding: 18, marginBottom: 16 }}>
           <h2 style={{ fontSize: 18, margin: "0 0 8px" }}>GitHub repository connection</h2>
+          {githubNotice && <div role="status" style={{ background: github.connected ? "#ecfdf3" : "#fff8e7", border: "1px solid #e6d8b7", borderRadius: 10, padding: 12, color: "#344054", fontSize: 13, lineHeight: 1.55, marginBottom: 12 }}>{githubNotice}</div>}
           <p style={{ color: "#667085", fontSize: 13, lineHeight: 1.5, margin: "0 0 12px" }}>
             Connect your GitHub App installation. ORION will verify the installation and list only repositories granted to that installation. Repository changes remain approval-gated.
           </p>
@@ -158,6 +165,8 @@ export default function AgentControlRoom() {
             <>
               <p style={{ color: "#667085", fontSize: 13 }}>{github.error || "Not connected in this browser yet."}</p>
               <a href="/api/github/connect" style={{ display: "inline-block", borderRadius: 10, padding: "11px 16px", background: "#24292f", color: "#fff", fontWeight: 700, textDecoration: "none" }}>Connect GitHub App</a>
+              <p style={{ color: "#667085", fontSize: 12, lineHeight: 1.55, margin: "12px 0 6px" }}>If GitHub keeps showing the installation settings page instead of returning here, set the App Post installation Setup URL to <strong>https://dharm-ai.vercel.app/api/github/callback</strong> and enable <strong>Redirect on update</strong>. Keep repository access restricted to the repositories you intend to connect.</p>
+              <a href="https://github.com/settings/apps/orion-ai-dharm" target="_blank" rel="noreferrer" style={{ color: "#4255a4", fontSize: 13, fontWeight: 700 }}>Open ORION-AI-Dharm App settings ↗</a>
             </>
           )}
         </section>
