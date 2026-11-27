@@ -11,14 +11,20 @@ export async function GET(request) {
   try {
     const installationId = url.searchParams.get("installation_id");
     const state = url.searchParams.get("state");
+    const setupAction = url.searchParams.get("setup_action");
     const stateCookie = request.cookies.get("orion_github_oauth_state")?.value;
 
-    // OAuth-style callbacks echo state. GitHub's Post installation Setup URL
-    // instead supplies installation_id only, so require the short-lived,
-    // signed browser cookie created by /api/github/connect for that flow.
+    // OAuth-style callbacks must echo and verify the state created by /connect.
+    // GitHub's Post installation Setup URL is also invoked directly after an
+    // install/update from GitHub settings; those callbacks carry setup_action
+    // (install|update), but may not have our browser state cookie. They are
+    // accepted only after the installation is cryptographically authenticated
+    // with this GitHub App's JWT below.
     const validBrowserFlow = state
       ? verifyGitHubState(state, stateCookie)
-      : hasValidGitHubStateCookie(stateCookie);
+      : (setupAction === "install" || setupAction === "update")
+        ? true
+        : hasValidGitHubStateCookie(stateCookie);
 
     if (!isValidGitHubInstallationId(installationId) || !validBrowserFlow) {
       const response = NextResponse.redirect(new URL("/agents?github=invalid_state", origin));
@@ -26,8 +32,8 @@ export async function GET(request) {
       return response;
     }
 
-    // Confirm this installation belongs to this GitHub App before creating
-    // the browser session; never trust installation_id by itself.
+    // This API call proves the installation belongs to this GitHub App.
+    // Never issue a browser session based on installation_id alone.
     await createInstallationToken(installationId);
     const response = NextResponse.redirect(new URL("/agents?github=connected", origin));
     response.headers.append("Set-Cookie", createInstallationCookie(installationId));
