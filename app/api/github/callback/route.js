@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { clearGitHubStateCookie, createInstallationCookie, createInstallationToken, isValidGitHubInstallationId, verifyGitHubState } from "../../../../lib/orion-github-app.mjs";
+import { clearGitHubStateCookie, createInstallationCookie, createInstallationToken, hasValidGitHubStateCookie, isValidGitHubInstallationId, verifyGitHubState } from "../../../../lib/orion-github-app.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,13 +13,21 @@ export async function GET(request) {
     const state = url.searchParams.get("state");
     const stateCookie = request.cookies.get("orion_github_oauth_state")?.value;
 
-    if (!isValidGitHubInstallationId(installationId) || !state || !verifyGitHubState(state, stateCookie)) {
+    // OAuth-style callbacks echo state. GitHub's Post installation Setup URL
+    // instead supplies installation_id only, so require the short-lived,
+    // signed browser cookie created by /api/github/connect for that flow.
+    const validBrowserFlow = state
+      ? verifyGitHubState(state, stateCookie)
+      : hasValidGitHubStateCookie(stateCookie);
+
+    if (!isValidGitHubInstallationId(installationId) || !validBrowserFlow) {
       const response = NextResponse.redirect(new URL("/agents?github=invalid_state", origin));
       response.headers.append("Set-Cookie", clearGitHubStateCookie());
       return response;
     }
 
-    // Validate the installation before creating a browser session.
+    // Confirm this installation belongs to this GitHub App before creating
+    // the browser session; never trust installation_id by itself.
     await createInstallationToken(installationId);
     const response = NextResponse.redirect(new URL("/agents?github=connected", origin));
     response.headers.append("Set-Cookie", createInstallationCookie(installationId));
