@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createGitHubState, getGitHubAppSlug } from "../../../../lib/orion-github-app.mjs";
+import { createGitHubState, getGitHubAppSlug } from "../../../lib/orion-github-app.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
